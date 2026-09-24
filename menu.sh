@@ -537,6 +537,92 @@ manage_system_menu() {
     done
 }
 
+show_hysteria_status() {
+    print_header
+    echo -e "${C_CYAN}${C_BOLD}=== 📊 Подробный статус Hysteria 2 и сервера ===${C_RESET}\n"
+
+    # Core service status
+    local hys_active="${C_RED}Неактивна (Остановлена)${C_RESET}"
+    local hys_uptime="-"
+    local hys_pid="-"
+    local hys_mem="-"
+    if systemctl is-active --quiet hysteria-server.service 2>/dev/null; then
+        hys_active="${C_GREEN}Активна (Running)${C_RESET}"
+        hys_uptime=$(systemctl show hysteria-server.service --property=ActiveEnterTimestamp | cut -d= -f2)
+        hys_pid=$(systemctl show hysteria-server.service --property=MainPID | cut -d= -f2)
+        local raw_mem=$(systemctl show hysteria-server.service --property=MemoryCurrent 2>/dev/null | cut -d= -f2)
+        if [ -n "$raw_mem" ] && [ "$raw_mem" != "[not set]" ] && [ "$raw_mem" -gt 0 ] 2>/dev/null; then
+            hys_mem="$(( raw_mem / 1024 / 1024 )) MB"
+        else
+            hys_mem="-"
+        fi
+    fi
+
+    # Panel service status
+    local panel_active="${C_RED}Неактивна${C_RESET}"
+    if systemctl is-active --quiet innerblitz.service 2>/dev/null; then
+        panel_active="${C_GREEN}Активна (Running)${C_RESET}"
+    fi
+
+    local hys_ver=$(hysteria version 2>/dev/null | grep "Version:" | awk '{print $2}' || echo "Не установлено")
+    local cur_ip=$(detect_server_ip)
+
+    local l_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
+    local h_on=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_enabled', '1')))" 2>/dev/null || echo "1")
+    local h_range=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_range', '20000:50000')))" 2>/dev/null || echo "20000:50000")
+    local tls_t=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('tls_type', 'self_signed_ip')))" 2>/dev/null || echo "self_signed_ip")
+    local obfs_t=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('obfs_type', 'salamander')))" 2>/dev/null || echo "salamander")
+    local p_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_port', '8080')))" 2>/dev/null || echo "8080")
+    local p_path=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_secret_path', 'panel')))" 2>/dev/null || echo "panel")
+    local p_decoy=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
+    local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
+    local u_counts=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); users = asyncio.run(crud.get_all_users()); print(f'{len(users)}|{len([u for u in users if not u[\"blocked\"] and not u[\"is_expired\"]])}')" 2>/dev/null || echo "0|0")
+    
+    IFS='|' read -r total_users active_users <<< "$u_counts"
+
+    echo -e " ${C_BOLD}--- Ядро Hysteria 2 ---${C_RESET}"
+    echo -e " Служба (systemd):        $hys_active (PID: ${hys_pid}, Память: ${hys_mem})"
+    echo -e " Версия бинарника:        ${C_WHITE}${hys_ver}${C_RESET}"
+    echo -e " Запуск:                  ${C_GRAY}${hys_uptime}${C_RESET}"
+    echo -e " Основной UDP порт:       ${C_WHITE}${l_port} UDP${C_RESET}"
+    echo -e " Port Hopping:            $([ "$h_on" == "1" ] && echo -e "${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕН${C_RESET}")"
+    echo -e " Режим TLS:               ${C_WHITE}${tls_t}${C_RESET}"
+    echo -e " Salamander Obfs:         ${C_WHITE}${obfs_t}${C_RESET}"
+    echo ""
+    echo -e " ${C_BOLD}--- Веб-панель и Стелс ---${C_RESET}"
+    echo -e " Служба (systemd):        $panel_active"
+    echo -e " Ссылка для входа:        ${C_CYAN}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
+    echo -e " Маскировка Decoy:        $([ "$p_decoy" == "1" ] && echo -e "${C_GREEN}АКТИВНА (${p_theme})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕНА${C_RESET})"
+    echo -e " Клиенты в базе:          ${C_WHITE}${total_users}${C_RESET} (Активных: ${C_GREEN}${active_users}${C_RESET})"
+    echo ""
+    echo -e " ${C_BOLD}--- Сетевые сокеты UDP ядра ---${C_RESET}"
+    if command -v ss &>/dev/null; then
+        ss -u -l -n -p 2>/dev/null | grep -E "hysteria|:${l_port}\b" | head -n 5 || echo -e " ${C_GRAY}(Сокет не обнаружен в ss)${C_RESET}"
+    fi
+    echo ""
+    echo -e " ${C_GREEN}[r]${C_RESET} Перезапустить службу Hysteria 2"
+    echo -e " ${C_GREEN}[l]${C_RESET} Показать последние 30 строк системных логов ядра"
+    echo -e " ${C_YELLOW}[0]${C_RESET} Назад в главное меню"
+    echo ""
+    read -rp "Выберите действие [r/l/0] (Enter = назад): " s_act
+    case "$s_act" in
+        [Rr])
+            systemctl restart hysteria-server.service
+            echo -e "${C_GREEN}✔ Hysteria 2 успешно перезапущена!${C_RESET}"
+            sleep 1.5
+            show_hysteria_status
+            ;;
+        [Ll])
+            echo ""
+            journalctl -u hysteria-server.service -n 30 --no-pager
+            echo ""
+            read -rp "Нажмите Enter для продолжения..."
+            show_hysteria_status
+            ;;
+        *) return ;;
+    esac
+}
+
 update_hysteria_core() {
     echo ""
     echo -e "${C_CYAN}Обновление ядра Hysteria 2 до последней версии...${C_RESET}"
@@ -557,6 +643,29 @@ update_innerblitz() {
     read -rp "Нажмите Enter для продолжения..."
 }
 
+uninstall_innerblitz() {
+    echo ""
+    echo -e "${C_RED}${C_BOLD}================================================================${C_RESET}"
+    echo -e "${C_RED}${C_BOLD}       ⚠️  Полное удаление InnerBlitz и Hysteria 2  ⚠️        ${C_RESET}"
+    echo -e "${C_RED}${C_BOLD}================================================================${C_RESET}"
+    echo -e "${C_YELLOW}Это действие остановит и удалит Hysteria 2, веб-панель, базу данных${C_RESET}"
+    echo -e "${C_YELLOW}и правила брандмауэра.${C_RESET}\n"
+
+    read -rp "Вы действительно хотите удалить панель и ядро? (y/N): " u_conf
+    if [[ ! "$u_conf" =~ ^[Yy]$ ]]; then
+        echo -e "${C_GREEN}Удаление отменено.${C_RESET}"
+        sleep 1
+        return
+    fi
+
+    if [ -f "${INSTALL_DIR}/uninstall.sh" ]; then
+        bash "${INSTALL_DIR}/uninstall.sh"
+    else
+        bash <(curl -fsSL https://raw.githubusercontent.com/Innernode-dev/innerblitz/main/uninstall.sh)
+    fi
+    exit 0
+}
+
 main_menu() {
     check_root
 
@@ -569,11 +678,13 @@ main_menu() {
         echo -e " ${C_GREEN}[4]${C_RESET} 🖥️ Управление веб-панелью (Пароли, Стелс-порт, Пути, Сброс 2FA)"
         echo -e " ${C_GREEN}[5]${C_RESET} 🛡️ Тонкие настройки ядра (Анти-DPI, Скорость, Игры, Obfs)"
         echo -e " ${C_GREEN}[6]${C_RESET} 🛠️ Системные инструменты (BBR, Бэкап, Логи, Диагностика)"
-        echo -e " ${C_CYAN}[7]${C_RESET} 🚀 Обновить ядро Hysteria 2"
-        echo -e " ${C_CYAN}[8]${C_RESET} ⚡ Обновить InnerBlitz"
+        echo -e " ${C_CYAN}[7]${C_RESET} 📊 ${C_BOLD}Подробный статус Hysteria 2 и сервера${C_RESET}"
+        echo -e " ${C_CYAN}[8]${C_RESET} 🚀 Обновить ядро Hysteria 2"
+        echo -e " ${C_CYAN}[9]${C_RESET} ⚡ Обновить InnerBlitz"
+        echo -e " ${C_RED}[10]${C_RESET} 🗑️ ${C_BOLD}Удалить InnerBlitz и Hysteria 2 с сервера${C_RESET}"
         echo -e "\n ${C_RED}[0]${C_RESET} Выход из меню\n"
 
-        read -rp "Выберите пункт [0-8]: " opt
+        read -rp "Выберите пункт [0-10]: " opt
 
         case "$opt" in
             1) manage_users_menu ;;
@@ -582,8 +693,10 @@ main_menu() {
             4) manage_webpanel_menu ;;
             5) presets_menu ;;
             6) manage_system_menu ;;
-            7) update_hysteria_core ;;
-            8) update_innerblitz ;;
+            7) show_hysteria_status ;;
+            8) update_hysteria_core ;;
+            9) update_innerblitz ;;
+            10) uninstall_innerblitz ;;
             0) 
                 echo -e "\n${C_PURPLE}Спасибо за использование InnerBlitz!${C_RESET}\n"
                 exit 0 

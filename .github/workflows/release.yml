@@ -1,0 +1,67 @@
+name: InnerBlitz CI and Release
+
+on:
+  push:
+    paths:
+      - 'VERSION'
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate Python syntax & imports
+        run: |
+          python -m py_compile cli.py app/main.py app/config.py app/database/*.py app/core/*.py app/api/*.py app/bot/*.py
+
+  release:
+    needs: test
+    if: github.event_name == 'push' && contains(github.ref, 'main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: get_version
+        run: echo "version=v$(cat VERSION | tr -d '[:space:]')" >> $GITHUB_OUTPUT
+
+      - name: Create Release Archive
+        run: |
+          zip -r "innerblitz-${{ steps.get_version.outputs.version }}.zip" . \
+            -x ".git/*" ".github/*" ".vscode/*" "__pycache__/*" "*/__pycache__/*"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          name: "InnerBlitz ${{ steps.get_version.outputs.version }}"
+          body: |
+            ## ⚡ InnerBlitz Release ${{ steps.get_version.outputs.version }}
+            - Полная поддержка Hysteria 2 v2.12.3+
+            - Легковесная база данных SQLite (Zero AVX)
+            - Генерация сертификатов на IP с Subject Alternative Name (SAN) и pinSHA256
+            - Port Hopping, Mimic (Fake TCP), Salamander Obfuscation, Masquerade
+            - Новый премиальный Glassmorphism Dashboard
+            - Персональный веб-портал абонента с QR-кодами и поддержкой Hiddify, v2rayN, Sing-box, Clash, Shadowrocket
+            - Гибкая 2FA (TOTP + Telegram OTP)
+          files: innerblitz-${{ steps.get_version.outputs.version }}.zip
+          draft: false
+          prerelease: false

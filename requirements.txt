@@ -1,0 +1,31 @@
+# InnerBlitz Requirements
+# Core Async & Web Framework
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+jinja2>=3.1.4
+python-multipart>=0.0.12
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+
+# Database (Lightweight, High-Performance, Zero-AVX)
+aiosqlite>=0.20.0
+
+# Security, Cryptography & 2FA
+pyotp>=2.9.0
+bcrypt>=4.1.3
+cryptography>=43.0.0
+
+# Async networking & utilities
+aiofiles>=24.1.0
+aiohttp>=3.10.0
+requests>=2.32.0
+psutil>=6.0.0
+python-dotenv>=1.0.1
+click>=8.1.7
+
+# Subscriptions, QR & Media
+qrcode>=7.4.2
+pillow>=10.4.0
+
+# Telegram Bot
+pyTelegramBotAPI>=4.20.0

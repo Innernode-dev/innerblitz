@@ -1,0 +1,35 @@
+name: 💡 پیشنهاد ویژگی جدید
+description: ایده خود را برای بهبود این پروژه با ما به اشتراک بگذارید
+title: "[ویژگی]: "
+labels: ["🤩 enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        # پیشنهاد ویژگی جدید
+        از اینکه ایده خود را با ما به اشتراک می‌گذارید متشکریم! لطفاً به ما بگویید چه چیزی را دوست دارید اضافه کنیم.
+  - type: textarea
+    id: what-feature
+    attributes:
+      label: چه ویژگی‌ای را پیشنهاد می‌کنید؟
+      description: ایده خود را توضیح دهید و اینکه چه مشکلی را حل می‌کند
+      placeholder: "مثال: افزودن دکمه‌ای برای ایجاد خودکار رمزهای عبور امن"
+    validations:
+      required: true
+  - type: textarea
+    id: why-helpful
+    attributes:
+      label: این ویژگی چگونه به کاربران کمک می‌کند؟
+      description: توضیح دهید که شما و دیگران چگونه از این ویژگی استفاده خواهید کرد
+      placeholder: "مثال: این ویژگی ایجاد حساب‌های امن را ساده‌تر و سریع‌تر می‌کند"
+    validations:
+      required: true
+  - type: textarea
+    id: any-other-thoughts
+    attributes:
+      label: آیا نظر دیگری دارید؟ (اختیاری)
+      description: هر ایده، پیشنهاد یا مثالی که دارید را با ما به اشتراک بگذارید
+      placeholder: "می‌توانید جزئیات بیشتر، اسکرین‌شات‌ها یا نمونه‌هایی را در اینجا اضافه کنید"
+    validations:
+      required: false

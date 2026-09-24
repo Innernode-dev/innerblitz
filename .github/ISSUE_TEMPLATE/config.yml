@@ -1,0 +1,8 @@
+contact_links:
+  - name: 📢 Telegram / تلگرام
+    url: https://t.me/hysteria2_panel
+    about: Get help, discuss features, and connect with other users. / دریافت کمک، بحث درباره ویژگی‌ها و ارتباط با سایر کاربران.
+  - name: 📄 Project Documentation / مستندات پروژه
+    url: https://returnfi.github.io/Blitz-docs/
+    about: Visit our documentation for more information. / برای اطلاعات بیشتر مستندات پروژه را بررسی کنید.
+blank_issues_enabled: false

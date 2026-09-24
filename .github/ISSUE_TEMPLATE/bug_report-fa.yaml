@@ -1,0 +1,49 @@
+name: 🐛 گزارش مشکل
+description: لطفاً ما را از مشکلی که تجربه کرده‌اید مطلع کنید
+title: "[باگ]: "
+labels: ["🐞 bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        از اینکه ما را در جریان این مشکل قرار دادید سپاسگزاریم! این اطلاعات به ما کمک می‌کند تا سریع‌تر آن را برطرف کنیم.
+  - type: dropdown
+    id: os
+    attributes:
+      label: از چه سیستمی استفاده می‌کنید؟
+      description: سیستم‌عامل خود را انتخاب کنید
+      options:
+        - اوبونتو 22.04
+        - اوبونتو 24.04
+        - دبیان 12
+    validations:
+      required: true
+  - type: input
+    id: hysteria2-version
+    attributes:
+      label: از چه نسخه‌ای استفاده می‌کنید؟
+      description: شماره نسخه Hysteria2 Panel 
+      placeholder: "مثال: 1.2.0"
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: چه مشکلی رخ داده است؟
+      description: توضیح دهید چه اتفاقی افتاده و چگونه می‌توان آن را دوباره ایجاد کرد
+      placeholder: |
+        مثال:
+        1. روی "افزودن کاربر" کلیک کردم
+        2. فرم را پر کردم
+        3. وقتی روی دکمه ذخیره کلیک کردم، پیام خطا دریافت کردم
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: اطلاعات مفید دیگر؟
+      description: تصاویر، پیام‌های خطا یا لاگ‌ها می‌توانند بسیار مفید باشند (اختیاری)
+      placeholder: می‌توانید اسکرین‌شات‌ها را اینجا قرار دهید یا پیام‌های خطا را کپی کنید
+    validations:
+      required: false

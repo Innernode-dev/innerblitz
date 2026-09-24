@@ -1,0 +1,17 @@
+[Unit]
+Description=InnerBlitz Hysteria 2 Management Panel and API
+After=network.target hysteria-server.service
+Wants=hysteria-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/hysteria
+Environment=PYTHONPATH=/etc/hysteria
+ExecStart=/etc/hysteria/venv/bin/python3 -m app.main
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

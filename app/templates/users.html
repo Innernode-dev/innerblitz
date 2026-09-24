@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block title %}Пользователи{% endblock %}
+{% block page_title %}Управление пользователями{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <!-- Top Action Bar -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <!-- Search -->
+        <div class="relative flex-1 max-w-md">
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input type="text" id="userSearchInput" oninput="filterUsers()" placeholder="Поиск пользователя по имени или заметке..." 
+                   class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition">
+        </div>
+
+        <!-- Add Button -->
+        <button onclick="openCreateUserModal()" class="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition shadow-lg shadow-brand-600/30 flex items-center justify-center gap-2">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>Создать пользователя</span>
+        </button>
+    </div>
+
+    <!-- Users Table Container -->
+    <div class="glass-card rounded-2xl overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-sm">
+                <thead>
+                    <tr class="bg-slate-900/60 border-b border-slate-800 text-slate-400 text-xs uppercase font-medium">
+                        <th class="py-4 px-6">Пользователь</th>
+                        <th class="py-4 px-6">Статус</th>
+                        <th class="py-4 px-6">Трафик</th>
+                        <th class="py-4 px-6">Срок действия</th>
+                        <th class="py-4 px-6">Лимит IP</th>
+                        <th class="py-4 px-6 text-right">Действия</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                    <tr><td colspan="6" class="py-12 text-center text-slate-500">Загрузка пользователей...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal: Create / Edit User -->
+<div id="userModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 id="userModalTitle" class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="user-plus" class="w-5 h-5 text-brand-400"></i>
+                <span>Новый пользователь</span>
+            </h3>
+            <button onclick="closeUserModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="userForm" onsubmit="handleUserSubmit(event)" class="space-y-4">
+            <input type="hidden" id="editUsername">
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Имя пользователя (Логин)</label>
+                <input type="text" id="modalUsername" required pattern="^[a-zA-Z0-9_\-]+$" 
+                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                <span class="text-[11px] text-slate-500">Только латинские буквы, цифры, дефис и подчеркивание</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Пароль (оставьте пустым для автогенерации)</label>
+                <input type="text" id="modalPassword" placeholder="Случайный пароль" 
+                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Лимит трафика (GB)</label>
+                    <input type="number" id="modalTraffic" step="0.5" min="0" value="30" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                    <span class="text-[11px] text-slate-500">0 = Безлимитный трафик</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Срок (дней)</label>
+                    <input type="number" id="modalDays" min="0" value="30" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                    <span class="text-[11px] text-slate-500">0 = Бессрочный доступ</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Лимит устройств / IP</label>
+                    <input type="number" id="modalMaxIps" min="0" value="0" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                    <span class="text-[11px] text-slate-500">0 = Не ограничено</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Заметка</label>
+                    <input type="text" id="modalNote" placeholder="Для друга / Клиент #1" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+                <input type="checkbox" id="modalUnlimited" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                <label for="modalUnlimited" class="text-xs text-slate-300">Полный VIP безлимит (игнорировать все квоты и лимиты)</label>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                <button type="button" onclick="closeUserModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-medium transition">
+                    Отмена
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition shadow-lg shadow-brand-600/30">
+                    Сохранить
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Show User Connection / QR -->
+<div id="qrModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="qr-code" class="w-5 h-5 text-brand-400"></i>
+                <span id="qrModalUsername">Подключение</span>
+            </h3>
+            <button onclick="closeQrModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="flex flex-col items-center justify-center p-4 bg-white rounded-xl">
+            <img id="qrImage" src="" alt="QR Code" class="w-56 h-56 object-contain">
+            <p class="text-xs text-slate-600 mt-2 font-medium">Отсканируйте в Hiddify, v2rayN, Sing-box или Shadowrocket</p>
+        </div>
+
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Ссылка Hysteria 2 (hy2://)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="hy2UriInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300">
+                    <button onclick="copyToClipboard('hy2UriInput')" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition">
+                        Копировать
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Ссылка на веб-портал клиента</label>
+                <div class="flex gap-2">
+                    <input type="text" id="portalUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300">
+                    <a id="portalLinkBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition">
+                        Открыть
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let allUsers = [];
+
+    async function loadUsers() {
+        try {
+            const res = await fetch('/api/users');
+            if (res.ok) {
+                allUsers = await res.json();
+                renderUsersTable(allUsers);
+            }
+        } catch (e) {
+            showToast('Ошибка загрузки пользователей', 'error');
+        }
+    }
+
+    function filterUsers() {
+        const query = document.getElementById('userSearchInput').value.toLowerCase().trim();
+        const filtered = allUsers.filter(u => 
+            u.username.toLowerCase().includes(query) || (u.note && u.note.toLowerCase().includes(query))
+        );
+        renderUsersTable(filtered);
+    }
+
+    function renderUsersTable(users) {
+        const tbody = document.getElementById('usersTableBody');
+        if (!users || users.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-12 text-center text-slate-500">Пользователи не найдены.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = users.map(u => {
+            let statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Активен</span>';
+            if (u.blocked) {
+                statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Заблокирован</span>';
+            } else if (u.is_expired) {
+                statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Истёк</span>';
+            } else if (u.is_limit_reached) {
+                statusBadge = '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Лимит исчерпан</span>';
+            }
+
+            const maxTraffic = u.unlimited_user ? 'Безлимит' : (u.max_traffic_gb > 0 ? u.max_traffic_gb + ' GB' : 'Безлимит');
+            const daysLeft = u.unlimited_user ? '∞' : (u.expiration_days > 0 ? u.days_left + ' дн.' : '∞');
+            const maxIps = u.max_ips > 0 ? `${u.max_ips} устр.` : 'Без лимита';
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-4 px-6">
+                        <div class="font-semibold text-white flex items-center gap-2">
+                            <i data-lucide="user" class="w-4 h-4 text-brand-400"></i>
+                            <span>${u.username}</span>
+                        </div>
+                        ${u.note ? `<span class="text-xs text-slate-400 block mt-0.5">${u.note}</span>` : ''}
+                    </td>
+                    <td class="py-4 px-6">${statusBadge}</td>
+                    <td class="py-4 px-6 text-slate-300 font-mono text-xs">
+                        ${u.used_traffic_gb} GB / <span class="text-slate-400">${maxTraffic}</span>
+                    </td>
+                    <td class="py-4 px-6 text-slate-300 text-xs">${daysLeft}</td>
+                    <td class="py-4 px-6 text-slate-300 text-xs font-mono">${maxIps}</td>
+                    <td class="py-4 px-6 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <button onclick="openQrModal('${u.username}')" title="QR-код и ссылки" class="p-1.5 rounded-lg bg-brand-600/20 hover:bg-brand-600/30 text-brand-300 border border-brand-500/30 transition">
+                                <i data-lucide="qr-code" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="openEditUserModal('${u.username}')" title="Редактировать" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                                <i data-lucide="edit-2" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="resetUserTraffic('${u.username}')" title="Сбросить трафик" class="p-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 transition">
+                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="toggleUserBlock('${u.username}', ${!u.blocked})" title="${u.blocked ? 'Разблокировать' : 'Заблокировать'}" class="p-1.5 rounded-lg ${u.blocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'} transition">
+                                <i data-lucide="${u.blocked ? 'unlock' : 'lock'}" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteUser('${u.username}')" title="Удалить" class="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 transition">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    function openCreateUserModal() {
+        document.getElementById('editUsername').value = '';
+        document.getElementById('userModalTitle').innerHTML = '<i data-lucide="user-plus" class="w-5 h-5 text-brand-400"></i><span>Новый пользователь</span>';
+        document.getElementById('modalUsername').value = '';
+        document.getElementById('modalUsername').disabled = false;
+        document.getElementById('modalPassword').value = '';
+        document.getElementById('modalTraffic').value = '30';
+        document.getElementById('modalDays').value = '30';
+        document.getElementById('modalMaxIps').value = '0';
+        document.getElementById('modalNote').value = '';
+        document.getElementById('modalUnlimited').checked = false;
+        document.getElementById('userModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function openEditUserModal(username) {
+        const u = allUsers.find(x => x.username === username);
+        if (!u) return;
+
+        document.getElementById('editUsername').value = username;
+        document.getElementById('userModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-5 h-5 text-brand-400"></i><span>Редактирование пользователя</span>';
+        document.getElementById('modalUsername').value = u.username;
+        document.getElementById('modalUsername').disabled = true;
+        document.getElementById('modalPassword').value = u.password || '';
+        document.getElementById('modalTraffic').value = u.max_traffic_gb || 0;
+        document.getElementById('modalDays').value = u.expiration_days || 0;
+        document.getElementById('modalMaxIps').value = u.max_ips || 0;
+        document.getElementById('modalNote').value = u.note || '';
+        document.getElementById('modalUnlimited').checked = u.unlimited_user || false;
+        document.getElementById('userModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeUserModal() {
+        document.getElementById('userModal').classList.add('hidden');
+    }
+
+    async function handleUserSubmit(e) {
+        e.preventDefault();
+        const editUsername = document.getElementById('editUsername').value;
+        const username = document.getElementById('modalUsername').value.trim();
+        const password = document.getElementById('modalPassword').value.trim();
+        const traffic = parseFloat(document.getElementById('modalTraffic').value) || 0;
+        const days = parseInt(document.getElementById('modalDays').value) || 0;
+        const maxIps = parseInt(document.getElementById('modalMaxIps').value) || 0;
+        const note = document.getElementById('modalNote').value.trim();
+        const unlimited = document.getElementById('modalUnlimited').checked;
+
+        try {
+            if (editUsername) {
+                // Update
+                const res = await fetch(`/api/users/${editUsername}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        password: password || undefined,
+                        traffic_limit_gb: traffic,
+                        expiration_days: days,
+                        max_ips: maxIps,
+                        note: note,
+                        unlimited_user: unlimited
+                    })
+                });
+                if (res.ok) {
+                    showToast('Пользователь успешно обновлен!', 'success');
+                    closeUserModal();
+                    loadUsers();
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || 'Ошибка сохранения', 'error');
+                }
+            } else {
+                // Create
+                const res = await fetch('/api/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password || undefined,
+                        traffic_limit_gb: traffic,
+                        expiration_days: days,
+                        max_ips: maxIps,
+                        note: note,
+                        unlimited_user: unlimited
+                    })
+                });
+                if (res.ok) {
+                    showToast(`Пользователь ${username} создан!`, 'success');
+                    closeUserModal();
+                    loadUsers();
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || 'Ошибка создания', 'error');
+                }
+            }
+        } catch (e) {
+            showToast('Ошибка сети при сохранении', 'error');
+        }
+    }
+
+    async function openQrModal(username) {
+        try {
+            const res = await fetch(`/api/users/${username}/config`);
+            if (res.ok) {
+                const data = await res.json();
+                document.getElementById('qrModalUsername').textContent = `${username} — Подключение`;
+                document.getElementById('qrImage').src = data.qr_base64;
+                document.getElementById('hy2UriInput').value = data.uri;
+                
+                const portalUrl = `${window.location.origin}/portal/${data.sub_token}`;
+                document.getElementById('portalUrlInput').value = portalUrl;
+                document.getElementById('portalLinkBtn').href = portalUrl;
+
+                document.getElementById('qrModal').classList.remove('hidden');
+            }
+        } catch (e) {
+            showToast('Ошибка получения конфига', 'error');
+        }
+    }
+
+    function closeQrModal() {
+        document.getElementById('qrModal').classList.add('hidden');
+    }
+
+    async function resetUserTraffic(username) {
+        if (!confirm(`Сбросить использованный трафик и обновить дату создания для ${username}?`)) return;
+        try {
+            const res = await fetch(`/api/users/${username}/reset`, { method: 'POST' });
+            if (res.ok) {
+                showToast(`Трафик пользователя ${username} сброшен!`, 'success');
+                loadUsers();
+            }
+        } catch (e) {
+            showToast('Ошибка сброса трафика', 'error');
+        }
+    }
+
+    async function toggleUserBlock(username, block) {
+        try {
+            const res = await fetch(`/api/users/${username}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ blocked: block })
+            });
+            if (res.ok) {
+                showToast(`Пользователь ${username} ${block ? 'заблокирован' : 'разблокирован'}!`, 'success');
+                loadUsers();
+            }
+        } catch (e) {
+            showToast('Ошибка обновления статуса', 'error');
+        }
+    }
+
+    async function deleteUser(username) {
+        if (!confirm(`Удалить пользователя ${username}? Это действие необратимо!`)) return;
+        try {
+            const res = await fetch(`/api/users/${username}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast(`Пользователь ${username} удален!`, 'success');
+                loadUsers();
+            }
+        } catch (e) {
+            showToast('Ошибка удаления пользователя', 'error');
+        }
+    }
+
+    function copyToClipboard(elementId) {
+        const input = document.getElementById(elementId);
+        input.select();
+        navigator.clipboard.writeText(input.value);
+        showToast('Скопировано в буфер обмена!', 'success');
+    }
+
+    loadUsers();
+</script>
+{% endblock %}

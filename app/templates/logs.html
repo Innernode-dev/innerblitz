@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Системные логи{% endblock %}
+{% block page_title %}Журнал событий Hysteria 2{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <span class="text-xs text-slate-400">Автообновление каждые 5 сек:</span>
+            <input type="checkbox" id="autoRefreshLogs" checked class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+        </div>
+        <div class="flex items-center gap-3">
+            <button onclick="fetchLogs()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-2">
+                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                <span>Обновить сейчас</span>
+            </button>
+            <button onclick="copyLogs()" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition flex items-center gap-2">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+                <span>Копировать логи</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-4 border border-slate-800">
+        <pre id="logsContent" class="w-full h-[650px] overflow-y-auto p-4 rounded-xl bg-slate-950 font-mono text-xs text-slate-300 whitespace-pre-wrap leading-relaxed">Загрузка журнала событий...</pre>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    async function fetchLogs() {
+        try {
+            const res = await fetch('/api/system/logs');
+            if (res.ok) {
+                const data = await res.json();
+                const container = document.getElementById('logsContent');
+                const wasAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
+                container.textContent = data.logs || 'Логи отсутствуют.';
+                if (wasAtBottom) {
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        } catch (e) {
+            console.error('Logs fetch error', e);
+        }
+    }
+
+    function copyLogs() {
+        const text = document.getElementById('logsContent').textContent;
+        navigator.clipboard.writeText(text);
+        showToast('Логи скопированы в буфер обмена!', 'success');
+    }
+
+    fetchLogs();
+    setInterval(() => {
+        if (document.getElementById('autoRefreshLogs').checked) {
+            fetchLogs();
+        }
+    }, 5000);
+</script>
+{% endblock %}

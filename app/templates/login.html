@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — InnerBlitz Panel</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .glass {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-brand {
+            box-shadow: 0 0 35px -5px rgba(124, 58, 237, 0.5);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-brand-500 selection:text-white relative overflow-hidden">
+
+    <!-- Ambient background glow circles -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="glass w-full max-w-md rounded-3xl p-8 border border-slate-800 shadow-2xl relative z-10 space-y-6">
+        <!-- Logo & Header -->
+        <div class="text-center space-y-2">
+            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center glow-brand text-white font-bold mx-auto mb-3">
+                <i data-lucide="zap" class="w-8 h-8"></i>
+            </div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">InnerBlitz Panel</h1>
+            <p class="text-xs text-slate-400">Управление прокси-сервером Hysteria 2</p>
+        </div>
+
+        <!-- Error Alert -->
+        <div id="loginError" class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hidden flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
+            <span id="loginErrorMsg">Ошибка входа</span>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" onsubmit="handleLoginSubmit(event)" class="space-y-4">
+            <!-- Step 1: Username & Password -->
+            <div id="credentialsStep" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Логин</label>
+                    <div class="relative">
+                        <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="text" id="usernameInput" required autofocus placeholder="admin" 
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Пароль</label>
+                    <div class="relative">
+                        <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                        <input type="password" id="passwordInput" required placeholder="••••••••" 
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: 2FA (shown only if required) -->
+            <div id="twoFactorStep" class="space-y-3 hidden">
+                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs">
+                    <span id="twoFactorPrompt">Введите 6-значный код двухфакторной аутентификации</span>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Код подтверждения (2FA)</label>
+                    <input type="text" id="twoFactorCode" maxlength="6" placeholder="000000" 
+                           class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-purple-500">
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+                <span id="btnText">Войти в систему</span>
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+        </form>
+
+        <div class="text-center pt-2">
+            <span class="text-[11px] text-slate-500">Защищено сквозным шифрованием и проверкой IP</span>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let require2FA = false;
+        let twoFactorType = '';
+
+        async function handleLoginSubmit(e) {
+            e.preventDefault();
+            const errBox = document.getElementById('loginError');
+            const errMsg = document.getElementById('loginErrorMsg');
+            errBox.classList.add('hidden');
+
+            const username = document.getElementById('usernameInput').value.trim();
+            const password = document.getElementById('passwordInput').value;
+            const code = document.getElementById('twoFactorCode').value.trim();
+
+            const payload = { username, password };
+            if (require2FA) {
+                if (twoFactorType === 'totp') payload.totp_code = code;
+                if (twoFactorType === 'telegram') payload.tg_code = code;
+            }
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    if (data.require_2fa) {
+                        require2FA = true;
+                        twoFactorType = data.type;
+                        document.getElementById('twoFactorPrompt').textContent = data.message;
+                        document.getElementById('twoFactorStep').classList.remove('hidden');
+                        document.getElementById('credentialsStep').classList.add('opacity-50', 'pointer-events-none');
+                        document.getElementById('twoFactorCode').focus();
+                        document.getElementById('btnText').textContent = 'Подтвердить код';
+                        return;
+                    }
+                    window.location.href = '/';
+                } else {
+                    errMsg.textContent = data.detail || 'Неверный логин или пароль';
+                    errBox.classList.remove('hidden');
+                }
+            } catch (err) {
+                errMsg.textContent = 'Ошибка подключения к серверу';
+                errBox.classList.remove('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

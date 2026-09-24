@@ -76,6 +76,24 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
 
     traffic_secret = config_data.get("traffic_secret", "secret-uuid")
 
+    # Outbounds & WARP support
+    warp_enabled = str(config_data.get("warp_enabled", "0")).lower() in ("1", "true")
+    warp_port = config_data.get("warp_port", "40000")
+    outbounds_block = ""
+    warp_acl = ""
+    if warp_enabled:
+        outbounds_block = f"""outbounds:
+  - name: direct
+    type: direct
+  - name: warp
+    type: socks5
+    socks5:
+      addr: 127.0.0.1:{warp_port}
+"""
+        warp_acl = """    - outbound(warp, geosite:openai)
+    - outbound(warp, geosite:netflix)
+"""
+
     yaml_content = f"""# InnerBlitz Auto-Generated Hysteria 2 Config
 listen: {listen_str}
 
@@ -103,16 +121,22 @@ ignoreClientBandwidth: {ignore_bw}
 disableUDP: false
 speedTest: false
 
+sniff:
+  enable: true
+  timeout: 2s
+  rewriteDomain: false
+
 trafficStats:
   listen: 127.0.0.1:{settings.HYSTERIA_TRAFFIC_STATS_PORT}
   secret: "{traffic_secret}"
 
 {masq_block}
 
-acl:
+{outbounds_block}acl:
   inline:
     - reject(geosite:category-ads-all)
-    - reject(10.0.0.0/8)
+    - reject(geosite:win-spy)
+{warp_acl}    - reject(10.0.0.0/8)
     - reject(172.16.0.0/12)
     - reject(192.168.0.0/16)
     - reject(127.0.0.0/8)

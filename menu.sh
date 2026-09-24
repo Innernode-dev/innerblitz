@@ -235,14 +235,10 @@ update_hysteria_core() {
 update_innerblitz() {
     echo ""
     echo -e "${C_CYAN}Обновление InnerBlitz из официального репозитория...${C_RESET}"
-    if [ -d "${INSTALL_DIR}/.git" ]; then
-        cd "${INSTALL_DIR}" || exit
-        git pull origin main
-        "${INSTALL_DIR}/venv/bin/pip" install -r requirements.txt --quiet
-        systemctl restart innerblitz.service
-        echo -e "${C_GREEN}✔ InnerBlitz успешно обновлен!${C_RESET}"
+    if [ -f "${INSTALL_DIR}/upgrade.sh" ]; then
+        bash "${INSTALL_DIR}/upgrade.sh"
     else
-        echo -e "${C_YELLOW}Каталог не является git-репозиторием. Для обновления выполните install.sh.${C_RESET}"
+        bash <(curl -fsSL https://raw.githubusercontent.com/Innernode-dev/innerblitz/main/upgrade.sh)
     fi
     read -rp "Нажмите Enter для продолжения..."
 }

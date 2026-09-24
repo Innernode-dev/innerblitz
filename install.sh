@@ -89,7 +89,7 @@ deploy_codebase() {
         fi
     fi
 
-    chmod +x "${INSTALL_DIR}/menu.sh" "${INSTALL_DIR}/cli.py"
+    chmod +x "${INSTALL_DIR}/menu.sh" "${INSTALL_DIR}/cli.py" "${INSTALL_DIR}/upgrade.sh" "${INSTALL_DIR}/uninstall.sh" || true
     log_success "Файлы панели успешно развернуты."
 }
 

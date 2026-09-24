@@ -6,6 +6,9 @@ import qrcode
 import io
 import base64
 
+import subprocess
+from pathlib import Path
+
 from app.api.auth_routes import get_current_admin
 from app.database import crud
 from app.core.security import (
@@ -14,7 +17,7 @@ from app.core.security import (
 )
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import apply_and_save_config, restart_hysteria
-from app.core.firewall import configure_port_hopping
+from app.core.firewall import configure_port_hopping, flush_port_hopping
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(get_current_admin)])
 
@@ -38,10 +41,21 @@ class SettingsPayload(BaseModel):
     tg_2fa_enabled: Optional[bool] = None
     tg_notifications_enabled: Optional[bool] = None
     decoy_enabled: Optional[bool] = None
+    panel_port: Optional[str] = None
+    panel_secret_path: Optional[str] = None
 
 class ChangePasswordPayload(BaseModel):
     old_password: str
     new_password: str
+
+class ChangeUsernamePayload(BaseModel):
+    new_username: str
+
+class ResetPanelPayload(BaseModel):
+    use_random: bool = False
+    port: Optional[str] = "8080"
+    path: Optional[str] = "panel"
+    reset_2fa: bool = False
 
 class VerifyTotpPayload(BaseModel):
     secret: str
@@ -192,3 +206,85 @@ async def apply_preset(payload: Dict[str, str]):
     await apply_and_save_config()
     restart_hysteria()
     return {"ok": True, "message": f"Preset '{preset_name}' applied successfully", "updates": updates}
+
+@router.post("/change-username")
+async def change_admin_username(payload: ChangeUsernamePayload):
+    """Change admin username for web panel."""
+    new_user = payload.new_username.strip()
+    if not new_user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username cannot be empty")
+    await crud.set_setting("admin_username", new_user)
+    return {"ok": True, "message": f"Admin username changed to '{new_user}'"}
+
+@router.post("/reset-ports")
+async def reset_ports_endpoint():
+    """Reset Hysteria 2 ports to standard 443 UDP and flush iptables hopping rules."""
+    flush_port_hopping()
+    await crud.set_settings({
+        "listen_port": "443",
+        "port_hopping_enabled": "0"
+    })
+    await apply_and_save_config()
+    ok, out = restart_hysteria()
+    return {"ok": ok, "message": "Hysteria 2 ports reset to 443 UDP. Port hopping flushed and disabled."}
+
+@router.post("/flush-hopping")
+async def flush_hopping_endpoint():
+    """Flush all UDP redirect port hopping rules from iptables."""
+    ok, msg = flush_port_hopping()
+    return {"ok": ok, "message": msg}
+
+@router.post("/reset-panel-access")
+async def reset_panel_access_endpoint(payload: ResetPanelPayload):
+    """Reset panel port and secret URL path, optionally randomizing or resetting 2FA."""
+    updates = {}
+    if payload.use_random:
+        updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
+        updates["panel_secret_path"] = f"node-{secrets.token_hex(3)}"
+    else:
+        updates["panel_port"] = str(payload.port or "8080")
+        updates["panel_secret_path"] = str(payload.path or "panel").strip("/ ")
+
+    if payload.reset_2fa:
+        updates["totp_enabled"] = "0"
+        updates["totp_secret"] = ""
+        updates["tg_2fa_enabled"] = "0"
+
+    await crud.set_settings(updates)
+    server_ip = await crud.get_setting("server_ip", "127.0.0.1")
+
+    return {
+        "ok": True,
+        "message": "Panel access updated. Please reconnect using the new URL.",
+        "panel_port": updates["panel_port"],
+        "panel_secret_path": updates["panel_secret_path"],
+        "new_url": f"http://{server_ip}:{updates['panel_port']}/{updates['panel_secret_path']}"
+    }
+
+@router.post("/optimize-bbr")
+async def optimize_bbr_endpoint():
+    """Enable Linux TCP BBR and high-performance UDP buffer tuning."""
+    try:
+        conf_content = """# InnerBlitz High-Performance Network Tuning for Hysteria 2 QUIC
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.rmem_default = 1048576
+net.core.wmem_default = 1048576
+net.core.optmem_max = 2048576
+net.ipv4.udp_rmem_min = 16384
+net.ipv4.udp_wmem_min = 16384
+net.ipv4.ip_forward = 1
+"""
+        sysctl_dir = Path("/etc/sysctl.d")
+        if sysctl_dir.exists():
+            conf_file = sysctl_dir / "99-innerblitz.conf"
+            with open(conf_file, "w") as f:
+                f.write(conf_content)
+            subprocess.run(["sysctl", "--system"], capture_output=True)
+            return {"ok": True, "message": "TCP BBR and high-speed UDP buffers successfully applied"}
+        return {"ok": False, "message": "/etc/sysctl.d not found on this system"}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+

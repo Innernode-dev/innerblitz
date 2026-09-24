@@ -33,3 +33,37 @@ def configure_port_hopping(range_str: str, target_port: int, enable: bool = True
         return False, "iptables command not found"
     except Exception as e:
         return False, str(e)
+
+def flush_port_hopping() -> Tuple[bool, str]:
+    """
+    Safely find and remove all UDP REDIRECT port hopping rules from iptables PREROUTING table.
+    """
+    try:
+        res = subprocess.run(
+            ["iptables", "-t", "nat", "-L", "PREROUTING", "-n", "--line-numbers"],
+            capture_output=True, text=True, timeout=5
+        )
+        if res.returncode != 0:
+            return False, res.stderr or "Failed to list iptables rules"
+        
+        # Parse lines in reverse order to delete without changing subsequent line numbers
+        lines = res.stdout.splitlines()
+        deleted_count = 0
+        for line in reversed(lines):
+            if "REDIRECT" in line and "udp" in line:
+                parts = line.split()
+                if parts and parts[0].isdigit():
+                    num = parts[0]
+                    subprocess.run(
+                        ["iptables", "-t", "nat", "-D", "PREROUTING", num],
+                        capture_output=True, timeout=5
+                    )
+                    deleted_count += 1
+        
+        logger.info(f"Flushed {deleted_count} port hopping iptables rules.")
+        return True, f"Flushed {deleted_count} rules"
+    except FileNotFoundError:
+        return False, "iptables not found"
+    except Exception as e:
+        return False, str(e)
+

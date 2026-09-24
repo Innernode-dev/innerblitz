@@ -1,7 +1,9 @@
-#!/usr/bin/env python3
-import asyncio
-import sys
-import click
+import os
+import secrets
+import shutil
+import tarfile
+import subprocess
+from pathlib import Path
 from datetime import datetime, date
 
 from app.config import settings
@@ -11,8 +13,10 @@ from app.database.models import UserCreate, UserUpdate
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import (
     apply_and_save_config, restart_hysteria, 
-    is_hysteria_running, get_hysteria_version, get_hysteria_logs
+    is_hysteria_running, get_hysteria_version, get_hysteria_logs,
+    run_systemctl
 )
+from app.core.firewall import flush_port_hopping, configure_port_hopping
 from app.core.subscription import build_hy2_uri
 from app.core.security import hash_password
 
@@ -164,6 +168,16 @@ def restart_services():
     else:
         click.echo(click.style(f"✖ Restart failed: {out}", fg="red"))
 
+@cli.command("set-admin-user")
+@click.argument("new_username")
+def set_admin_user(new_username):
+    """Change admin username for web panel."""
+    async def _user():
+        await init_db()
+        await crud.set_setting("admin_username", new_username.strip())
+        click.echo(click.style(f"✔ Admin username changed to '{new_username.strip()}'.", fg="green"))
+    run_async(_user())
+
 @cli.command("set-admin-password")
 @click.argument("new_password")
 def set_admin_pwd(new_password):
@@ -190,6 +204,80 @@ def set_panel_access(port, path):
             click.echo(click.style(f"✔ Panel access updated: Port={port or 'unchanged'}, Path=/{path or 'unchanged'}", fg="green"))
     run_async(_set())
 
+@cli.command("reset-panel-access")
+@click.option("--port", default=None, help="Specific port (e.g. 8080)")
+@click.option("--path", default=None, help="Specific path (e.g. panel)")
+@click.option("--random", "use_random", is_flag=True, help="Generate random high port and random secret path")
+@click.option("--reset-2fa", is_flag=True, help="Disable 2FA if locked out")
+@click.option("--password", default=None, help="Optional new password")
+def reset_panel_access(port, path, use_random, reset_2fa, password):
+    """Reset Web Panel port, path, 2FA and admin credentials."""
+    async def _reset():
+        await init_db()
+        updates = {}
+        if use_random:
+            updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
+            updates["panel_secret_path"] = f"node-{secrets.token_hex(3)}"
+        else:
+            updates["panel_port"] = str(port or "8080")
+            updates["panel_secret_path"] = str(path or "panel").strip("/ ")
+        
+        if reset_2fa:
+            updates["totp_enabled"] = "0"
+            updates["totp_secret"] = ""
+            updates["tg_2fa_enabled"] = "0"
+            click.echo(click.style("✔ 2FA authentication disabled.", fg="yellow"))
+        
+        if password:
+            updates["admin_password_hash"] = hash_password(password)
+            click.echo(click.style("✔ Admin password updated.", fg="yellow"))
+
+        await crud.set_settings(updates)
+        run_systemctl("restart", "innerblitz.service")
+
+        ip = await crud.get_setting("server_ip", "127.0.0.1")
+        click.echo(click.style("✔ Web panel access successfully reset!", fg="green", bold=True))
+        click.echo(f"Secret URL: http://{ip}:{updates['panel_port']}/{updates['panel_secret_path']}")
+        click.echo(f"Port: {updates['panel_port']} | Path: /{updates['panel_secret_path']}")
+        click.echo(click.style("✔ Service innerblitz.service restarted.", fg="green"))
+    run_async(_reset())
+
+@cli.command("reset-ports")
+@click.option("--port", default=443, type=int, help="Hysteria 2 UDP port [default: 443]")
+@click.option("--flush-hopping", is_flag=True, default=True, help="Flush port hopping iptables rules")
+def reset_ports(port, flush_hopping):
+    """Reset Hysteria 2 ports and flush port hopping firewall rules."""
+    async def _reset_p():
+        await init_db()
+        if flush_hopping:
+            flush_port_hopping()
+            click.echo(click.style("✔ Port hopping iptables rules flushed.", fg="yellow"))
+        
+        await crud.set_settings({
+            "listen_port": str(port),
+            "port_hopping_enabled": "0"
+        })
+        await apply_and_save_config()
+        ok, out = restart_hysteria()
+        if ok:
+            click.echo(click.style(f"✔ Hysteria 2 ports reset to UDP {port}. Core restarted.", fg="green"))
+        else:
+            click.echo(click.style(f"✖ Failed to restart Hysteria: {out}", fg="red"))
+    run_async(_reset_p())
+
+@cli.command("disable-2fa")
+def disable_2fa():
+    """Emergency disable 2FA (TOTP and Telegram) to regain panel access."""
+    async def _dis():
+        await init_db()
+        await crud.set_settings({
+            "totp_enabled": "0",
+            "totp_secret": "",
+            "tg_2fa_enabled": "0"
+        })
+        click.echo(click.style("✔ All 2FA protections disabled. You can now log in with password only.", fg="green", bold=True))
+    run_async(_dis())
+
 @cli.command("show-panel-url")
 def show_panel_url():
     """Display current secret access URL for Web Panel."""
@@ -198,10 +286,99 @@ def show_panel_url():
         ip = await crud.get_setting("server_ip", "127.0.0.1")
         port = await crud.get_setting("panel_port", "8080")
         path = await crud.get_setting("panel_secret_path", "panel")
-        click.echo(click.style("=== InnerBlitz Stealth Panel Access ===", fg="cyan"))
-        click.echo(f"URL: http://{ip}:{port}/{path}")
-        click.echo(f"Decoy root URL: http://{ip}:{port}/ (Shows fake open-source cloud telemetry daemon)")
+        user = await crud.get_setting("admin_username", "admin")
+        totp_on = await crud.get_setting("totp_enabled", "0") == "1"
+        tg_on = await crud.get_setting("tg_2fa_enabled", "0") == "1"
+
+        click.echo(click.style("\n=== InnerBlitz Stealth Panel Access ===", fg="cyan", bold=True))
+        click.echo(f"Web Panel URL:  http://{ip}:{port}/{path}")
+        click.echo(f"Decoy Root URL: http://{ip}:{port}/ (Anti-RKN Decoy Dashboard)")
+        click.echo(f"Admin Username: {user}")
+        click.echo(f"2FA Status:     {'Google TOTP' if totp_on else ('Telegram' if tg_on else 'Disabled')}\n")
     run_async(_show())
+
+@cli.command("toggle-decoy")
+@click.option("--enable/--disable", default=True, help="Enable or disable decoy site on root /")
+def toggle_decoy(enable):
+    """Enable or disable Anti-RKN decoy site on root URL /."""
+    async def _decoy():
+        await init_db()
+        await crud.set_setting("decoy_enabled", "1" if enable else "0")
+        run_systemctl("restart", "innerblitz.service")
+        click.echo(click.style(f"✔ Anti-RKN Decoy site {'enabled' if enable else 'disabled'}.", fg="green"))
+    run_async(_decoy())
+
+@cli.command("optimize-bbr")
+def optimize_bbr():
+    """Enable Linux TCP BBR congestion control and optimize UDP buffers for max QUIC speed."""
+    try:
+        conf_content = """# InnerBlitz High-Performance Network Tuning for Hysteria 2 QUIC
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.rmem_default = 1048576
+net.core.wmem_default = 1048576
+net.core.optmem_max = 2048576
+net.ipv4.udp_rmem_min = 16384
+net.ipv4.udp_wmem_min = 16384
+net.ipv4.ip_forward = 1
+"""
+        sysctl_dir = Path("/etc/sysctl.d")
+        if sysctl_dir.exists():
+            conf_file = sysctl_dir / "99-innerblitz.conf"
+            with open(conf_file, "w") as f:
+                f.write(conf_content)
+            subprocess.run(["sysctl", "--system"], capture_output=True)
+            click.echo(click.style("✔ TCP BBR and high-speed UDP buffers successfully applied!", fg="green", bold=True))
+        else:
+            click.echo(click.style("✖ /etc/sysctl.d not found (Not a standard Linux OS)", fg="yellow"))
+    except Exception as e:
+        click.echo(click.style(f"✖ Failed to configure sysctl: {e}", fg="red"))
+
+@cli.command("backup")
+@click.option("--out", default=None, help="Output backup archive path")
+def backup_system(out):
+    """Create a backup archive of SQLite DB and certificates."""
+    try:
+        data_dir = Path(settings.DATA_DIR)
+        backup_dir = Path("/etc/hysteria/backups")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        target_file = Path(out) if out else backup_dir / f"innerblitz_backup_{timestamp}.tar.gz"
+
+        with tarfile.open(target_file, "w:gz") as tar:
+            if data_dir.exists():
+                tar.add(data_dir, arcname="data")
+            if Path(settings.HYSTERIA_CONFIG_PATH).exists():
+                tar.add(settings.HYSTERIA_CONFIG_PATH, arcname="config.yaml")
+
+        click.echo(click.style(f"✔ Backup created successfully: {target_file}", fg="green", bold=True))
+    except Exception as e:
+        click.echo(click.style(f"✖ Backup failed: {e}", fg="red"))
+
+@cli.command("restore")
+@click.argument("backup_file")
+def restore_system(backup_file):
+    """Restore SQLite DB and certificates from backup archive."""
+    try:
+        b_path = Path(backup_file)
+        if not b_path.exists():
+            click.echo(click.style(f"✖ Backup file not found: {backup_file}", fg="red"))
+            return
+        
+        run_systemctl("stop", "innerblitz.service")
+        run_systemctl("stop", "hysteria-server.service")
+
+        with tarfile.open(b_path, "r:gz") as tar:
+            tar.extractall(path="/etc/hysteria")
+
+        run_systemctl("start", "innerblitz.service")
+        run_systemctl("start", "hysteria-server.service")
+        click.echo(click.style(f"✔ System restored successfully from {backup_file}!", fg="green", bold=True))
+    except Exception as e:
+        click.echo(click.style(f"✖ Restore failed: {e}", fg="red"))
 
 if __name__ == "__main__":
     cli()
+

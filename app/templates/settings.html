@@ -58,6 +58,17 @@
             </label>
         </div>
 
+        <div class="flex flex-wrap items-center gap-3 pt-1">
+            <button onclick="triggerResetPorts()" class="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Сбросить порты на стандартные (443 UDP)</span>
+            </button>
+            <button onclick="triggerFlushHopping()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Очистить iptables правила Hopping</span>
+            </button>
+        </div>
+
         <!-- TLS Mode & Cert on IP -->
         <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -155,10 +166,28 @@
             <p class="text-xs text-slate-400 mt-0.5">Защита входа в панель через Google Authenticator и Telegram</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Change Username -->
+            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+                <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+                    <i data-lucide="user" class="w-4 h-4 text-brand-400"></i>
+                    <span>Логин администратора</span>
+                </h4>
+                <div class="space-y-2">
+                    <input type="text" id="adminUsernameInput" placeholder="admin" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
+                    <button onclick="handleChangeUsername()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition">
+                        Сохранить логин
+                    </button>
+                </div>
+            </div>
+
             <!-- Change Password -->
             <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
-                <h4 class="text-sm font-bold text-white">Смена пароля администратора</h4>
+                <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
+                    <i data-lucide="key" class="w-4 h-4 text-brand-400"></i>
+                    <span>Смена пароля</span>
+                </h4>
                 <div class="space-y-2">
                     <input type="password" id="oldAdminPassword" placeholder="Текущий пароль" 
                            class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
@@ -174,11 +203,14 @@
             <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center justify-between">
-                        <span>Google Authenticator (TOTP)</span>
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="smartphone" class="w-4 h-4 text-brand-400"></i>
+                            <span>Google Authenticator</span>
+                        </span>
                         <span id="totpStatusBadge" class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-1">
-                        Стандартный генератор одноразовых кодов (работает оффлайн в приложениях Aegis, Google Authenticator).
+                        Двухфакторная защита входа в панель одноразовыми кодами (Aegis, Google Authenticator).
                     </p>
                 </div>
                 <div class="pt-2">
@@ -189,29 +221,51 @@
             </div>
         </div>
 
-        <!-- Anti-RKN Decoy & Secret Path -->
-        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+        <!-- Web Panel Port & Stealth Access -->
+        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center gap-2">
                         <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
-                        <span>Маскировка панели от РКН и сканеров (Decoy Сайт)</span>
+                        <span>Стелс-доступ и маскировка панели от РКН/сканеров</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        При заходе на <code>http://IP:PORT/</code> отображается фейковый IT-проект, скрывая наличие VPN панели от сканеров операторов.
+                        Панель скрыта на высоком нестандартном порту и секретном URL-пути. Корень отображает сайт-приманку (Decoy).
                     </p>
                 </div>
                 <div class="flex items-center gap-2">
                     <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
-                    <label for="cfgDecoyEnabled" class="text-xs font-medium text-slate-200">Включить Decoy</label>
+                    <label for="cfgDecoyEnabled" class="text-xs font-medium text-slate-200">Включить Decoy на корне /</label>
                 </div>
             </div>
-            <div class="text-xs text-slate-400">
-                <span>Вход в панель управления при включенной маскировке доступен по адресу: </span>
-                <span class="font-mono text-purple-300">http://IP:PORT/panel</span>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Порт веб-панели</label>
+                    <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080" 
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Секретный URL-путь входа</label>
+                    <div class="flex items-center">
+                        <span class="px-3 py-2 bg-slate-950/80 border border-r-0 border-slate-800 text-slate-500 text-sm rounded-l-xl">/</span>
+                        <input type="text" id="cfgPanelSecretPath" placeholder="node-xxxx" 
+                               class="flex-1 px-3.5 py-2 rounded-r-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3 pt-2">
+                <button onclick="randomizePanelAccess()" class="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="dice-5" class="w-3.5 h-3.5"></i>
+                    <span>🎲 Сгенерировать случайный stealth-порт и путь</span>
+                </button>
+                <button onclick="resetPanelAccessDefault()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>Сбросить на 8080 и /panel</span>
+                </button>
             </div>
         </div>
-    </div>
     </div>
 
     <!-- 4. Telegram Bot Integration -->
@@ -248,6 +302,23 @@
                 <input type="checkbox" id="cfgTg2faEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
                 <label for="cfgTg2faEnabled" class="text-sm text-slate-200">Подтверждение входа в панель кодом через Telegram</label>
             </div>
+        </div>
+    </div>
+
+    <!-- 5. Linux Network Optimization (BBR) -->
+    <div class="glass-card rounded-2xl p-6 space-y-4">
+        <div class="border-b border-slate-800 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="gauge" class="w-5 h-5 text-amber-400"></i>
+                    <span>Оптимизация скорости сети (BBR + буферы QUIC)</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Включение алгоритма Google TCP BBR и расширение UDP сокетов ядра для максимальной скорости Hysteria 2</p>
+            </div>
+            <button onclick="triggerOptimizeBBR()" class="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>Применить BBR оптимизацию</span>
+            </button>
         </div>
     </div>
 
@@ -306,6 +377,9 @@
                 document.getElementById('cfgTgNotificationsEnabled').checked = currentSettings.tg_notifications_enabled == '1';
                 document.getElementById('cfgTg2faEnabled').checked = currentSettings.tg_2fa_enabled == '1';
                 document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
+                document.getElementById('cfgPanelPort').value = currentSettings.panel_port || '8080';
+                document.getElementById('cfgPanelSecretPath').value = currentSettings.panel_secret_path || 'panel';
+                document.getElementById('adminUsernameInput').value = currentSettings.admin_username || 'admin';
 
                 const totpOn = currentSettings.totp_enabled == '1';
                 const badge = document.getElementById('totpStatusBadge');
@@ -341,7 +415,9 @@
                 tg_admin_chat_id: document.getElementById('cfgTgAdminChatId').value.trim(),
                 tg_notifications_enabled: document.getElementById('cfgTgNotificationsEnabled').checked,
                 tg_2fa_enabled: document.getElementById('cfgTg2faEnabled').checked,
-                decoy_enabled: document.getElementById('cfgDecoyEnabled').checked
+                decoy_enabled: document.getElementById('cfgDecoyEnabled').checked,
+                panel_port: document.getElementById('cfgPanelPort').value.trim(),
+                panel_secret_path: document.getElementById('cfgPanelSecretPath').value.trim()
             };
 
             const res = await fetch('/api/settings', {
@@ -485,6 +561,105 @@
         input.select();
         navigator.clipboard.writeText(input.value);
         showToast('Скопировано в буфер обмена!', 'success');
+    }
+
+    async function triggerResetPorts() {
+        if (!confirm('Сбросить порт Hysteria 2 на 443 UDP и очистить правила Port Hopping?')) return;
+        try {
+            const res = await fetch('/api/settings/reset-ports', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Порты Hysteria 2 сброшены на 443!', 'success');
+                loadSettings();
+            } else {
+                showToast('Ошибка сброса портов', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function triggerFlushHopping() {
+        if (!confirm('Очистить правила Port Hopping в iptables?')) return;
+        try {
+            const res = await fetch('/api/settings/flush-hopping', { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message, data.ok ? 'success' : 'error');
+            loadSettings();
+        } catch (e) {
+            showToast('Ошибка очистки iptables', 'error');
+        }
+    }
+
+    async function handleChangeUsername() {
+        const newU = document.getElementById('adminUsernameInput').value.trim();
+        if (!newU) return showToast('Введите логин', 'error');
+        try {
+            const res = await fetch('/api/settings/change-username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_username: newU })
+            });
+            if (res.ok) {
+                showToast(`Логин изменен на ${newU}!`, 'success');
+                loadSettings();
+            } else {
+                showToast('Ошибка смены логина', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function randomizePanelAccess() {
+        if (!confirm('Сгенерировать случайный порт (20000–60000) и случайный секретный URL-путь? Вам нужно будет зайти по новому адресу!')) return;
+        try {
+            const res = await fetch('/api/settings/reset-panel-access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ use_random: true, reset_2fa: false })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Стелс-доступ обновлен! Перенаправление...', 'success');
+                setTimeout(() => { window.location.href = data.new_url; }, 1500);
+            }
+        } catch (e) {
+            showToast('Ошибка генерации стелс-доступа', 'error');
+        }
+    }
+
+    async function resetPanelAccessDefault() {
+        if (!confirm('Сбросить порт панели на 8080 и путь на /panel?')) return;
+        try {
+            const res = await fetch('/api/settings/reset-panel-access', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ use_random: false, port: "8080", path: "panel", reset_2fa: false })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Порт сброшен на 8080! Перенаправление...', 'success');
+                setTimeout(() => { window.location.href = data.new_url; }, 1500);
+            }
+        } catch (e) {
+            showToast('Ошибка сброса панели', 'error');
+        }
+    }
+
+    async function triggerOptimizeBBR() {
+        try {
+            showToast('Применение BBR и буферов UDP...', 'success');
+            const res = await fetch('/api/settings/optimize-bbr', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast(data.message, 'success');
+            } else {
+                showToast(data.message || 'Ошибка применения BBR', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка оптимизации сети', 'error');
+        }
     }
 
     loadSettings();

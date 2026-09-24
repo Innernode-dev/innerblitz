@@ -34,7 +34,20 @@ check_root() {
 }
 
 detect_ip() {
-    SERVER_IP=$(curl -s4 -m 3 icanhazip.com || curl -s4 -m 3 ifconfig.me || echo "127.0.0.1")
+    local ip=""
+    for url in "https://api.ipify.org" "https://icanhazip.com" "https://ip.sb" "https://ifconfig.me" "https://checkip.amazonaws.com"; do
+        ip=$(curl -s4 -m 3 "$url" 2>/dev/null | tr -d '[:space:]')
+        if [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            SERVER_IP="$ip"
+            return 0
+        fi
+    done
+    ip=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $7}' | tr -d '[:space:]')
+    if [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        SERVER_IP="$ip"
+        return 0
+    fi
+    SERVER_IP="127.0.0.1"
 }
 
 check_system() {

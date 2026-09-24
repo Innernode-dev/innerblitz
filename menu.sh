@@ -337,7 +337,7 @@ manage_webpanel_menu() {
             4)
                 echo ""
                 read -rp "Новый порт панели (Enter чтобы оставить прежний $p_port): " nport
-                read -rp "Новая секретная директория входа (например: node-xyz) (Enter чтобы оставить): " npath
+                read -rp "Новая секретная директория входа (например: bdjs74xhdg37) (Enter чтобы оставить): " npath
                 cmd_p=()
                 if [ -n "$nport" ]; then cmd_p+=("--port" "$nport"); fi
                 if [ -n "$npath" ]; then cmd_p+=("--path" "$npath"); fi
@@ -348,7 +348,7 @@ manage_webpanel_menu() {
                 ;;
             5)
                 echo ""
-                echo -e "${C_CYAN}Генерация случайного stealth-порта (20000–60000) и директории (/node-XXXX)...${C_RESET}"
+                echo -e "${C_CYAN}Генерация случайного stealth-порта (20000–60000) и директории (12–16 знаков)...${C_RESET}"
                 $CLI_CMD reset-panel-access --random
                 read -rp "Нажмите Enter для продолжения..."
                 ;;

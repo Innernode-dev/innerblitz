@@ -1,10 +1,19 @@
 import os
+import sys
 import secrets
 import shutil
 import tarfile
 import subprocess
+import asyncio
+import click
 from pathlib import Path
 from datetime import datetime, date
+
+# Force UTF-8 streams to avoid encoding crashes on minimal locales
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from app.config import settings
 from app.database.connection import init_db
@@ -18,7 +27,7 @@ from app.core.hysteria import (
 )
 from app.core.firewall import flush_port_hopping, configure_port_hopping
 from app.core.subscription import build_hy2_uri
-from app.core.security import hash_password
+from app.core.security import hash_password, generate_secret_path
 
 def run_async(coro):
     return asyncio.run(coro)
@@ -220,7 +229,7 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
         updates = {}
         if use_random:
             updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
-            updates["panel_secret_path"] = f"node-{secrets.token_hex(3)}"
+            updates["panel_secret_path"] = generate_secret_path()
             updates["decoy_enabled"] = "1"
             updates["decoy_theme"] = "nginx"
         else:

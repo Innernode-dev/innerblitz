@@ -129,8 +129,14 @@ configure_innerblitz() {
     echo -e " ${C_CYAN}[2]${C_RESET} ${C_BOLD}Кастомная установка${C_RESET}"
     echo -e "     Выбор основного порта, домена, obfs и пароля администратора."
     echo ""
-    read -rp "Выберите режим [1/2] (по умолчанию 1): " install_mode
-    install_mode=${install_mode:-1}
+    while true; do
+        read -rp "Выберите режим [1/2] (по умолчанию 1): " install_mode
+        install_mode=${install_mode:-1}
+        if [ "$install_mode" == "1" ] || [ "$install_mode" == "2" ]; then
+            break
+        fi
+        echo -e "${C_YELLOW}Некорректный ввод '$install_mode'! Пожалуйста, введите 1 (Экспресс) или 2 (Кастомная).${C_RESET}"
+    done
 
     detect_ip
 
@@ -138,26 +144,46 @@ configure_innerblitz() {
     PORT_HOP_RANGE="20000:50000"
     DOMAIN=""
     RANDOM_PANEL_PORT=$(( 20000 + RANDOM % 40000 ))
-    RANDOM_PANEL_SECRET="node-$(openssl rand -hex 3)"
+    RANDOM_LEN=$(( 12 + RANDOM % 5 ))
+    RANDOM_PANEL_SECRET=$(tr -dc 'a-z0-9' < /dev/urandom 2>/dev/null | head -c "$RANDOM_LEN" || openssl rand -hex 8 | cut -c 1-"$RANDOM_LEN")
     PANEL_PORT=$RANDOM_PANEL_PORT
     PANEL_SECRET=$RANDOM_PANEL_SECRET
     ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
 
-    if [ "$install_mode" -eq 2 ]; then
+    if [ "$install_mode" == "2" ]; then
         echo ""
-        read -rp "Основной порт Hysteria 2 [443]: " user_port
-        LISTEN_PORT=${user_port:-443}
+        while true; do
+            read -rp "Основной UDP порт Hysteria 2 [443]: " user_port
+            user_port=${user_port:-443}
+            if [[ "$user_port" =~ ^[0-9]+$ ]] && [ "$user_port" -ge 1 ] && [ "$user_port" -le 65535 ]; then
+                LISTEN_PORT=$user_port
+                break
+            fi
+            echo -e "${C_YELLOW}Порт должен быть числом от 1 до 65535!${C_RESET}"
+        done
 
         read -rp "Использовать домен? (Оставьте пустым для прямого IP $SERVER_IP): " user_domain
-        DOMAIN=${user_domain:-""}
+        DOMAIN=$(echo "${user_domain:-""}" | tr -d '[:space:]')
 
         read -rp "Диапазон Port Hopping [20000:50000]: " user_hop
         PORT_HOP_RANGE=${user_hop:-"20000:50000"}
 
-        read -rp "Порт веб-панели [$RANDOM_PANEL_PORT]: " user_panel_port
-        PANEL_PORT=${user_panel_port:-$RANDOM_PANEL_PORT}
+        while true; do
+            read -rp "Порт веб-панели [$RANDOM_PANEL_PORT]: " user_panel_port
+            user_panel_port=${user_panel_port:-$RANDOM_PANEL_PORT}
+            if [[ "$user_panel_port" =~ ^[0-9]+$ ]] && [ "$user_panel_port" -ge 1 ] && [ "$user_panel_port" -le 65535 ]; then
+                if [ "$user_panel_port" -eq "$LISTEN_PORT" ]; then
+                    echo -e "${C_YELLOW}Порт веб-панели не может совпадать с основным портом Hysteria ($LISTEN_PORT)!${C_RESET}"
+                    continue
+                fi
+                PANEL_PORT=$user_panel_port
+                break
+            fi
+            echo -e "${C_YELLOW}Порт должен быть числом от 1 до 65535!${C_RESET}"
+        done
 
         read -rp "Секретная директория входа (URL-путь) [$RANDOM_PANEL_SECRET]: " user_panel_secret
+        user_panel_secret=$(echo "${user_panel_secret:-$RANDOM_PANEL_SECRET}" | tr -d ' ' | sed 's|^/*||;s|/*$||')
         PANEL_SECRET=${user_panel_secret:-$RANDOM_PANEL_SECRET}
 
         read -rp "Пароль администратора веб-панели [$ADMIN_PASS]: " user_pass

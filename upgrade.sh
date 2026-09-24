@@ -128,7 +128,8 @@ if [ "$CUR_PORT" == "8080" ] || [ "$CUR_PATH" == "panel" ] || [ -z "$CUR_PATH" ]
 
     if [ "$DO_STEALTH" == "y" ]; then
         RANDOM_PORT=$(( 20000 + RANDOM % 40000 ))
-        RANDOM_PATH="node-$(openssl rand -hex 3)"
+        RANDOM_LEN=$(( 12 + RANDOM % 5 ))
+        RANDOM_PATH=$(tr -dc 'a-z0-9' < /dev/urandom 2>/dev/null | head -c "$RANDOM_LEN" || openssl rand -hex 8 | cut -c 1-"$RANDOM_LEN")
         $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); asyncio.run(crud.set_settings({'panel_port': '$RANDOM_PORT', 'panel_secret_path': '$RANDOM_PATH', 'decoy_enabled': '1', 'decoy_theme': 'nginx'}))"
         CUR_PORT=$RANDOM_PORT
         CUR_PATH=$RANDOM_PATH

@@ -19,7 +19,7 @@ from app.api.auth_routes import get_current_admin
 from app.database import crud
 from app.core.security import (
     hash_password, verify_password, generate_totp_secret, 
-    get_totp_uri, verify_totp
+    get_totp_uri, verify_totp, generate_secret_path
 )
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl
@@ -254,7 +254,7 @@ async def reset_panel_access_endpoint(payload: ResetPanelPayload):
     updates = {}
     if payload.use_random:
         updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
-        updates["panel_secret_path"] = f"node-{secrets.token_hex(3)}"
+        updates["panel_secret_path"] = generate_secret_path()
     else:
         updates["panel_port"] = str(payload.port or "8080")
         updates["panel_secret_path"] = str(payload.path or "panel").strip("/ ")

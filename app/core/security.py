@@ -39,3 +39,9 @@ def verify_totp(secret: str, code: str) -> bool:
 def generate_session_id() -> str:
     """Generate a cryptographically secure random session ID."""
     return secrets.token_urlsafe(32)
+
+def generate_secret_path(min_length: int = 12, max_length: int = 16) -> str:
+    """Generate a high-entropy random URL-safe secret directory path (12-16 alphanumeric chars, e.g. bdjs74xhdg37)."""
+    length = secrets.randbelow(max_length - min_length + 1) + min_length
+    alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(length))

@@ -82,11 +82,12 @@ async def init_db():
         row = await cursor.fetchone()
         if row and row["count"] == 0:
             import bcrypt
+            from app.core.security import generate_secret_path
             default_salt = bcrypt.gensalt(rounds=12)
             default_password_hash = bcrypt.hashpw(b"admin", default_salt).decode("utf-8")
             traffic_uuid = secrets.token_hex(16)
             obfs_pwd = secrets.token_urlsafe(16)
-            rand_secret_path = f"node-{secrets.token_hex(3)}"
+            rand_secret_path = generate_secret_path()
             rand_panel_port = str(secrets.randbelow(40000) + 20000)
 
             default_settings = [

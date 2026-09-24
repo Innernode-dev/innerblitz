@@ -146,13 +146,13 @@ async def reset_user_traffic(username: str) -> bool:
     db = await get_db_connection()
     try:
         today_str = date.today().strftime("%Y-%m-%d")
-        await db.execute("""
+        cursor = await db.execute("""
             UPDATE users 
             SET upload_bytes = 0, download_bytes = 0, account_creation_date = ?, updated_at = CURRENT_TIMESTAMP
             WHERE username = ? COLLATE NOCASE;
         """, (today_str, username))
         await db.commit()
-        return True
+        return cursor.rowcount > 0
     finally:
         await db.close()
 

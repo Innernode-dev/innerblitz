@@ -91,11 +91,26 @@ async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard_page(request: Request):
+async def root_page(request: Request):
     user = await check_auth_or_redirect(request)
-    if not user:
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("index.html", {"request": request, "user": user})
+    decoy_enabled = await crud.get_setting("decoy_enabled", "1") == "1"
+    
+    # If admin is logged in, show dashboard
+    if user:
+        return templates.TemplateResponse("index.html", {"request": request, "user": user})
+    
+    # If unauthenticated and decoy enabled, render fake open-source cloud node page (anti-RKN)
+    if decoy_enabled:
+        return templates.TemplateResponse("decoy.html", {"request": request})
+        
+    return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+
+@app.get("/panel", response_class=HTMLResponse)
+async def panel_entry_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if user:
+        return templates.TemplateResponse("index.html", {"request": request, "user": user})
+    return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/users", response_class=HTMLResponse)
 async def users_page(request: Request):

@@ -188,6 +188,30 @@
                 </div>
             </div>
         </div>
+
+        <!-- Anti-RKN Decoy & Secret Path -->
+        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
+                        <span>Маскировка панели от РКН и сканеров (Decoy Сайт)</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        При заходе на <code>http://IP:PORT/</code> отображается фейковый IT-проект, скрывая наличие VPN панели от сканеров операторов.
+                    </p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <label for="cfgDecoyEnabled" class="text-xs font-medium text-slate-200">Включить Decoy</label>
+                </div>
+            </div>
+            <div class="text-xs text-slate-400">
+                <span>Вход в панель управления при включенной маскировке доступен по адресу: </span>
+                <span class="font-mono text-purple-300">http://IP:PORT/panel</span>
+            </div>
+        </div>
+    </div>
     </div>
 
     <!-- 4. Telegram Bot Integration -->
@@ -281,6 +305,7 @@
                 document.getElementById('cfgTgAdminChatId').value = currentSettings.tg_admin_chat_id || '';
                 document.getElementById('cfgTgNotificationsEnabled').checked = currentSettings.tg_notifications_enabled == '1';
                 document.getElementById('cfgTg2faEnabled').checked = currentSettings.tg_2fa_enabled == '1';
+                document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
 
                 const totpOn = currentSettings.totp_enabled == '1';
                 const badge = document.getElementById('totpStatusBadge');
@@ -315,7 +340,8 @@
                 tg_bot_token: document.getElementById('cfgTgBotToken').value.trim(),
                 tg_admin_chat_id: document.getElementById('cfgTgAdminChatId').value.trim(),
                 tg_notifications_enabled: document.getElementById('cfgTgNotificationsEnabled').checked,
-                tg_2fa_enabled: document.getElementById('cfgTg2faEnabled').checked
+                tg_2fa_enabled: document.getElementById('cfgTg2faEnabled').checked,
+                decoy_enabled: document.getElementById('cfgDecoyEnabled').checked
             };
 
             const res = await fetch('/api/settings', {

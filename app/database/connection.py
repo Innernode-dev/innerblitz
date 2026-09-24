@@ -113,6 +113,8 @@ async def init_db():
                 ("down_mbps", "200"),
                 ("ignore_client_bandwidth", "0"),
                 ("preset", "anti-dpi"),
+                ("decoy_enabled", "1"),
+                ("panel_secret_path", "panel"),
             ]
             await db.executemany("INSERT INTO settings (key, value) VALUES (?, ?);", default_settings)
             logger.info("Default settings and admin account created.")

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InnerNode — Cloud Telemetry & Node Daemon</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .glass {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="glass border-b border-slate-800/80 sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold">
+                <i data-lucide="layers" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-white tracking-tight">InnerNode Daemon</h1>
+                <span class="text-[10px] text-slate-400 font-mono">v2.4.1 Core Edition</span>
+            </div>
+        </div>
+        <div class="flex items-center gap-6 text-xs text-slate-400">
+            <span class="flex items-center gap-1.5 text-emerald-400">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>System Health: Optimal</span>
+            </span>
+            <a href="https://github.com/Innernode-dev" target="_blank" class="hover:text-white transition flex items-center gap-1">
+                <i data-lucide="github" class="w-4 h-4"></i>
+                <span>Repository</span>
+            </a>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <main class="flex-1 max-w-5xl mx-auto px-6 py-16 space-y-16">
+        <div class="text-center space-y-4 max-w-2xl mx-auto">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-mono">
+                <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                <span>High-Throughput Node Daemon</span>
+            </div>
+            <h2 class="text-4xl font-extrabold text-white tracking-tight sm:text-5xl">
+                Asynchronous Cloud Telemetry & Node Orchestration
+            </h2>
+            <p class="text-slate-400 text-sm leading-relaxed">
+                Lightweight, distributed telemetry collector and container runtime observer designed for modern cloud edge instances. Built with zero-overhead SQLite WAL persistence.
+            </p>
+        </div>
+
+        <!-- Metric Badges -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="glass p-6 rounded-2xl border border-slate-800 space-y-2">
+                <div class="text-xs text-slate-400 font-medium">Telemetry Protocol</div>
+                <div class="text-2xl font-bold text-white font-mono">HTTP/3 QUIC</div>
+                <p class="text-xs text-slate-500">Low-latency event streaming over multiplexed UDP datagrams.</p>
+            </div>
+            <div class="glass p-6 rounded-2xl border border-slate-800 space-y-2">
+                <div class="text-xs text-slate-400 font-medium">Memory Footprint</div>
+                <div class="text-2xl font-bold text-emerald-400 font-mono">&lt; 45 MB RSS</div>
+                <p class="text-xs text-slate-500">Optimized asynchronous engine without external database daemons.</p>
+            </div>
+            <div class="glass p-6 rounded-2xl border border-slate-800 space-y-2">
+                <div class="text-xs text-slate-400 font-medium">Storage Engine</div>
+                <div class="text-2xl font-bold text-cyan-400 font-mono">SQLite WAL</div>
+                <p class="text-xs text-slate-500">Atomic transactional durability with non-blocking write-ahead logs.</p>
+            </div>
+        </div>
+
+        <!-- Mock Terminal Quickstart -->
+        <div class="glass rounded-2xl p-6 border border-slate-800 space-y-4">
+            <div class="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-3">
+                <span class="font-mono">Node Service Status</span>
+                <span class="font-mono text-emerald-400">STATUS: ACTIVE</span>
+            </div>
+            <div class="font-mono text-xs text-slate-300 space-y-1.5 bg-slate-950 p-4 rounded-xl">
+                <p class="text-slate-500"># Node healthcheck telemetry sample</p>
+                <p><span class="text-cyan-400">innernode-daemon</span>: listening on 0.0.0.0 (multiplexed socket)</p>
+                <p><span class="text-cyan-400">innernode-daemon</span>: cryptographic cipher: TLS 1.3 ECDSA_P256</p>
+                <p><span class="text-cyan-400">innernode-daemon</span>: database connection: local wal mode ready</p>
+                <p class="text-emerald-400">innernode-daemon: all metrics collector workers started.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/80 py-8 text-center text-xs text-slate-500">
+        <p>© 2026 InnerNode Project. Distributed under the Open Source GPL-3.0 License.</p>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

@@ -37,6 +37,7 @@ class SettingsPayload(BaseModel):
     tg_admin_chat_id: Optional[str] = None
     tg_2fa_enabled: Optional[bool] = None
     tg_notifications_enabled: Optional[bool] = None
+    decoy_enabled: Optional[bool] = None
 
 class ChangePasswordPayload(BaseModel):
     old_password: str

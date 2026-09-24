@@ -227,8 +227,15 @@ manage_ports_menu() {
         local h_on=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_enabled', '1')))" 2>/dev/null || echo "1")
         local h_range=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_range', '20000:50000')))" 2>/dev/null || echo "20000:50000")
 
+        local hop_status_str
+        if [ "$h_on" == "1" ]; then
+            hop_status_str="${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}"
+        else
+            hop_status_str="${C_RED}ВЫКЛЮЧЕН${C_RESET}"
+        fi
+
         echo -e " Текущий UDP порт прослушивания: ${C_WHITE}${C_BOLD}${l_port}${C_RESET}"
-        echo -e " Port Hopping (скачки портов):     $([ "$h_on" == "1" ] && echo -e "${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕН${C_RESET}")\n"
+        echo -e " Port Hopping (скачки портов):     ${hop_status_str}\n"
 
         echo -e " ${C_GREEN}[1]${C_RESET} Сменить основной UDP порт Hysteria 2"
         echo -e " ${C_GREEN}[2]${C_RESET} Сменить диапазон Port Hopping (например, 20000:50000)"
@@ -258,7 +265,10 @@ manage_ports_menu() {
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             3)
-                local toggle_to=$([ "$h_on" == "1" ] && echo "0" || echo "1")
+                local toggle_to="1"
+                if [ "$h_on" == "1" ]; then
+                    toggle_to="0"
+                fi
                 $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; from app.core.firewall import configure_port_hopping; asyncio.run(init_db()); asyncio.run(crud.set_setting('port_hopping_enabled', '$toggle_to')); configure_port_hopping('$h_range', int('$l_port'), bool(int('$toggle_to'))); asyncio.run(apply_and_save_config()); restart_hysteria()"
                 echo -e "${C_GREEN}✔ Статус Port Hopping изменен!${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
@@ -294,9 +304,16 @@ manage_webpanel_menu() {
         local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
         local cur_ip=$(detect_server_ip)
 
+        local decoy_status_str
+        if [ "$p_decoy" == "1" ]; then
+            decoy_status_str="${C_GREEN}АКТИВНА (${p_theme})${C_RESET}"
+        else
+            decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
+        fi
+
         echo -e " 🌐 Секретный адрес входа: ${C_CYAN}${C_BOLD}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
         echo -e " 📁 Секретная директория: ${C_WHITE}/${p_path}${C_RESET} | Порт панели: ${C_WHITE}${p_port}${C_RESET}"
-        echo -e " 🛡️ Маскировка от РКН (Decoy): $([ "$p_decoy" == "1" ] && echo -e "${C_GREEN}АКТИВНА (${p_theme})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕНА${C_RESET})\n"
+        echo -e " 🛡️ Маскировка от РКН (Decoy): ${decoy_status_str}\n"
 
         echo -e " ${C_GREEN}[1]${C_RESET} 🌐 Показать секретную ссылку для входа и реквизиты"
         echo -e " ${C_GREEN}[2]${C_RESET} 👤 Сменить логин администратора"
@@ -363,7 +380,10 @@ manage_webpanel_menu() {
                 read -rp "Выберите пункт [1-5]: " dopt
                 case "$dopt" in
                     1)
-                        local dec_target=$([ "$p_decoy" == "1" ] && echo "--disable" || echo "--enable")
+                        local dec_target="--enable"
+                        if [ "$p_decoy" == "1" ]; then
+                            dec_target="--disable"
+                        fi
                         $CLI_CMD toggle-decoy $dec_target
                         ;;
                     2) $CLI_CMD toggle-decoy --enable --theme "nginx" ;;
@@ -466,7 +486,10 @@ presets_menu() {
             6)
                 echo ""
                 read -rp "Включить WARP outbound для OpenAI/Netflix? (y/N): " wconf
-                local w_val=$([[ "$wconf" =~ ^[Yy]$ ]] && echo "1" || echo "0")
+                local w_val="0"
+                if [[ "$wconf" =~ ^[Yy]$ ]]; then
+                    w_val="1"
+                fi
                 $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; asyncio.run(init_db()); asyncio.run(crud.set_setting('warp_enabled', '$w_val')); asyncio.run(apply_and_save_config()); restart_hysteria()"
                 echo -e "${C_GREEN}✔ Настройки WARP обновлены!${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
@@ -580,19 +603,33 @@ show_hysteria_status() {
     
     IFS='|' read -r total_users active_users <<< "$u_counts"
 
+    local hop_status_str
+    if [ "$h_on" == "1" ]; then
+        hop_status_str="${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}"
+    else
+        hop_status_str="${C_RED}ВЫКЛЮЧЕН${C_RESET}"
+    fi
+
+    local decoy_status_str
+    if [ "$p_decoy" == "1" ]; then
+        decoy_status_str="${C_GREEN}АКТИВНА (${p_theme})${C_RESET}"
+    else
+        decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
+    fi
+
     echo -e " ${C_BOLD}--- Ядро Hysteria 2 ---${C_RESET}"
     echo -e " Служба (systemd):        $hys_active (PID: ${hys_pid}, Память: ${hys_mem})"
     echo -e " Версия бинарника:        ${C_WHITE}${hys_ver}${C_RESET}"
     echo -e " Запуск:                  ${C_GRAY}${hys_uptime}${C_RESET}"
     echo -e " Основной UDP порт:       ${C_WHITE}${l_port} UDP${C_RESET}"
-    echo -e " Port Hopping:            $([ "$h_on" == "1" ] && echo -e "${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕН${C_RESET}")"
+    echo -e " Port Hopping:            ${hop_status_str}"
     echo -e " Режим TLS:               ${C_WHITE}${tls_t}${C_RESET}"
     echo -e " Salamander Obfs:         ${C_WHITE}${obfs_t}${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}--- Веб-панель и Стелс ---${C_RESET}"
     echo -e " Служба (systemd):        $panel_active"
     echo -e " Ссылка для входа:        ${C_CYAN}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
-    echo -e " Маскировка Decoy:        $([ "$p_decoy" == "1" ] && echo -e "${C_GREEN}АКТИВНА (${p_theme})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕНА${C_RESET})"
+    echo -e " Маскировка Decoy:        ${decoy_status_str}"
     echo -e " Клиенты в базе:          ${C_WHITE}${total_users}${C_RESET} (Активных: ${C_GREEN}${active_users}${C_RESET})"
     echo ""
     echo -e " ${C_BOLD}--- Сетевые сокеты UDP ядра ---${C_RESET}"

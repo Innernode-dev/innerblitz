@@ -86,6 +86,8 @@ async def init_db():
             default_password_hash = bcrypt.hashpw(b"admin", default_salt).decode("utf-8")
             traffic_uuid = secrets.token_hex(16)
             obfs_pwd = secrets.token_urlsafe(16)
+            rand_secret_path = f"node-{secrets.token_hex(3)}"
+            rand_panel_port = str(secrets.randbelow(40000) + 20000)
 
             default_settings = [
                 ("admin_username", "admin"),
@@ -114,7 +116,8 @@ async def init_db():
                 ("ignore_client_bandwidth", "0"),
                 ("preset", "anti-dpi"),
                 ("decoy_enabled", "1"),
-                ("panel_secret_path", "panel"),
+                ("panel_port", rand_panel_port),
+                ("panel_secret_path", rand_secret_path),
             ]
             await db.executemany("INSERT INTO settings (key, value) VALUES (?, ?);", default_settings)
             logger.info("Default settings and admin account created.")

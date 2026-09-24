@@ -105,8 +105,16 @@ async def root_page(request: Request):
         
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
-@app.get("/panel", response_class=HTMLResponse)
-async def panel_entry_page(request: Request):
+@app.get("/{secret_path}", response_class=HTMLResponse)
+async def secret_path_entry(secret_path: str, request: Request):
+    expected_secret = await crud.get_setting("panel_secret_path", "panel")
+    decoy_enabled = await crud.get_setting("decoy_enabled", "1") == "1"
+
+    if secret_path != expected_secret and secret_path != "panel":
+        if decoy_enabled:
+            return templates.TemplateResponse("decoy.html", {"request": request})
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
     user = await check_auth_or_redirect(request)
     if user:
         return templates.TemplateResponse("index.html", {"request": request, "user": user})
@@ -116,28 +124,36 @@ async def panel_entry_page(request: Request):
 async def users_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("users.html", {"request": request, "user": user})
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("settings.html", {"request": request, "user": user})
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
-        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("logs.html", {"request": request, "user": user})
 
 if __name__ == "__main__":
     import uvicorn
+    import asyncio
+
+    async def get_configured_port() -> int:
+        await init_db()
+        p = await crud.get_setting("panel_port", "")
+        return int(p) if p and p.isdigit() else settings.PANEL_PORT
+
+    listen_port = asyncio.run(get_configured_port())
     uvicorn.run(
         "app.main:app",
         host=settings.PANEL_HOST,
-        port=settings.PANEL_PORT,
+        port=listen_port,
         reload=False
     )

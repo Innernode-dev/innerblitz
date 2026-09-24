@@ -124,7 +124,10 @@ configure_innerblitz() {
     LISTEN_PORT=443
     PORT_HOP_RANGE="20000:50000"
     DOMAIN=""
-    PANEL_PORT=8080
+    RANDOM_PANEL_PORT=$(( 20000 + RANDOM % 40000 ))
+    RANDOM_PANEL_SECRET="node-$(openssl rand -hex 3)"
+    PANEL_PORT=$RANDOM_PANEL_PORT
+    PANEL_SECRET=$RANDOM_PANEL_SECRET
     ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
 
     if [ "$install_mode" -eq 2 ]; then
@@ -138,8 +141,11 @@ configure_innerblitz() {
         read -rp "Диапазон Port Hopping [20000:50000]: " user_hop
         PORT_HOP_RANGE=${user_hop:-"20000:50000"}
 
-        read -rp "Порт веб-панели [8080]: " user_panel_port
-        PANEL_PORT=${user_panel_port:-8080}
+        read -rp "Порт веб-панели [$RANDOM_PANEL_PORT]: " user_panel_port
+        PANEL_PORT=${user_panel_port:-$RANDOM_PANEL_PORT}
+
+        read -rp "Секретный URL-путь входа [$RANDOM_PANEL_SECRET]: " user_panel_secret
+        PANEL_SECRET=${user_panel_secret:-$RANDOM_PANEL_SECRET}
 
         read -rp "Пароль администратора веб-панели [$ADMIN_PASS]: " user_pass
         ADMIN_PASS=${user_pass:-$ADMIN_PASS}
@@ -150,6 +156,9 @@ configure_innerblitz() {
     # Run CLI init
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" init
     
+    # Set panel access (custom or random port & secret path)
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-panel-access --port "$PANEL_PORT" --path "$PANEL_SECRET"
+
     # Generate IP Certificate
     TARGET_HOST=${DOMAIN:-$SERVER_IP}
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" gen-ip-cert --ip "$TARGET_HOST"
@@ -207,13 +216,16 @@ print_summary() {
     echo -e "${C_GREEN}${C_BOLD}        🎉 InnerBlitz Panel успешно установлена! 🎉          ${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}"
     echo ""
-    echo -e " ${C_BOLD}🌐 Веб-панель управления:${C_RESET} ${C_CYAN}http://${SERVER_IP}:${PANEL_PORT}${C_RESET}"
-    echo -e " ${C_BOLD}👤 Логин администратора:${C_RESET}  ${C_WHITE}admin${C_RESET}"
-    echo -e " ${C_BOLD}🔑 Пароль администратора:${C_RESET} ${C_YELLOW}${ADMIN_PASS}${C_RESET}"
+    echo -e " ${C_BOLD}🌐 Секретная ссылка на панель:${C_RESET} ${C_CYAN}http://${SERVER_IP}:${PANEL_PORT}/${PANEL_SECRET}${C_RESET}"
+    echo -e " ${C_BOLD}👤 Логин администратора:${C_RESET}       ${C_WHITE}admin${C_RESET}"
+    echo -e " ${C_BOLD}🔑 Пароль администратора:${C_RESET}      ${C_YELLOW}${ADMIN_PASS}${C_RESET}"
     echo ""
-    echo -e " ${C_BOLD}🔒 Порт Hysteria 2:${C_RESET}       ${C_WHITE}${LISTEN_PORT} UDP${C_RESET}"
-    echo -e " ${C_BOLD}⚡ Port Hopping диапазон:${C_RESET} ${C_WHITE}${PORT_HOP_RANGE}${C_RESET}"
-    echo -e " ${C_BOLD}🛡️ Сертификат на IP:${C_RESET}     ${C_GREEN}Активен (SAN + pinSHA256)${C_RESET}"
+    echo -e " ${C_BOLD}🛡️ Маскировка от РКН/сканеров:${C_RESET} ${C_GREEN}АКТИВНА (Decoy Cloud Node)${C_RESET}"
+    echo -e "   ${C_GRAY}(Корень http://${SERVER_IP}:${PANEL_PORT}/ показывает открытый IT-проект)${C_RESET}"
+    echo ""
+    echo -e " ${C_BOLD}🔒 Порт Hysteria 2:${C_RESET}            ${C_WHITE}${LISTEN_PORT} UDP${C_RESET}"
+    echo -e " ${C_BOLD}⚡ Port Hopping диапазон:${C_RESET}      ${C_WHITE}${PORT_HOP_RANGE}${C_RESET}"
+    echo -e " ${C_BOLD}🛡️ Сертификат на IP:${C_RESET}          ${C_GREEN}Активен (SAN + pinSHA256)${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}Команда управления в терминале:${C_RESET} ${C_PURPLE}${C_BOLD}blitz${C_RESET} (или ${C_CYAN}inb${C_RESET}, ${C_CYAN}hys2${C_RESET})"
     echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}\n"

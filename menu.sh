@@ -178,10 +178,11 @@ manage_webpanel_menu() {
         print_header
         echo -e "${C_CYAN}${C_BOLD}=== Управление веб-панелью ===${C_RESET}\n"
         echo -e " ${C_GREEN}[1]${C_RESET} Сменить пароль администратора"
-        echo -e " ${C_GREEN}[2]${C_RESET} Показать ссылку для входа"
-        echo -e " ${C_GREEN}[3]${C_RESET} Перезапустить службу панели"
+        echo -e " ${C_GREEN}[2]${C_RESET} Показать секретную ссылку для входа"
+        echo -e " ${C_GREEN}[3]${C_RESET} Сменить порт панели и секретный URL-путь"
+        echo -e " ${C_GREEN}[4]${C_RESET} Перезапустить службу панели"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад\n"
-        read -rp "Выберите пункт [0-3]: " wopt
+        read -rp "Выберите пункт [0-4]: " wopt
 
         case "$wopt" in
             1)
@@ -192,12 +193,25 @@ manage_webpanel_menu() {
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             2)
-                local ip_addr=$(curl -s4 -m 2 icanhazip.com || echo "IP_СЕРВЕРА")
-                echo -e "\n${C_GREEN}Ссылка для входа в панель:${C_RESET} http://${ip_addr}:8080"
-                echo -e "Логин по умолчанию: ${C_BOLD}admin${C_RESET}\n"
+                echo ""
+                $CLI_CMD show-panel-url
+                echo ""
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             3)
+                echo ""
+                read -rp "Новый порт панели (Enter чтобы оставить): " nport
+                read -rp "Новый секретный URL-путь (Enter чтобы оставить): " npath
+                cmd_p=()
+                if [ -n "$nport" ]; then cmd_p+=("--port" "$nport"); fi
+                if [ -n "$npath" ]; then cmd_p+=("--path" "$npath"); fi
+                if [ ${#cmd_p[@]} -gt 0 ]; then
+                    $CLI_CMD set-panel-access "${cmd_p[@]}"
+                    systemctl restart innerblitz.service || true
+                fi
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            4)
                 systemctl restart innerblitz.service
                 echo -e "${C_GREEN}✔ Служба innerblitz.service перезапущена.${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."

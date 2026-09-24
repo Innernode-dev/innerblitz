@@ -175,5 +175,33 @@ def set_admin_pwd(new_password):
         click.echo(click.style("✔ Admin password updated successfully.", fg="green"))
     run_async(_pwd())
 
+@cli.command("set-panel-access")
+@click.option("--port", default=None, help="Panel port")
+@click.option("--path", default=None, help="Secret URL path")
+def set_panel_access(port, path):
+    """Set custom panel port and secret URL path."""
+    async def _set():
+        await init_db()
+        updates = {}
+        if port: updates["panel_port"] = str(port)
+        if path: updates["panel_secret_path"] = str(path).strip("/ ")
+        if updates:
+            await crud.set_settings(updates)
+            click.echo(click.style(f"✔ Panel access updated: Port={port or 'unchanged'}, Path=/{path or 'unchanged'}", fg="green"))
+    run_async(_set())
+
+@cli.command("show-panel-url")
+def show_panel_url():
+    """Display current secret access URL for Web Panel."""
+    async def _show():
+        await init_db()
+        ip = await crud.get_setting("server_ip", "127.0.0.1")
+        port = await crud.get_setting("panel_port", "8080")
+        path = await crud.get_setting("panel_secret_path", "panel")
+        click.echo(click.style("=== InnerBlitz Stealth Panel Access ===", fg="cyan"))
+        click.echo(f"URL: http://{ip}:{port}/{path}")
+        click.echo(f"Decoy root URL: http://{ip}:{port}/ (Shows fake open-source cloud telemetry daemon)")
+    run_async(_show())
+
 if __name__ == "__main__":
     cli()

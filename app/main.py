@@ -58,6 +58,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Anti-scan camouflage middleware (masks Python/Uvicorn signatures to look like Nginx)
+@app.middleware("http")
+async def anti_scan_camouflage_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Server"] = "nginx/1.24.0 (Ubuntu)"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
 # Ensure static folder exists
 static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
@@ -88,6 +96,18 @@ async def login_page(request: Request):
     user = await check_auth_or_redirect(request)
     if user:
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+
+    expected_secret = await crud.get_setting("panel_secret_path", "panel")
+    decoy_enabled = await crud.get_setting("decoy_enabled", "1") == "1"
+
+    # If a custom secret path is active, hide the login page on standard /login to prevent discovery
+    if expected_secret not in ("login", "panel"):
+        if decoy_enabled:
+            theme = await crud.get_setting("decoy_theme", "innernode")
+            status_code = 404 if theme == "404" else 200
+            return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
     return templates.TemplateResponse("login.html", {"request": request})
 
 @app.get("/", response_class=HTMLResponse)
@@ -101,7 +121,9 @@ async def root_page(request: Request):
     
     # If unauthenticated and decoy enabled, render fake open-source cloud node page (anti-RKN)
     if decoy_enabled:
-        return templates.TemplateResponse("decoy.html", {"request": request})
+        theme = await crud.get_setting("decoy_theme", "innernode")
+        status_code = 404 if theme == "404" else 200
+        return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
         
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
@@ -138,15 +160,27 @@ async def secret_path_entry(secret_path: str, request: Request):
     expected_secret = await crud.get_setting("panel_secret_path", "panel")
     decoy_enabled = await crud.get_setting("decoy_enabled", "1") == "1"
 
-    if secret_path != expected_secret and secret_path != "panel":
+    if secret_path != expected_secret:
         if decoy_enabled:
-            return templates.TemplateResponse("decoy.html", {"request": request})
+            theme = await crud.get_setting("decoy_theme", "innernode")
+            status_code = 404 if theme == "404" else 200
+            return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
     user = await check_auth_or_redirect(request)
     if user:
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("login.html", {"request": request})
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc):
+    """Mask scanner 404 probes with decoy template."""
+    decoy_enabled = await crud.get_setting("decoy_enabled", "1") == "1"
+    if decoy_enabled:
+        theme = await crud.get_setting("decoy_theme", "innernode")
+        status_code = 404 if theme == "404" else 200
+        return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+    return HTMLResponse("<html><body><h1>404 Not Found</h1><hr><address>nginx/1.24.0 (Ubuntu)</address></body></html>", status_code=404)
 
 if __name__ == "__main__":
     import uvicorn
@@ -162,5 +196,6 @@ if __name__ == "__main__":
         "app.main:app",
         host=settings.PANEL_HOST,
         port=listen_port,
+        server_header=False,
         reload=False
     )

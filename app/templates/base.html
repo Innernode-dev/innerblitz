@@ -126,6 +126,12 @@
                 </div>
 
                 <div class="flex items-center gap-4">
+                    <!-- Stealth Mode Badge -->
+                    <div class="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-950/40 border border-purple-800/40 text-xs font-mono text-purple-300" title="Стелс-маскировка от РКН активна">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <span id="headerStealthBadge">Стелс: активен</span>
+                    </div>
+
                     <!-- Live Server IP Badge -->
                     <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs font-mono text-slate-300">
                         <i data-lucide="globe" class="w-3.5 h-3.5 text-brand-400"></i>
@@ -193,6 +199,14 @@
                 if (setRes.ok) {
                     const s = await setRes.json();
                     document.getElementById('headerServerIp').textContent = s.server_ip || s.server_domain || '127.0.0.1';
+                    if (s.admin_username) {
+                        const admEl = document.getElementById('currentAdminName');
+                        if (admEl) admEl.textContent = s.admin_username;
+                    }
+                    const badge = document.getElementById('headerStealthBadge');
+                    if (badge) {
+                        badge.textContent = `Стелс: /${s.panel_secret_path || 'panel'} :${s.panel_port || '8080'}`;
+                    }
                 }
             } catch (e) {}
         }

@@ -192,16 +192,19 @@ def set_admin_pwd(new_password):
 @cli.command("set-panel-access")
 @click.option("--port", default=None, help="Panel port")
 @click.option("--path", default=None, help="Secret URL path")
-def set_panel_access(port, path):
-    """Set custom panel port and secret URL path."""
+@click.option("--theme", default=None, help="Decoy theme (nginx, innernode, docs, 404)")
+def set_panel_access(port, path, theme):
+    """Set custom panel port, secret URL path, and decoy theme."""
     async def _set():
         await init_db()
         updates = {}
         if port: updates["panel_port"] = str(port)
         if path: updates["panel_secret_path"] = str(path).strip("/ ")
+        if theme: updates["decoy_theme"] = str(theme)
         if updates:
             await crud.set_settings(updates)
-            click.echo(click.style(f"✔ Panel access updated: Port={port or 'unchanged'}, Path=/{path or 'unchanged'}", fg="green"))
+            run_systemctl("restart", "innerblitz.service")
+            click.echo(click.style(f"✔ Panel access updated: Port={port or 'unchanged'}, Path=/{path or 'unchanged'}, Decoy Theme={theme or 'unchanged'}", fg="green"))
     run_async(_set())
 
 @cli.command("reset-panel-access")
@@ -218,6 +221,8 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
         if use_random:
             updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
             updates["panel_secret_path"] = f"node-{secrets.token_hex(3)}"
+            updates["decoy_enabled"] = "1"
+            updates["decoy_theme"] = "nginx"
         else:
             updates["panel_port"] = str(port or "8080")
             updates["panel_secret_path"] = str(path or "panel").strip("/ ")
@@ -287,25 +292,33 @@ def show_panel_url():
         port = await crud.get_setting("panel_port", "8080")
         path = await crud.get_setting("panel_secret_path", "panel")
         user = await crud.get_setting("admin_username", "admin")
+        decoy_on = await crud.get_setting("decoy_enabled", "1") == "1"
+        theme = await crud.get_setting("decoy_theme", "nginx")
         totp_on = await crud.get_setting("totp_enabled", "0") == "1"
         tg_on = await crud.get_setting("tg_2fa_enabled", "0") == "1"
 
         click.echo(click.style("\n=== InnerBlitz Stealth Panel Access ===", fg="cyan", bold=True))
         click.echo(f"Web Panel URL:  http://{ip}:{port}/{path}")
-        click.echo(f"Decoy Root URL: http://{ip}:{port}/ (Anti-RKN Decoy Dashboard)")
+        click.echo(f"Secret Path:    /{path}")
+        click.echo(f"Port:           {port}")
+        click.echo(f"Decoy Root URL: http://{ip}:{port}/ (Статус: {'Активен' if decoy_on else 'Выключен'}, Тема: {theme})")
         click.echo(f"Admin Username: {user}")
         click.echo(f"2FA Status:     {'Google TOTP' if totp_on else ('Telegram' if tg_on else 'Disabled')}\n")
     run_async(_show())
 
 @cli.command("toggle-decoy")
 @click.option("--enable/--disable", default=True, help="Enable or disable decoy site on root /")
-def toggle_decoy(enable):
+@click.option("--theme", default=None, help="Camouflage theme: nginx, innernode, docs, 404")
+def toggle_decoy(enable, theme):
     """Enable or disable Anti-RKN decoy site on root URL /."""
     async def _decoy():
         await init_db()
-        await crud.set_setting("decoy_enabled", "1" if enable else "0")
+        updates = {"decoy_enabled": "1" if enable else "0"}
+        if theme:
+            updates["decoy_theme"] = theme
+        await crud.set_settings(updates)
         run_systemctl("restart", "innerblitz.service")
-        click.echo(click.style(f"✔ Anti-RKN Decoy site {'enabled' if enable else 'disabled'}.", fg="green"))
+        click.echo(click.style(f"✔ Anti-RKN Decoy site {'enabled' if enable else 'disabled'} (Theme: {theme or 'unchanged'}).", fg="green"))
     run_async(_decoy())
 
 @cli.command("optimize-bbr")

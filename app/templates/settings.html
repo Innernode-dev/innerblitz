@@ -30,30 +30,60 @@
                 <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Текущий секретный URL-адрес входа:</span>
                 <span class="font-mono text-sm text-purple-300 font-bold" id="panelLiveUrl">http://...</span>
             </div>
-            <button onclick="copyToClipboard('panelLiveUrlText')" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
-                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
-                <span>Копировать</span>
-            </button>
+            <div class="flex items-center gap-2">
+                <a id="panelLiveUrlLink" href="#" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                    <span>Открыть</span>
+                </a>
+                <button onclick="copyToClipboard('panelLiveUrlText')" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                    <span>Копировать</span>
+                </button>
+            </div>
             <input type="hidden" id="panelLiveUrlText">
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Порт веб-панели (рекомендуется 20000–60000)</label>
                 <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080" 
                        class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
-                <span class="text-[11px] text-slate-500">Нестандартный порт защищает от автоматических сканеров провайдеров</span>
+                <span class="text-[11px] text-slate-500">Нестандартный порт защищает от массовых сканеров</span>
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-300 mb-1">Секретный URL-путь входа</label>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Секретная директория входа (URL-путь)</label>
                 <div class="flex items-center">
                     <span class="px-3.5 py-2.5 bg-slate-900/90 border border-r-0 border-slate-800 text-slate-500 text-sm rounded-l-xl">/</span>
                     <input type="text" id="cfgPanelSecretPath" placeholder="node-xxxx" 
                            class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
                 </div>
-                <span class="text-[11px] text-slate-500">Например: <code>node-a9f2</code> или <code>mysecretpanel</code></span>
+                <span class="text-[11px] text-slate-500">Например: <code>node-a9f2</code> или <code>sys-auth</code></span>
             </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Тема маскировки Decoy (Anti-RKN)</label>
+                <select id="cfgDecoyTheme" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                    <option value="nginx">Веб-сервер Nginx (Максимальная маскировка)</option>
+                    <option value="innernode">Облачный узел InnerNode Daemon</option>
+                    <option value="docs">Техническая документация Edge API</option>
+                    <option value="404">Черная дыра (Имитация закрытого порта 404)</option>
+                </select>
+                <span class="text-[11px] text-slate-500">Отображается сканерам и при открытии корня /</span>
+            </div>
+        </div>
+
+        <!-- Protection Explainer -->
+        <div class="p-4 rounded-xl bg-purple-950/20 border border-purple-800/30 space-y-1.5 text-xs text-slate-300">
+            <span class="font-bold text-purple-300 flex items-center gap-1.5">
+                <i data-lucide="shield-check" class="w-4 h-4"></i>
+                Как работает защита от блокировок РКН и провайдеров:
+            </span>
+            <ul class="list-disc list-inside space-y-1 text-slate-400 pl-1 text-[11px]">
+                <li><b class="text-slate-300">Скрытый порт:</b> Сканеры блокировок обычно проверяют стандартные 80, 443, 8080, 8443, 2053, 2096. Порты 20000+ игнорируются ботами.</li>
+                <li><b class="text-slate-300">Секретная директория:</b> Панель открывается только по заданному URL-пути. Вход по <code>/login</code> отключен.</li>
+                <li><b class="text-slate-300">Сайт-приманка с заголовками Nginx:</b> Любые сторонние запросы видят сайт-приманку с HTTP-заголовком <code>Server: nginx/1.24.0 (Ubuntu)</code>.</li>
+            </ul>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 pt-2">
@@ -347,9 +377,14 @@
 
                 document.getElementById('panelLiveUrl').textContent = liveUrl;
                 document.getElementById('panelLiveUrlText').value = liveUrl;
+                const liveLink = document.getElementById('panelLiveUrlLink');
+                if (liveLink) liveLink.href = liveUrl;
                 document.getElementById('cfgPanelPort').value = port;
                 document.getElementById('cfgPanelSecretPath').value = path;
                 document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
+                if (document.getElementById('cfgDecoyTheme')) {
+                    document.getElementById('cfgDecoyTheme').value = currentSettings.decoy_theme || 'nginx';
+                }
 
                 document.getElementById('adminUsernameInput').value = currentSettings.admin_username || 'admin';
                 document.getElementById('cfgTgBotToken').value = currentSettings.tg_bot_token || '';
@@ -389,8 +424,10 @@
 
     async function savePanelAccessManual() {
         const port = document.getElementById('cfgPanelPort').value.trim();
-        const path = document.getElementById('cfgPanelSecretPath').value.trim();
+        const rawPath = document.getElementById('cfgPanelSecretPath').value.trim();
+        const path = rawPath.replace(/^\/+|\/+$/g, '');
         const decoy = document.getElementById('cfgDecoyEnabled').checked;
+        const theme = document.getElementById('cfgDecoyTheme') ? document.getElementById('cfgDecoyTheme').value : 'nginx';
 
         if (!port) return showToast('Укажите порт панели', 'error');
         if (!path) return showToast('Укажите секретный путь', 'error');
@@ -399,12 +436,12 @@
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ panel_port: port, panel_secret_path: path, decoy_enabled: decoy })
+                body: JSON.stringify({ panel_port: port, panel_secret_path: path, decoy_enabled: decoy, decoy_theme: theme })
             });
             if (res.ok) {
-                showToast('Параметры сохранены! Перенаправление...', 'success');
+                showToast('Параметры сохранены! Перенаправление на новый адрес...', 'success');
                 const ip = currentSettings.server_ip || window.location.hostname;
-                setTimeout(() => { window.location.href = `http://${ip}:${port}/${path}`; }, 1500);
+                setTimeout(() => { window.location.href = `http://${ip}:${port}/${path}`; }, 1600);
             } else {
                 showToast('Ошибка сохранения', 'error');
             }

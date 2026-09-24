@@ -157,7 +157,7 @@ configure_innerblitz() {
         read -rp "Порт веб-панели [$RANDOM_PANEL_PORT]: " user_panel_port
         PANEL_PORT=${user_panel_port:-$RANDOM_PANEL_PORT}
 
-        read -rp "Секретный URL-путь входа [$RANDOM_PANEL_SECRET]: " user_panel_secret
+        read -rp "Секретная директория входа (URL-путь) [$RANDOM_PANEL_SECRET]: " user_panel_secret
         PANEL_SECRET=${user_panel_secret:-$RANDOM_PANEL_SECRET}
 
         read -rp "Пароль администратора веб-панели [$ADMIN_PASS]: " user_pass
@@ -169,8 +169,8 @@ configure_innerblitz() {
     # Run CLI init
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" init
     
-    # Set panel access (custom or random port & secret path)
-    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-panel-access --port "$PANEL_PORT" --path "$PANEL_SECRET"
+    # Set panel access (custom or random port & secret path + stealth decoy)
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-panel-access --port "$PANEL_PORT" --path "$PANEL_SECRET" --theme "nginx"
 
     # Generate IP Certificate
     TARGET_HOST=${DOMAIN:-$SERVER_IP}
@@ -233,8 +233,8 @@ print_summary() {
     echo -e " ${C_BOLD}👤 Логин администратора:${C_RESET}       ${C_WHITE}admin${C_RESET}"
     echo -e " ${C_BOLD}🔑 Пароль администратора:${C_RESET}      ${C_YELLOW}${ADMIN_PASS}${C_RESET}"
     echo ""
-    echo -e " ${C_BOLD}🛡️ Маскировка от РКН/сканеров:${C_RESET} ${C_GREEN}АКТИВНА (Decoy Cloud Node)${C_RESET}"
-    echo -e "   ${C_GRAY}(Корень http://${SERVER_IP}:${PANEL_PORT}/ показывает открытый IT-проект)${C_RESET}"
+    echo -e " ${C_BOLD}🛡️ Маскировка от РКН/сканеров:${C_RESET} ${C_GREEN}АКТИВНА (Decoy Nginx/Cloud Node)${C_RESET}"
+    echo -e "   ${C_GRAY}(Корень http://${SERVER_IP}:${PANEL_PORT}/ и сторонние запросы маскируются под Nginx)${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}🔒 Порт Hysteria 2:${C_RESET}            ${C_WHITE}${LISTEN_PORT} UDP${C_RESET}"
     echo -e " ${C_BOLD}⚡ Port Hopping диапазон:${C_RESET}      ${C_WHITE}${PORT_HOP_RANGE}${C_RESET}"

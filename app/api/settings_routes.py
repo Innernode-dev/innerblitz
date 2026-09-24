@@ -47,6 +47,7 @@ class SettingsPayload(BaseModel):
     tg_2fa_enabled: Optional[bool] = None
     tg_notifications_enabled: Optional[bool] = None
     decoy_enabled: Optional[bool] = None
+    decoy_theme: Optional[str] = None
     panel_port: Optional[str] = None
     panel_secret_path: Optional[str] = None
 
@@ -96,6 +97,13 @@ async def update_settings(payload: SettingsPayload):
             hopping_range = updates.get("port_hopping_range", "20000:50000")
             target_port = int(updates.get("listen_port", 443))
             configure_port_hopping(hopping_range, target_port, enable=hopping_on)
+
+        # If panel port changed, schedule service restart after response is sent
+        if "panel_port" in updates:
+            try:
+                subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+            except Exception:
+                pass
 
     return {"ok": True, "message": "Settings updated and Hysteria config applied"}
 
@@ -258,6 +266,12 @@ async def reset_panel_access_endpoint(payload: ResetPanelPayload):
 
     await crud.set_settings(updates)
     server_ip = await crud.get_setting("server_ip", "127.0.0.1")
+
+    # Schedule background service restart to bind new port
+    try:
+        subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+    except Exception:
+        pass
 
     return {
         "ok": True,

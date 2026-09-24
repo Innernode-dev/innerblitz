@@ -1,3 +1,85 @@
+{% if theme == 'nginx' %}
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+{% elif theme == '404' %}
+<!DOCTYPE html>
+<html>
+<head><title>404 Not Found</title></head>
+<body>
+<center><h1>404 Not Found</h1></center>
+<hr><center>nginx/1.24.0 (Ubuntu)</center>
+</body>
+</html>
+{% elif theme == 'docs' %}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge API & Node Telemetry Docs</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+    <header class="border-b border-slate-800 bg-slate-950/80 px-8 py-4 flex items-center justify-between sticky top-0">
+        <div class="flex items-center gap-3">
+            <i data-lucide="book-open" class="w-6 h-6 text-indigo-400"></i>
+            <span class="font-bold text-lg">Cloud Edge REST API</span>
+            <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-mono">v1.4.2</span>
+        </div>
+        <div class="text-xs text-emerald-400 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>API Gateway Online</span>
+        </div>
+    </header>
+    <main class="max-w-4xl mx-auto px-6 py-12 space-y-8">
+        <div>
+            <h1 class="text-3xl font-bold text-white">Edge Node Telemetry & Orchestration API</h1>
+            <p class="text-slate-400 text-sm mt-2">Public endpoints for monitoring cluster heartbeats and ingress packet metrics.</p>
+        </div>
+        <div class="space-y-4">
+            <div class="border border-slate-800 rounded-xl p-5 bg-slate-950/60">
+                <div class="flex items-center gap-3 font-mono text-sm">
+                    <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold">GET</span>
+                    <span class="text-slate-200">/health</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Returns edge node availability and load average.</p>
+                <pre class="bg-slate-900 p-3 rounded-lg text-xs font-mono text-slate-300 mt-3">{ "status": "UP", "uptime": 86420, "quic_datagrams": 14092 }</pre>
+            </div>
+            <div class="border border-slate-800 rounded-xl p-5 bg-slate-950/60">
+                <div class="flex items-center gap-3 font-mono text-sm">
+                    <span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold">GET</span>
+                    <span class="text-slate-200">/metrics</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-2">Standard Prometheus edge metrics endpoint.</p>
+            </div>
+        </div>
+    </main>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
+{% else %}
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -99,3 +181,4 @@
     </script>
 </body>
 </html>
+{% endif %}

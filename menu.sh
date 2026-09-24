@@ -286,15 +286,26 @@ manage_ports_menu() {
 manage_webpanel_menu() {
     while true; do
         print_header
-        echo -e "${C_CYAN}${C_BOLD}=== 🖥️ Управление веб-панелью ===${C_RESET}\n"
+        echo -e "${C_CYAN}${C_BOLD}=== 🖥️ Управление веб-панелью и Стелс-защитой ===${C_RESET}\n"
+
+        local p_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_port', '8080')))" 2>/dev/null || echo "8080")
+        local p_path=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_secret_path', 'panel')))" 2>/dev/null || echo "panel")
+        local p_decoy=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
+        local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
+        local cur_ip=$(detect_server_ip)
+
+        echo -e " 🌐 Секретный адрес входа: ${C_CYAN}${C_BOLD}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
+        echo -e " 📁 Секретная директория: ${C_WHITE}/${p_path}${C_RESET} | Порт панели: ${C_WHITE}${p_port}${C_RESET}"
+        echo -e " 🛡️ Маскировка от РКН (Decoy): $([ "$p_decoy" == "1" ] && echo -e "${C_GREEN}АКТИВНА (${p_theme})${C_RESET}" || echo -e "${C_RED}ВЫКЛЮЧЕНА${C_RESET})\n"
+
         echo -e " ${C_GREEN}[1]${C_RESET} 🌐 Показать секретную ссылку для входа и реквизиты"
         echo -e " ${C_GREEN}[2]${C_RESET} 👤 Сменить логин администратора"
         echo -e " ${C_GREEN}[3]${C_RESET} 🔑 Сменить пароль администратора"
-        echo -e " ${C_GREEN}[4]${C_RESET} ⚙️ Сменить порт панели и секретный URL-путь вручную"
-        echo -e " ${C_GREEN}[5]${C_RESET} 🎲 Сгенерировать новый случайный stealth-порт и путь"
-        echo -e " ${C_YELLOW}[6]${C_RESET} ${C_BOLD}🔄 Сбросить настройки панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
-        echo -e " ${C_RED}[7]${C_RESET} 🚨 Экстренно отключить 2FA (TOTP + Telegram подтверждение)"
-        echo -e " ${C_GREEN}[8]${C_RESET} 🎭 Включить / Выключить сайт-приманку (Decoy Anti-RKN)"
+        echo -e " ${C_GREEN}[4]${C_RESET} ⚙️ Сменить порт панели и секретную директорию (URL-путь) вручную"
+        echo -e " ${C_GREEN}[5]${C_RESET} 🎲 ${C_BOLD}Сгенерировать случайный stealth-порт и директорию (Защита от РКН)${C_RESET}"
+        echo -e " ${C_GREEN}[6]${C_RESET} 🎭 Настроить маскировку от РКН (Decoy сайт и темы Nginx/Cloud)"
+        echo -e " ${C_YELLOW}[7]${C_RESET} ${C_BOLD}🔄 Сбросить настройки панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
+        echo -e " ${C_RED}[8]${C_RESET} 🚨 Экстренно отключить 2FA (TOTP + Telegram подтверждение)"
         echo -e " ${C_GREEN}[9]${C_RESET} 🔄 Перезапустить службу веб-панели"
         echo -e " ${C_GREEN}[10]${C_RESET} 📜 Просмотреть логи веб-панели"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад в главное меню\n"
@@ -325,24 +336,44 @@ manage_webpanel_menu() {
                 ;;
             4)
                 echo ""
-                read -rp "Новый порт панели (Enter чтобы оставить прежний): " nport
-                read -rp "Новый секретный URL-путь (например: mypanel) (Enter чтобы оставить): " npath
+                read -rp "Новый порт панели (Enter чтобы оставить прежний $p_port): " nport
+                read -rp "Новая секретная директория входа (например: node-xyz) (Enter чтобы оставить): " npath
                 cmd_p=()
                 if [ -n "$nport" ]; then cmd_p+=("--port" "$nport"); fi
                 if [ -n "$npath" ]; then cmd_p+=("--path" "$npath"); fi
                 if [ ${#cmd_p[@]} -gt 0 ]; then
                     $CLI_CMD set-panel-access "${cmd_p[@]}"
-                    systemctl restart innerblitz.service || true
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             5)
                 echo ""
-                echo -e "${C_CYAN}Генерация случайного stealth-порта (20000–60000) и пути (/node-XXXX)...${C_RESET}"
+                echo -e "${C_CYAN}Генерация случайного stealth-порта (20000–60000) и директории (/node-XXXX)...${C_RESET}"
                 $CLI_CMD reset-panel-access --random
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             6)
+                echo ""
+                echo -e "${C_CYAN}${C_BOLD}=== 🎭 Настройка сайта-приманки (Decoy Anti-RKN) ===${C_RESET}"
+                echo -e " 1) Переключить статус (Включить / Выключить)"
+                echo -e " 2) Выбрать тему: Nginx (Ubuntu Default — Рекомендуется)"
+                echo -e " 3) Выбрать тему: InnerNode Cloud Telemetry Daemon"
+                echo -e " 4) Выбрать тему: Edge REST API Docs"
+                echo -e " 5) Выбрать тему: Черная дыра (Имитация закрытого порта 404)"
+                read -rp "Выберите пункт [1-5]: " dopt
+                case "$dopt" in
+                    1)
+                        local dec_target=$([ "$p_decoy" == "1" ] && echo "--disable" || echo "--enable")
+                        $CLI_CMD toggle-decoy $dec_target
+                        ;;
+                    2) $CLI_CMD toggle-decoy --enable --theme "nginx" ;;
+                    3) $CLI_CMD toggle-decoy --enable --theme "innernode" ;;
+                    4) $CLI_CMD toggle-decoy --enable --theme "docs" ;;
+                    5) $CLI_CMD toggle-decoy --enable --theme "404" ;;
+                esac
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            7)
                 echo ""
                 echo -e "${C_YELLOW}${C_BOLD}=== Мастер сброса настроек доступа к панели ===${C_RESET}"
                 echo -e " 1) Сбросить на стандартный порт 8080 и путь /panel"
@@ -364,19 +395,12 @@ manage_webpanel_menu() {
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
-            7)
+            8)
                 echo ""
                 read -rp "Действительно отключить 2FA для входа? (y/N): " c2fa
                 if [[ "$c2fa" =~ ^[Yy]$ ]]; then
                     $CLI_CMD disable-2fa
                 fi
-                read -rp "Нажмите Enter для продолжения..."
-                ;;
-            8)
-                echo ""
-                local dec_cur=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
-                local dec_target=$([ "$dec_cur" == "1" ] && echo "--disable" || echo "--enable")
-                $CLI_CMD toggle-decoy $dec_target
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             9)

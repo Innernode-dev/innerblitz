@@ -1,4 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import tarfile
+import tempfile
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import secrets
@@ -9,6 +14,7 @@ import base64
 import subprocess
 from pathlib import Path
 
+from app.config import settings
 from app.api.auth_routes import get_current_admin
 from app.database import crud
 from app.core.security import (
@@ -16,7 +22,7 @@ from app.core.security import (
     get_totp_uri, verify_totp
 )
 from app.core.cert import generate_self_signed_cert
-from app.core.hysteria import apply_and_save_config, restart_hysteria
+from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl
 from app.core.firewall import configure_port_hopping, flush_port_hopping
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(get_current_admin)])
@@ -287,4 +293,80 @@ net.ipv4.ip_forward = 1
         return {"ok": False, "message": "/etc/sysctl.d not found on this system"}
     except Exception as e:
         return {"ok": False, "message": str(e)}
+
+class RawConfigPayload(BaseModel):
+    content: str
+
+@router.get("/raw-config")
+async def get_raw_config():
+    """Retrieve raw Hysteria 2 config.yaml content."""
+    cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+    if cfg_path.exists():
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        return {"ok": True, "content": content}
+    return {"ok": False, "content": "# Config not found on disk"}
+
+@router.post("/raw-config")
+async def save_raw_config(payload: RawConfigPayload):
+    """Save raw Hysteria 2 config.yaml content and restart core."""
+    try:
+        cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+        cfg_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(cfg_path, "w", encoding="utf-8") as f:
+            f.write(payload.content)
+        ok, out = restart_hysteria()
+        return {"ok": ok, "message": "Raw YAML config applied and Hysteria restarted!", "output": out}
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
+
+@router.get("/backup/download")
+async def download_backup_endpoint():
+    """Create and download a full backup archive of SQLite DB and certificates."""
+    try:
+        data_dir = Path(settings.DATA_DIR)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_dir = Path("/etc/hysteria/backups")
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        target_file = backup_dir / f"innerblitz_backup_{timestamp}.tar.gz"
+
+        with tarfile.open(target_file, "w:gz") as tar:
+            if data_dir.exists():
+                tar.add(data_dir, arcname="data")
+            if Path(settings.HYSTERIA_CONFIG_PATH).exists():
+                tar.add(settings.HYSTERIA_CONFIG_PATH, arcname="config.yaml")
+
+        return FileResponse(
+            path=str(target_file),
+            filename=f"innerblitz_backup_{timestamp}.tar.gz",
+            media_type="application/gzip"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/backup/upload")
+async def upload_backup_endpoint(file: UploadFile = File(...)):
+    """Upload and restore from a backup archive."""
+    if not file.filename.endswith((".tar.gz", ".tgz")):
+        raise HTTPException(status_code=400, detail="Only .tar.gz backup archives supported")
+    
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".tar.gz") as tmp:
+        content = await file.read()
+        tmp.write(content)
+        tmp_path = tmp.name
+
+    try:
+        run_systemctl("stop", "innerblitz.service")
+        run_systemctl("stop", "hysteria-server.service")
+        with tarfile.open(tmp_path, "r:gz") as tar:
+            tar.extractall(path="/etc/hysteria")
+        run_systemctl("start", "innerblitz.service")
+        run_systemctl("start", "hysteria-server.service")
+        return {"ok": True, "message": "System successfully restored from backup archive!"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Restore failed: {e}")
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
 

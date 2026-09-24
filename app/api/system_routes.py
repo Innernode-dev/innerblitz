@@ -69,7 +69,19 @@ async def get_system_stats():
         "traffic_history": history
     }
 
+def get_service_logs(service_name: str, lines: int = 80) -> str:
+    """Safely get recent journalctl logs for given systemd unit."""
+    try:
+        import subprocess
+        unit = "hysteria-server.service" if service_name == "hysteria" else "innerblitz.service"
+        cmd = ["journalctl", "-u", unit, "-n", str(lines), "--no-pager"]
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+        return res.stdout or f"No logs available for {unit}."
+    except Exception as e:
+        return f"Error fetching logs: {e}"
+
 @router.get("/logs")
-async def get_logs():
-    """Retrieve recent journalctl logs for Hysteria 2."""
-    return {"logs": get_hysteria_logs(lines=60)}
+async def get_logs(service: str = "hysteria", lines: int = 80):
+    """Retrieve recent journalctl logs for Hysteria 2 or InnerBlitz panel."""
+    return {"logs": get_service_logs(service_name=service, lines=lines)}
+

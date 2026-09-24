@@ -85,13 +85,25 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1">Лимит трафика (GB)</label>
                     <input type="number" id="modalTraffic" step="0.5" min="0" value="30" 
                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                    <span class="text-[11px] text-slate-500">0 = Безлимитный трафик</span>
+                    <div class="flex flex-wrap gap-1 mt-1.5">
+                        <button type="button" onclick="document.getElementById('modalTraffic').value=10" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">10G</button>
+                        <button type="button" onclick="document.getElementById('modalTraffic').value=30" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">30G</button>
+                        <button type="button" onclick="document.getElementById('modalTraffic').value=50" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">50G</button>
+                        <button type="button" onclick="document.getElementById('modalTraffic').value=100" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">100G</button>
+                        <button type="button" onclick="document.getElementById('modalTraffic').value=0" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">∞</button>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Срок (дней)</label>
                     <input type="number" id="modalDays" min="0" value="30" 
                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                    <span class="text-[11px] text-slate-500">0 = Бессрочный доступ</span>
+                    <div class="flex flex-wrap gap-1 mt-1.5">
+                        <button type="button" onclick="document.getElementById('modalDays').value=7" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">7д</button>
+                        <button type="button" onclick="document.getElementById('modalDays').value=30" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">30д</button>
+                        <button type="button" onclick="document.getElementById('modalDays').value=90" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">90д</button>
+                        <button type="button" onclick="document.getElementById('modalDays').value=365" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">1г</button>
+                        <button type="button" onclick="document.getElementById('modalDays').value=0" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:bg-slate-700">∞</button>
+                    </div>
                 </div>
             </div>
 
@@ -156,7 +168,17 @@
             </div>
 
             <div>
-                <label class="block text-xs font-semibold text-slate-300 mb-1">Ссылка на веб-портал клиента</label>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Универсальная ссылка подписки (для импорта)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="subUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-purple-300">
+                    <button onclick="copyToClipboard('subUrlInput')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium transition">
+                        Копировать
+                    </button>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Ссылка на веб-портал самообслуживания клиента</label>
                 <div class="flex gap-2">
                     <input type="text" id="portalUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300">
                     <a id="portalLinkBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition">
@@ -397,6 +419,9 @@
                 document.getElementById('qrImage').src = data.qr_base64;
                 document.getElementById('hy2UriInput').value = data.uri;
                 
+                const subUrl = `${window.location.origin}/sub/${data.sub_token}`;
+                document.getElementById('subUrlInput').value = subUrl;
+
                 const portalUrl = `${window.location.origin}/portal/${data.sub_token}`;
                 document.getElementById('portalUrlInput').value = portalUrl;
                 document.getElementById('portalLinkBtn').href = portalUrl;

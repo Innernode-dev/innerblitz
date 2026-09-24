@@ -1,0 +1,496 @@
+{% extends "base.html" %}
+
+{% block title %}Узел / Инбаунд{% endblock %}
+{% block page_title %}Конфигурация узла Hysteria 2 (Inbound){% endblock %}
+
+{% block content %}
+<div class="space-y-8 max-w-6xl">
+
+    <!-- Node Header Overview -->
+    <div class="glass-card rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border-l-4 border-l-brand-500">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center text-brand-400">
+                <i data-lucide="server" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-3">
+                    <h2 class="text-xl font-bold text-white">Основной узел Hysteria 2</h2>
+                    <span id="nodeStatusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Активен</span>
+                </div>
+                <p class="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                    <span>IP Сервера: <b class="text-slate-200 font-mono" id="nodeIpText">127.0.0.1</b></span>
+                    <span>•</span>
+                    <span id="nodeCoreVer">Ядро: Hysteria 2</span>
+                </p>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+            <button onclick="openRawConfigModal()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition border border-slate-700 flex items-center gap-1.5">
+                <i data-lucide="code" class="w-3.5 h-3.5 text-purple-400"></i>
+                <span>Редактировать YAML вручную</span>
+            </button>
+            <button onclick="restartCore()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium text-xs transition border border-slate-700 flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span>Перезапустить ядро</span>
+            </button>
+            <button onclick="saveNodeConfig()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition shadow-lg shadow-brand-600/30 flex items-center gap-1.5">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                <span>Сохранить и применить</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. Сетевые порты и Port Hopping -->
+    <div class="glass-card rounded-2xl p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4 flex items-center justify-between">
+            <div>
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="radio" class="w-5 h-5 text-brand-400"></i>
+                    <span>Порты прослушивания и Port Hopping</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Основной UDP-порт и скачки портов для обхода фильтрации операторов</p>
+            </div>
+            <button onclick="triggerResetPorts()" class="px-3 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                <span>Сбросить на 443 UDP</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Основной UDP порт Hysteria 2</label>
+                <input type="number" id="nodeListenPort" value="443" min="1" max="65535" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                <span class="text-[11px] text-slate-500">Порт, на котором слушает сервис Hysteria 2 (обычно 443)</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Диапазон Port Hopping (UDP)</label>
+                <input type="text" id="nodePortHoppingRange" value="20000:50000" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                <span class="text-[11px] text-slate-500">Формат: НАЧАЛО:КОНЕЦ (например, 20000:50000)</span>
+            </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1 border-t border-slate-800/60">
+            <div class="flex items-center gap-3">
+                <input type="checkbox" id="nodePortHoppingEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                <label for="nodePortHoppingEnabled" class="text-sm font-medium text-slate-200">
+                    Активировать Port Hopping (скачки портов через iptables NAT REDIRECT)
+                </label>
+            </div>
+            <button onclick="triggerFlushHopping()" class="text-xs text-slate-400 hover:text-red-400 transition flex items-center gap-1">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                <span>Очистить правила iptables</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- 2. TLS Сертификаты (IP SAN & ACME) -->
+    <div class="glass-card rounded-2xl p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="lock" class="w-5 h-5 text-brand-400"></i>
+                <span>Криптографический TLS сертификат</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Шифрование QUIC канала на IP-адрес или домен</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Режим TLS сертификата</label>
+                <select id="nodeTlsType" onchange="toggleTlsDomainField()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                    <option value="self_signed_ip">Сертификат на IP (ECDSA SAN + pinSHA256) — Без домена</option>
+                    <option value="acme">Let's Encrypt (ACME) — Для домена</option>
+                </select>
+                <span class="text-[11px] text-slate-500">Режим на IP позволяет подключаться сразу без регистрации домена</span>
+            </div>
+
+            <div id="domainFieldContainer">
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Доменное имя (для Let's Encrypt)</label>
+                <input type="text" id="nodeServerDomain" placeholder="sub.domain.com" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                <span class="text-[11px] text-slate-500">Домен должен указывать на IP сервера</span>
+            </div>
+        </div>
+
+        <!-- IP Cert Pin Card -->
+        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2 text-emerald-400 text-sm font-semibold">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i>
+                    <span>Отпечаток сертификата pinSHA256 (защита от MITM):</span>
+                </div>
+                <button onclick="triggerGenerateIpCert()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <span>Перевыпустить сертификат на IP</span>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <input type="text" id="nodeCertSha256" readonly class="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300">
+                <button onclick="copyToClipboard('nodeCertSha256')" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition">
+                    Копировать
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Анти-DPI, Salamander Obfs и Masquerade -->
+    <div class="glass-card rounded-2xl p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="eye-off" class="w-5 h-5 text-brand-400"></i>
+                <span>Анти-DPI маскировка (Salamander Obfs и Masquerade)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Превращение QUIC трафика в случайный шум против блокировок РКН/ТСПУ</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Пароль обфускации Salamander</label>
+                <div class="flex gap-2">
+                    <input type="text" id="nodeObfsPassword" placeholder="Ключ обфускации" 
+                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+                    <button onclick="generateRandomObfs()" class="px-3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center gap-1">
+                        <i data-lucide="dice-5" class="w-3.5 h-3.5"></i>
+                        <span>🎲</span>
+                    </button>
+                </div>
+                <span class="text-[11px] text-slate-500">Ключ для XOR-маскировки пакетов протокола</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Masquerade сайт (Маскировка HTTP/3)</label>
+                <input type="text" id="nodeMasqueradeTarget" value="https://bing.com" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                <span class="text-[11px] text-slate-500">Сайт, отображаемый неавторизованным запросам сканеров</span>
+            </div>
+        </div>
+
+        <!-- Presets -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <button onclick="applyPresetDirect('anti-dpi')" class="p-4 rounded-xl bg-slate-900/90 border border-brand-500/30 hover:border-brand-500 text-left transition space-y-1">
+                <div class="font-bold text-white text-sm flex items-center gap-1.5">
+                    <i data-lucide="shield" class="w-4 h-4 text-brand-400"></i>
+                    <span>🛡️ Пресет «Анти-DPI»</span>
+                </div>
+                <p class="text-xs text-slate-400">Salamander Obfs, Port Hopping и маскировка на Bing.</p>
+            </button>
+
+            <button onclick="applyPresetDirect('speed')" class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
+                <div class="font-bold text-white text-sm flex items-center gap-1.5">
+                    <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
+                    <span>⚡ Пресет «Скорость»</span>
+                </div>
+                <p class="text-xs text-slate-400">Максимальная пропускная способность до 1 Гбит/с.</p>
+            </button>
+
+            <button onclick="applyPresetDirect('gaming')" class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
+                <div class="font-bold text-white text-sm flex items-center gap-1.5">
+                    <i data-lucide="gamepad-2" class="w-4 h-4 text-emerald-400"></i>
+                    <span>🎮 Пресет «Игровой»</span>
+                </div>
+                <p class="text-xs text-slate-400">Минимальный пинг и агрессивный keepalive.</p>
+            </button>
+        </div>
+    </div>
+
+    <!-- 4. Protocol Sniffing & WARP Outbounds -->
+    <div class="glass-card rounded-2xl p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="route" class="w-5 h-5 text-brand-400"></i>
+                <span>Маршрутизация, Sniffing и Cloudflare WARP</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Распознавание доменов в TUN-режиме и обход блокировок зарубежных сервисов</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="search" class="w-4 h-4 text-cyan-400"></i>
+                        <span>Protocol Sniffing</span>
+                    </span>
+                    <input type="checkbox" id="nodeSniffEnabled" checked class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                </div>
+                <p class="text-xs text-slate-400">
+                    Перехватывает и восстанавливает доменные имена из IP-запросов (критично для Hiddify, Sing-box и v2rayNG).
+                </p>
+            </div>
+
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div class="flex items-center justify-between">
+                    <span class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="cloud" class="w-4 h-4 text-amber-400"></i>
+                        <span>Cloudflare WARP Outbound</span>
+                    </span>
+                    <input type="checkbox" id="nodeWarpEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                </div>
+                <p class="text-xs text-slate-400">
+                    Автоматически направляет запросы к ChatGPT, Netflix, Spotify через чистый IP Cloudflare WARP (порт 40000).
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Лимит отдачи узла (Upload Mbps)</label>
+                <input type="number" id="nodeUpMbps" value="200" min="1" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Лимит приема узла (Download Mbps)</label>
+                <input type="number" id="nodeDownMbps" value="200" min="1" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Modal: Raw Config.yaml Editor -->
+<div id="rawConfigModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-4xl rounded-2xl p-6 border border-slate-700/80 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="file-code" class="w-5 h-5 text-brand-400"></i>
+                <span>Прямой редактор Hysteria 2 config.yaml</span>
+            </h3>
+            <button onclick="closeRawConfigModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <p class="text-xs text-slate-400">
+            Здесь вы можете вручную просмотреть и отредактировать конфигурационный файл ядра Hysteria 2.
+        </p>
+
+        <textarea id="rawYamlEditor" rows="18" 
+                  class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-300 focus:outline-none focus:border-brand-500 leading-relaxed"></textarea>
+
+        <div class="flex items-center justify-between pt-2">
+            <button onclick="loadRawConfig()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition flex items-center gap-1.5">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                <span>Перезагрузить с диска</span>
+            </button>
+            <div class="flex items-center gap-2">
+                <button onclick="closeRawConfigModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 transition">
+                    Отмена
+                </button>
+                <button onclick="saveRawConfig()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition flex items-center gap-1.5">
+                    <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                    <span>Сохранить и перезапустить ядро</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let nodeSettings = {};
+
+    async function loadNodeData() {
+        try {
+            const res = await fetch('/api/settings');
+            if (res.ok) {
+                nodeSettings = await res.json();
+                document.getElementById('nodeIpText').textContent = nodeSettings.server_ip || '127.0.0.1';
+                document.getElementById('nodeListenPort').value = nodeSettings.listen_port || '443';
+                document.getElementById('nodePortHoppingRange').value = nodeSettings.port_hopping_range || '20000:50000';
+                document.getElementById('nodePortHoppingEnabled').checked = nodeSettings.port_hopping_enabled == '1';
+                
+                document.getElementById('nodeTlsType').value = nodeSettings.tls_type || 'self_signed_ip';
+                document.getElementById('nodeServerDomain').value = nodeSettings.server_domain || '';
+                document.getElementById('nodeCertSha256').value = nodeSettings.cert_sha256 || '';
+                
+                document.getElementById('nodeObfsPassword').value = nodeSettings.obfs_password || '';
+                document.getElementById('nodeMasqueradeTarget').value = nodeSettings.masquerade_target || 'https://bing.com';
+                
+                document.getElementById('nodeWarpEnabled').checked = nodeSettings.warp_enabled == '1';
+                document.getElementById('nodeUpMbps').value = nodeSettings.up_mbps || '200';
+                document.getElementById('nodeDownMbps').value = nodeSettings.down_mbps || '200';
+
+                toggleTlsDomainField();
+            }
+        } catch (e) {
+            showToast('Ошибка загрузки данных узла', 'error');
+        }
+    }
+
+    function toggleTlsDomainField() {
+        const type = document.getElementById('nodeTlsType').value;
+        const domContainer = document.getElementById('domainFieldContainer');
+        if (type === 'acme') {
+            domContainer.classList.remove('opacity-50');
+        } else {
+            domContainer.classList.add('opacity-50');
+        }
+    }
+
+    async function saveNodeConfig() {
+        try {
+            const payload = {
+                listen_port: parseInt(document.getElementById('nodeListenPort').value) || 443,
+                port_hopping_range: document.getElementById('nodePortHoppingRange').value.trim(),
+                port_hopping_enabled: document.getElementById('nodePortHoppingEnabled').checked,
+                tls_type: document.getElementById('nodeTlsType').value,
+                server_domain: document.getElementById('nodeServerDomain').value.trim(),
+                obfs_password: document.getElementById('nodeObfsPassword').value.trim(),
+                masquerade_target: document.getElementById('nodeMasqueradeTarget').value.trim(),
+                warp_enabled: document.getElementById('nodeWarpEnabled').checked,
+                up_mbps: document.getElementById('nodeUpMbps').value.trim(),
+                down_mbps: document.getElementById('nodeDownMbps').value.trim()
+            };
+
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast('Конфигурация узла сохранена и применена!', 'success');
+                loadNodeData();
+            } else {
+                showToast('Ошибка сохранения конфигурации', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function restartCore() {
+        try {
+            showToast('Перезапуск Hysteria 2...', 'info');
+            const res = await fetch('/api/settings/restart-hysteria', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Ядро Hysteria 2 успешно перезапущено!', 'success');
+            } else {
+                showToast('Ошибка перезапуска ядра', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function triggerResetPorts() {
+        if (!confirm('Сбросить порт Hysteria 2 на 443 UDP и отключить Port Hopping?')) return;
+        try {
+            const res = await fetch('/api/settings/reset-ports', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Порты сброшены на 443 UDP!', 'success');
+                loadNodeData();
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function triggerFlushHopping() {
+        if (!confirm('Очистить правила Port Hopping в iptables?')) return;
+        try {
+            const res = await fetch('/api/settings/flush-hopping', { method: 'POST' });
+            const data = await res.json();
+            showToast(data.message, data.ok ? 'success' : 'error');
+            loadNodeData();
+        } catch (e) {
+            showToast('Ошибка очистки iptables', 'error');
+        }
+    }
+
+    async function triggerGenerateIpCert() {
+        if (!confirm('Выпустить новый ECDSA сертификат на текущий IP?')) return;
+        try {
+            showToast('Генерация сертификата...', 'info');
+            const res = await fetch('/api/settings/generate-ip-cert', { method: 'POST' });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Сертификат на IP успешно обновлен!', 'success');
+                loadNodeData();
+            }
+        } catch (e) {
+            showToast('Ошибка генерации сертификата', 'error');
+        }
+    }
+
+    function generateRandomObfs() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+        let res = '';
+        for (let i = 0; i < 20; i++) {
+            res += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById('nodeObfsPassword').value = res;
+    }
+
+    async function applyPresetDirect(preset) {
+        if (!confirm(`Применить пресет '${preset}'?`)) return;
+        try {
+            const res = await fetch('/api/settings/apply-preset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ preset })
+            });
+            if (res.ok) {
+                showToast(`Пресет '${preset}' успешно применен!`, 'success');
+                loadNodeData();
+            }
+        } catch (e) {
+            showToast('Ошибка применения пресета', 'error');
+        }
+    }
+
+    async function openRawConfigModal() {
+        await loadRawConfig();
+        document.getElementById('rawConfigModal').classList.remove('hidden');
+    }
+
+    function closeRawConfigModal() {
+        document.getElementById('rawConfigModal').classList.add('hidden');
+    }
+
+    async function loadRawConfig() {
+        try {
+            const res = await fetch('/api/settings/raw-config');
+            const data = await res.json();
+            document.getElementById('rawYamlEditor').value = data.content || '';
+        } catch (e) {
+            showToast('Ошибка загрузки config.yaml', 'error');
+        }
+    }
+
+    async function saveRawConfig() {
+        const content = document.getElementById('rawYamlEditor').value;
+        try {
+            const res = await fetch('/api/settings/raw-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                showToast('Файл config.yaml сохранен и ядро перезапущено!', 'success');
+                closeRawConfigModal();
+                loadNodeData();
+            } else {
+                showToast(data.output || 'Ошибка сохранения config.yaml', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    function copyToClipboard(id) {
+        const input = document.getElementById(id);
+        input.select();
+        navigator.clipboard.writeText(input.value);
+        showToast('Скопировано в буфер обмена!', 'success');
+    }
+
+    loadNodeData();
+</script>
+{% endblock %}

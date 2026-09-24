@@ -1,172 +1,88 @@
 {% extends "base.html" %}
 
-{% block title %}Настройки{% endblock %}
-{% block page_title %}Настройки Hysteria 2 и безопасность{% endblock %}
+{% block title %}Настройки панели и безопасность{% endblock %}
+{% block page_title %}Настройки панели, Стелс и Безопасность{% endblock %}
 
 {% block content %}
 <div class="space-y-8 max-w-5xl">
 
-    <!-- 1. Hysteria 2 Network & TLS -->
-    <div class="glass-card rounded-2xl p-6 space-y-6">
-        <div class="border-b border-slate-800 pb-4 flex items-center justify-between">
+    <!-- 1. Стелс-доступ и маскировка панели от РКН/сканеров -->
+    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-purple-500">
+        <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
                 <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="network" class="w-5 h-5 text-brand-400"></i>
-                    <span>Параметры сети и TLS сертификаты</span>
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-purple-400"></i>
+                    <span>Стелс-доступ и маскировка панели от РКН</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Конфигурация портов, IP-адреса и криптографических сертификатов</p>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Панель скрыта на случайном высоком порту и секретном URL-пути. Корень отображает сайт-приманку (Decoy).
+                </p>
             </div>
-            <button onclick="saveAllSettings()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition shadow-lg shadow-brand-600/30 flex items-center gap-2">
-                <i data-lucide="save" class="w-4 h-4"></i>
-                <span>Сохранить настройки</span>
+            <div class="flex items-center gap-2 bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-800">
+                <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-brand-600 focus:ring-brand-500">
+                <label for="cfgDecoyEnabled" class="text-xs font-semibold text-slate-200">Включить Decoy на корне /</label>
+            </div>
+        </div>
+
+        <!-- Live URL preview -->
+        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+                <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Текущий секретный URL-адрес входа:</span>
+                <span class="font-mono text-sm text-purple-300 font-bold" id="panelLiveUrl">http://...</span>
+            </div>
+            <button onclick="copyToClipboard('panelLiveUrlText')" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Копировать</span>
             </button>
+            <input type="hidden" id="panelLiveUrlText">
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">IP-адрес сервера (IPv4 или IPv6)</label>
-                <input type="text" id="cfgServerIp" placeholder="1.2.3.4" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                <span class="text-[11px] text-slate-500">Используется для генерации сертификата на IP и клиентских ссылок</span>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Порт веб-панели (рекомендуется 20000–60000)</label>
+                <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                <span class="text-[11px] text-slate-500">Нестандартный порт защищает от автоматических сканеров провайдеров</span>
             </div>
 
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Доменное имя (Опционально)</label>
-                <input type="text" id="cfgServerDomain" placeholder="sub.domain.com" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                <span class="text-[11px] text-slate-500">Если задан, может использоваться для авто-ACME</span>
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Основной порт прослушивания</label>
-                <input type="number" id="cfgListenPort" value="443" min="1" max="65535" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Диапазон Port Hopping (скачки портов)</label>
-                <input type="text" id="cfgPortHoppingRange" value="20000:50000" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                <span class="text-[11px] text-slate-500">Формат: НАЧАЛО:КОНЕЦ (например, 20000:50000)</span>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Секретный URL-путь входа</label>
+                <div class="flex items-center">
+                    <span class="px-3.5 py-2.5 bg-slate-900/90 border border-r-0 border-slate-800 text-slate-500 text-sm rounded-l-xl">/</span>
+                    <input type="text" id="cfgPanelSecretPath" placeholder="node-xxxx" 
+                           class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                </div>
+                <span class="text-[11px] text-slate-500">Например: <code>node-a9f2</code> или <code>mysecretpanel</code></span>
             </div>
         </div>
 
-        <div class="flex items-center gap-3 pt-2">
-            <input type="checkbox" id="cfgPortHoppingEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
-            <label for="cfgPortHoppingEnabled" class="text-sm font-medium text-slate-200">
-                Включить Port Hopping (обход блокировок по отдельным UDP-портам провайдерами)
-            </label>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3 pt-1">
-            <button onclick="triggerResetPorts()" class="px-3.5 py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+        <div class="flex flex-wrap items-center gap-3 pt-2">
+            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition shadow-lg shadow-brand-600/30 flex items-center gap-1.5">
+                <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                <span>Сохранить параметры доступа</span>
+            </button>
+            <button onclick="randomizePanelAccess()" class="px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+                <i data-lucide="dice-5" class="w-3.5 h-3.5"></i>
+                <span>🎲 Сгенерировать случайный stealth-порт и путь</span>
+            </button>
+            <button onclick="resetPanelAccessDefault()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                <span>Сбросить порты на стандартные (443 UDP)</span>
+                <span>Сбросить на 8080 и /panel</span>
             </button>
-            <button onclick="triggerFlushHopping()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
-                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                <span>Очистить iptables правила Hopping</span>
-            </button>
-        </div>
-
-        <!-- TLS Mode & Cert on IP -->
-        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
-                        <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
-                        <span>Сертификат на IP (Subject Alternative Name + SHA256 Pin)</span>
-                    </h4>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        Позволяет клиентам подключаться напрямую по IP без регистрации домена с защитой от MITM.
-                    </p>
-                </div>
-                <button onclick="triggerGenerateIpCert()" class="px-4 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center gap-2">
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i>
-                    <span>Перевыпустить сертификат на IP</span>
-                </button>
-            </div>
-
-            <div>
-                <label class="block text-xs font-semibold text-slate-400 mb-1">Текущий pinSHA256 хеш сертификата:</label>
-                <div class="flex gap-2">
-                    <input type="text" id="cfgCertSha256" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300">
-                    <button onclick="copyToClipboard('cfgCertSha256')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition">
-                        Копировать
-                    </button>
-                </div>
-            </div>
         </div>
     </div>
 
-    <!-- 2. Anti-DPI, Obfuscation & Presets -->
+    <!-- 2. Администратор и Безопасность -->
     <div class="glass-card rounded-2xl p-6 space-y-6">
         <div class="border-b border-slate-800 pb-4">
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="eye-off" class="w-5 h-5 text-brand-400"></i>
-                <span>Анти-DPI маскировка (Salamander Obfs и Masquerade)</span>
+                <i data-lucide="user-check" class="w-5 h-5 text-brand-400"></i>
+                <span>Учетная запись администратора</span>
             </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Превращение трафика в случайный шум для обхода распознавания сигнатур провайдерами</p>
+            <p class="text-xs text-slate-400 mt-0.5">Смена логина и пароля входа в панель управления</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Пароль обфускации Salamander</label>
-                <div class="flex gap-2">
-                    <input type="text" id="cfgObfsPassword" placeholder="Секретный ключ обфускации" 
-                           class="flex-1 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
-                    <button onclick="generateRandomObfsPassword()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition">
-                        Сгенерировать
-                    </button>
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Masquerade сайт (Маскировка HTTP/3)</label>
-                <input type="text" id="cfgMasqueradeTarget" value="https://bing.com" 
-                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                <span class="text-[11px] text-slate-500">Сайт, отображаемый неавторизованным запросам</span>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-            <button onclick="applyPresetDirect('anti-dpi')" class="p-4 rounded-xl bg-slate-900/90 border border-brand-500/30 hover:border-brand-500 text-left transition space-y-1">
-                <div class="font-bold text-white text-sm flex items-center gap-1.5">
-                    <i data-lucide="shield" class="w-4 h-4 text-brand-400"></i>
-                    <span>🛡️ Пресет «Анти-DPI»</span>
-                </div>
-                <p class="text-xs text-slate-400">Включает Salamander Obfs, Port Hopping и маскировку на Bing.</p>
-            </button>
-
-            <button onclick="applyPresetDirect('speed')" class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
-                <div class="font-bold text-white text-sm flex items-center gap-1.5">
-                    <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
-                    <span>⚡ Пресет «Скорость»</span>
-                </div>
-                <p class="text-xs text-slate-400">Максимальная пропускная способность до 1 Гбит/с, BBR.</p>
-            </button>
-
-            <button onclick="applyPresetDirect('gaming')" class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
-                <div class="font-bold text-white text-sm flex items-center gap-1.5">
-                    <i data-lucide="gamepad-2" class="w-4 h-4 text-emerald-400"></i>
-                    <span>🎮 Пресет «Игровой»</span>
-                </div>
-                <p class="text-xs text-slate-400">Оптимизация для минимального пинга и потерь пакетов.</p>
-            </button>
-        </div>
-    </div>
-
-    <!-- 3. Security, Admin Password & 2FA -->
-    <div class="glass-card rounded-2xl p-6 space-y-6">
-        <div class="border-b border-slate-800 pb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="lock" class="w-5 h-5 text-brand-400"></i>
-                <span>Безопасность и двухфакторная аутентификация (2FA)</span>
-            </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Защита входа в панель через Google Authenticator и Telegram</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Change Username -->
             <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
                 <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
@@ -175,9 +91,9 @@
                 </h4>
                 <div class="space-y-2">
                     <input type="text" id="adminUsernameInput" placeholder="admin" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
-                    <button onclick="handleChangeUsername()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition">
-                        Сохранить логин
+                           class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
+                    <button onclick="handleChangeUsername()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+                        Сохранить новый логин
                     </button>
                 </div>
             </div>
@@ -193,119 +109,129 @@
                            class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
                     <input type="password" id="newAdminPassword" placeholder="Новый пароль" 
                            class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
-                    <button onclick="handleChangePassword()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium transition">
+                    <button onclick="handleChangePassword()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
                         Обновить пароль
                     </button>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <!-- TOTP 2FA -->
+    <!-- 3. Двухфакторная аутентификация (2FA) -->
+    <div class="glass-card rounded-2xl p-6 space-y-6">
+        <div class="border-b border-slate-800 pb-4">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-5 h-5 text-brand-400"></i>
+                <span>Двухфакторная защита (2FA)</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-0.5">Вход с подтверждением через Google Authenticator или Telegram OTP</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Google Authenticator -->
             <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center justify-between">
                         <span class="flex items-center gap-1.5">
                             <i data-lucide="smartphone" class="w-4 h-4 text-brand-400"></i>
-                            <span>Google Authenticator</span>
+                            <span>Google Authenticator (TOTP)</span>
                         </span>
-                        <span id="totpStatusBadge" class="text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
+                        <span id="totpStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
                     </h4>
-                    <p class="text-xs text-slate-400 mt-1">
-                        Двухфакторная защита входа в панель одноразовыми кодами (Aegis, Google Authenticator).
+                    <p class="text-xs text-slate-400 mt-2">
+                        Генератор 6-значных одноразовых кодов (работает оффлайн в Aegis, 2FAS, Google Authenticator).
                     </p>
                 </div>
-                <div class="pt-2">
-                    <button id="totpToggleBtn" onclick="openTotpModal()" class="w-full py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition">
+                <div class="pt-3">
+                    <button id="totpToggleBtn" onclick="openTotpModal()" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition">
                         Настроить 2FA
+                    </button>
+                </div>
+            </div>
+
+            <!-- Telegram 2FA -->
+            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center justify-between">
+                        <span class="flex items-center gap-1.5">
+                            <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
+                            <span>Telegram OTP Подтверждение</span>
+                        </span>
+                        <span id="tgStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-2">
+                        При входе бот присылает одноразовый проверочный код прямо вам в личные сообщения Telegram.
+                    </p>
+                </div>
+                <div class="pt-3">
+                    <button onclick="openTelegramModal()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition border border-slate-700">
+                        Параметры Telegram
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Web Panel Port & Stealth Access -->
-        <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-4">
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
-                        <i data-lucide="shield-alert" class="w-4 h-4 text-purple-400"></i>
-                        <span>Стелс-доступ и маскировка панели от РКН/сканеров</span>
-                    </h4>
-                    <p class="text-xs text-slate-400 mt-0.5">
-                        Панель скрыта на высоком нестандартном порту и секретном URL-пути. Корень отображает сайт-приманку (Decoy).
-                    </p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
-                    <label for="cfgDecoyEnabled" class="text-xs font-medium text-slate-200">Включить Decoy на корне /</label>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Порт веб-панели</label>
-                    <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Секретный URL-путь входа</label>
-                    <div class="flex items-center">
-                        <span class="px-3 py-2 bg-slate-950/80 border border-r-0 border-slate-800 text-slate-500 text-sm rounded-l-xl">/</span>
-                        <input type="text" id="cfgPanelSecretPath" placeholder="node-xxxx" 
-                               class="flex-1 px-3.5 py-2 rounded-r-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3 pt-2">
-                <button onclick="randomizePanelAccess()" class="px-3.5 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5">
-                    <i data-lucide="dice-5" class="w-3.5 h-3.5"></i>
-                    <span>🎲 Сгенерировать случайный stealth-порт и путь</span>
-                </button>
-                <button onclick="resetPanelAccessDefault()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
-                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                    <span>Сбросить на 8080 и /panel</span>
-                </button>
-            </div>
+        <div class="pt-1">
+            <button onclick="triggerEmergencyDisable2FA()" class="text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1.5">
+                <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
+                <span>Экстренно отключить все методы 2FA (вход только по паролю)</span>
+            </button>
         </div>
     </div>
 
-    <!-- 4. Telegram Bot Integration -->
+    <!-- 4. Резервное копирование и восстановление (Backup & Restore) -->
     <div class="glass-card rounded-2xl p-6 space-y-6">
         <div class="border-b border-slate-800 pb-4">
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="send" class="w-5 h-5 text-brand-400"></i>
-                <span>Интеграция с Telegram-ботом</span>
+                <i data-lucide="database" class="w-5 h-5 text-brand-400"></i>
+                <span>Резервное копирование и восстановление</span>
             </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Уведомления администратору, подтверждение входа через OTP и самообслуживание юзеров</p>
+            <p class="text-xs text-slate-400 mt-0.5">Создание полного архива базы данных SQLite, ключей и сертификатов</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Токен Telegram-бота (от @BotFather)</label>
-                <input type="text" id="cfgTgBotToken" placeholder="123456789:ABCDef..." 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+            <!-- Download Backup -->
+            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
+                        <span>Скачать резервную копию</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Архив <code>.tar.gz</code> содержит всю базу данных пользователей, сессий, сертификаты и конфигурацию Hysteria 2.
+                    </p>
+                </div>
+                <div class="pt-2">
+                    <a href="/api/settings/backup/download" class="w-full py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition flex items-center justify-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Скачать бэкап архивом (.tar.gz)</span>
+                    </a>
+                </div>
             </div>
 
-            <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Chat ID администратора</label>
-                <input type="text" id="cfgTgAdminChatId" placeholder="123456789" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
-                <span class="text-[11px] text-slate-500">Напишите боту команду /start, чтобы узнать свой Chat ID</span>
-            </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-6 pt-2">
-            <div class="flex items-center gap-3">
-                <input type="checkbox" id="cfgTgNotificationsEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
-                <label for="cfgTgNotificationsEnabled" class="text-sm text-slate-200">Уведомления о превышении лимитов трафика</label>
-            </div>
-            <div class="flex items-center gap-3">
-                <input type="checkbox" id="cfgTg2faEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
-                <label for="cfgTg2faEnabled" class="text-sm text-slate-200">Подтверждение входа в панель кодом через Telegram</label>
+            <!-- Upload Restore -->
+            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="upload" class="w-4 h-4 text-amber-400"></i>
+                        <span>Восстановить из файла</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Загрузите ранее скачанный архив <code>.tar.gz</code> для полного восстановления.
+                    </p>
+                </div>
+                <div class="pt-2">
+                    <label class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer">
+                        <i data-lucide="upload" class="w-4 h-4"></i>
+                        <span>Выбрать и восстановить бэкап</span>
+                        <input type="file" id="backupFileInput" accept=".tar.gz,.tgz" class="hidden" onchange="handleRestoreBackup(event)">
+                    </label>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- 5. Linux Network Optimization (BBR) -->
+    <!-- 5. Сетевая оптимизация Linux (BBR + QUIC) -->
     <div class="glass-card rounded-2xl p-6 space-y-4">
         <div class="border-b border-slate-800 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
@@ -325,11 +251,11 @@
 </div>
 
 <!-- Modal: Setup TOTP 2FA -->
-<div id="totpModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
+<div id="totpModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
     <div class="glass w-full max-w-md rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
         <div class="flex items-center justify-between border-b border-slate-800 pb-3">
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="shield-check" class="w-5 h-5 text-brand-400"></i>
+                <i data-lucide="smartphone" class="w-5 h-5 text-brand-400"></i>
                 <span>Настройка 2FA Google Authenticator</span>
             </h3>
             <button onclick="closeTotpModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -339,7 +265,7 @@
 
         <div class="flex flex-col items-center justify-center p-4 bg-white rounded-xl">
             <img id="totpQrImage" src="" alt="TOTP QR" class="w-48 h-48 object-contain">
-            <p class="text-[11px] text-slate-600 mt-2 font-mono" id="totpSecretText"></p>
+            <p class="text-[11px] text-slate-600 mt-2 font-mono text-center break-all" id="totpSecretText"></p>
         </div>
 
         <div class="space-y-3">
@@ -348,6 +274,55 @@
                    class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-brand-500">
             <button onclick="submitVerifyTotp()" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition">
                 Активировать 2FA
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Telegram Bot Setup -->
+<div id="telegramModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="send" class="w-5 h-5 text-sky-400"></i>
+                <span>Интеграция с Telegram-ботом</span>
+            </h3>
+            <button onclick="closeTelegramModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Токен Telegram-бота (от @BotFather)</label>
+                <input type="text" id="cfgTgBotToken" placeholder="123456789:ABCDef..." 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Chat ID администратора</label>
+                <input type="text" id="cfgTgAdminChatId" placeholder="123456789" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+            </div>
+
+            <div class="space-y-2 pt-1">
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="cfgTgNotificationsEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <label for="cfgTgNotificationsEnabled" class="text-xs text-slate-200">Уведомления о превышении лимитов трафика</label>
+                </div>
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="cfgTg2faEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <label for="cfgTg2faEnabled" class="text-xs text-slate-200">Подтверждение входа в панель кодом через Telegram</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+            <button onclick="closeTelegramModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 transition">
+                Закрыть
+            </button>
+            <button onclick="saveTelegramSettings()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition">
+                Сохранить
             </button>
         </div>
     </div>
@@ -364,36 +339,47 @@
             const res = await fetch('/api/settings');
             if (res.ok) {
                 currentSettings = await res.json();
-                document.getElementById('cfgServerIp').value = currentSettings.server_ip || '';
-                document.getElementById('cfgServerDomain').value = currentSettings.server_domain || '';
-                document.getElementById('cfgListenPort').value = currentSettings.listen_port || '443';
-                document.getElementById('cfgPortHoppingRange').value = currentSettings.port_hopping_range || '20000:50000';
-                document.getElementById('cfgPortHoppingEnabled').checked = currentSettings.port_hopping_enabled == '1';
-                document.getElementById('cfgCertSha256').value = currentSettings.cert_sha256 || '';
-                document.getElementById('cfgObfsPassword').value = currentSettings.obfs_password || '';
-                document.getElementById('cfgMasqueradeTarget').value = currentSettings.masquerade_target || 'https://bing.com';
+                
+                const ip = currentSettings.server_ip || window.location.hostname;
+                const port = currentSettings.panel_port || window.location.port || '8080';
+                const path = currentSettings.panel_secret_path || 'panel';
+                const liveUrl = `http://${ip}:${port}/${path}`;
+
+                document.getElementById('panelLiveUrl').textContent = liveUrl;
+                document.getElementById('panelLiveUrlText').value = liveUrl;
+                document.getElementById('cfgPanelPort').value = port;
+                document.getElementById('cfgPanelSecretPath').value = path;
+                document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
+
+                document.getElementById('adminUsernameInput').value = currentSettings.admin_username || 'admin';
                 document.getElementById('cfgTgBotToken').value = currentSettings.tg_bot_token || '';
                 document.getElementById('cfgTgAdminChatId').value = currentSettings.tg_admin_chat_id || '';
                 document.getElementById('cfgTgNotificationsEnabled').checked = currentSettings.tg_notifications_enabled == '1';
                 document.getElementById('cfgTg2faEnabled').checked = currentSettings.tg_2fa_enabled == '1';
-                document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
-                document.getElementById('cfgPanelPort').value = currentSettings.panel_port || '8080';
-                document.getElementById('cfgPanelSecretPath').value = currentSettings.panel_secret_path || 'panel';
-                document.getElementById('adminUsernameInput').value = currentSettings.admin_username || 'admin';
 
+                // Badges
                 const totpOn = currentSettings.totp_enabled == '1';
                 const badge = document.getElementById('totpStatusBadge');
                 const btn = document.getElementById('totpToggleBtn');
                 if (totpOn) {
                     badge.textContent = 'Включено';
-                    badge.className = 'text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400';
+                    badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
                     btn.textContent = 'Отключить 2FA';
-                    btn.className = 'w-full py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-sm font-medium transition';
+                    btn.className = 'w-full py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-bold transition';
                 } else {
                     badge.textContent = 'Выключено';
-                    badge.className = 'text-xs font-normal px-2 py-0.5 rounded-full bg-slate-800 text-slate-400';
+                    badge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
                     btn.textContent = 'Настроить 2FA';
-                    btn.className = 'w-full py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium transition';
+                    btn.className = 'w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition';
+                }
+
+                const tgBadge = document.getElementById('tgStatusBadge');
+                if (currentSettings.tg_2fa_enabled == '1') {
+                    tgBadge.textContent = 'Включено';
+                    tgBadge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                } else {
+                    tgBadge.textContent = 'Выключено';
+                    tgBadge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
                 }
             }
         } catch (e) {
@@ -401,210 +387,26 @@
         }
     }
 
-    async function saveAllSettings() {
-        try {
-            const payload = {
-                server_ip: document.getElementById('cfgServerIp').value.trim(),
-                server_domain: document.getElementById('cfgServerDomain').value.trim(),
-                listen_port: parseInt(document.getElementById('cfgListenPort').value) || 443,
-                port_hopping_range: document.getElementById('cfgPortHoppingRange').value.trim(),
-                port_hopping_enabled: document.getElementById('cfgPortHoppingEnabled').checked,
-                obfs_password: document.getElementById('cfgObfsPassword').value.trim(),
-                masquerade_target: document.getElementById('cfgMasqueradeTarget').value.trim(),
-                tg_bot_token: document.getElementById('cfgTgBotToken').value.trim(),
-                tg_admin_chat_id: document.getElementById('cfgTgAdminChatId').value.trim(),
-                tg_notifications_enabled: document.getElementById('cfgTgNotificationsEnabled').checked,
-                tg_2fa_enabled: document.getElementById('cfgTg2faEnabled').checked,
-                decoy_enabled: document.getElementById('cfgDecoyEnabled').checked,
-                panel_port: document.getElementById('cfgPanelPort').value.trim(),
-                panel_secret_path: document.getElementById('cfgPanelSecretPath').value.trim()
-            };
+    async function savePanelAccessManual() {
+        const port = document.getElementById('cfgPanelPort').value.trim();
+        const path = document.getElementById('cfgPanelSecretPath').value.trim();
+        const decoy = document.getElementById('cfgDecoyEnabled').checked;
 
+        if (!port) return showToast('Укажите порт панели', 'error');
+        if (!path) return showToast('Укажите секретный путь', 'error');
+
+        try {
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ panel_port: port, panel_secret_path: path, decoy_enabled: decoy })
             });
             if (res.ok) {
-                showToast('Настройки успешно сохранены!', 'success');
-                loadSettings();
+                showToast('Параметры сохранены! Перенаправление...', 'success');
+                const ip = currentSettings.server_ip || window.location.hostname;
+                setTimeout(() => { window.location.href = `http://${ip}:${port}/${path}`; }, 1500);
             } else {
-                showToast('Ошибка сохранения настроек', 'error');
-            }
-        } catch (e) {
-            showToast('Ошибка сети', 'error');
-        }
-    }
-
-    async function triggerGenerateIpCert() {
-        if (!confirm('Выпустить новый сертификат на текущий IP?')) return;
-        try {
-            showToast('Генерация сертификата...', 'success');
-            const res = await fetch('/api/settings/generate-ip-cert', { method: 'POST' });
-            const data = await res.json();
-            if (data.ok) {
-                showToast('Сертификат на IP готов!', 'success');
-                loadSettings();
-            }
-        } catch (e) {
-            showToast('Ошибка выпуска сертификата', 'error');
-        }
-    }
-
-    function generateRandomObfsPassword() {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
-        let res = '';
-        for (let i = 0; i < 24; i++) {
-            res += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        document.getElementById('cfgObfsPassword').value = res;
-    }
-
-    async function applyPresetDirect(preset) {
-        if (!confirm(`Применить пресет '${preset}'?`)) return;
-        try {
-            const res = await fetch('/api/settings/apply-preset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ preset })
-            });
-            if (res.ok) {
-                showToast(`Пресет '${preset}' успешно применен!`, 'success');
-                loadSettings();
-            }
-        } catch (e) {
-            showToast('Ошибка применения пресета', 'error');
-        }
-    }
-
-    async function handleChangePassword() {
-        const oldP = document.getElementById('oldAdminPassword').value;
-        const newP = document.getElementById('newAdminPassword').value;
-        if (!oldP || !newP) {
-            showToast('Заполните оба поля пароля', 'error');
-            return;
-        }
-        try {
-            const res = await fetch('/api/settings/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ old_password: oldP, new_password: newP })
-            });
-            if (res.ok) {
-                showToast('Пароль успешно изменен!', 'success');
-                document.getElementById('oldAdminPassword').value = '';
-                document.getElementById('newAdminPassword').value = '';
-            } else {
-                const err = await res.json();
-                showToast(err.detail || 'Неверный текущий пароль', 'error');
-            }
-        } catch (e) {
-            showToast('Ошибка смены пароля', 'error');
-        }
-    }
-
-    async function openTotpModal() {
-        if (currentSettings.totp_enabled == '1') {
-            if (confirm('Отключить двухфакторную аутентификацию?')) {
-                await fetch('/api/settings/disable-totp', { method: 'POST' });
-                showToast('2FA отключена', 'success');
-                loadSettings();
-            }
-            return;
-        }
-
-        try {
-            const res = await fetch('/api/settings/setup-totp', { method: 'POST' });
-            if (res.ok) {
-                const data = await res.json();
-                pendingTotpSecret = data.secret;
-                document.getElementById('totpQrImage').src = data.qr_base64;
-                document.getElementById('totpSecretText').textContent = 'Секрет: ' + data.secret;
-                document.getElementById('totpVerifyCode').value = '';
-                document.getElementById('totpModal').classList.remove('hidden');
-            }
-        } catch (e) {
-            showToast('Ошибка генерации 2FA', 'error');
-        }
-    }
-
-    function closeTotpModal() {
-        document.getElementById('totpModal').classList.add('hidden');
-    }
-
-    async function submitVerifyTotp() {
-        const code = document.getElementById('totpVerifyCode').value.trim();
-        if (!code || code.length < 6) {
-            showToast('Введите 6-значный код', 'error');
-            return;
-        }
-        try {
-            const res = await fetch('/api/settings/verify-enable-totp', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ secret: pendingTotpSecret, code: code })
-            });
-            if (res.ok) {
-                showToast('2FA успешно активирована!', 'success');
-                closeTotpModal();
-                loadSettings();
-            } else {
-                showToast('Неверный код подтверждения', 'error');
-            }
-        } catch (e) {
-            showToast('Ошибка подтверждения', 'error');
-        }
-    }
-
-    function copyToClipboard(elementId) {
-        const input = document.getElementById(elementId);
-        input.select();
-        navigator.clipboard.writeText(input.value);
-        showToast('Скопировано в буфер обмена!', 'success');
-    }
-
-    async function triggerResetPorts() {
-        if (!confirm('Сбросить порт Hysteria 2 на 443 UDP и очистить правила Port Hopping?')) return;
-        try {
-            const res = await fetch('/api/settings/reset-ports', { method: 'POST' });
-            const data = await res.json();
-            if (data.ok) {
-                showToast('Порты Hysteria 2 сброшены на 443!', 'success');
-                loadSettings();
-            } else {
-                showToast('Ошибка сброса портов', 'error');
-            }
-        } catch (e) {
-            showToast('Ошибка сети', 'error');
-        }
-    }
-
-    async function triggerFlushHopping() {
-        if (!confirm('Очистить правила Port Hopping в iptables?')) return;
-        try {
-            const res = await fetch('/api/settings/flush-hopping', { method: 'POST' });
-            const data = await res.json();
-            showToast(data.message, data.ok ? 'success' : 'error');
-            loadSettings();
-        } catch (e) {
-            showToast('Ошибка очистки iptables', 'error');
-        }
-    }
-
-    async function handleChangeUsername() {
-        const newU = document.getElementById('adminUsernameInput').value.trim();
-        if (!newU) return showToast('Введите логин', 'error');
-        try {
-            const res = await fetch('/api/settings/change-username', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ new_username: newU })
-            });
-            if (res.ok) {
-                showToast(`Логин изменен на ${newU}!`, 'success');
-                loadSettings();
-            } else {
-                showToast('Ошибка смены логина', 'error');
+                showToast('Ошибка сохранения', 'error');
             }
         } catch (e) {
             showToast('Ошибка сети', 'error');
@@ -612,7 +414,7 @@
     }
 
     async function randomizePanelAccess() {
-        if (!confirm('Сгенерировать случайный порт (20000–60000) и случайный секретный URL-путь? Вам нужно будет зайти по новому адресу!')) return;
+        if (!confirm('Сгенерировать случайный порт (20000–60000) и случайный секретный URL-путь? Вам нужно будет перейти по новому адресу!')) return;
         try {
             const res = await fetch('/api/settings/reset-panel-access', {
                 method: 'POST',
@@ -647,9 +449,175 @@
         }
     }
 
+    async function handleChangeUsername() {
+        const newU = document.getElementById('adminUsernameInput').value.trim();
+        if (!newU) return showToast('Введите логин', 'error');
+        try {
+            const res = await fetch('/api/settings/change-username', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ new_username: newU })
+            });
+            if (res.ok) {
+                showToast(`Логин изменен на ${newU}!`, 'success');
+                loadSettings();
+            } else {
+                showToast('Ошибка смены логина', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function handleChangePassword() {
+        const oldP = document.getElementById('oldAdminPassword').value;
+        const newP = document.getElementById('newAdminPassword').value;
+        if (!oldP || !newP) return showToast('Заполните оба поля пароля', 'error');
+        try {
+            const res = await fetch('/api/settings/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_password: oldP, new_password: newP })
+            });
+            if (res.ok) {
+                showToast('Пароль успешно изменен!', 'success');
+                document.getElementById('oldAdminPassword').value = '';
+                document.getElementById('newAdminPassword').value = '';
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Неверный текущий пароль', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка смены пароля', 'error');
+        }
+    }
+
+    async function openTotpModal() {
+        if (currentSettings.totp_enabled == '1') {
+            if (confirm('Отключить двухфакторную аутентификацию Google Authenticator?')) {
+                await fetch('/api/settings/disable-totp', { method: 'POST' });
+                showToast('2FA отключена', 'success');
+                loadSettings();
+            }
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/settings/setup-totp', { method: 'POST' });
+            if (res.ok) {
+                const data = await res.json();
+                pendingTotpSecret = data.secret;
+                document.getElementById('totpQrImage').src = data.qr_base64;
+                document.getElementById('totpSecretText').textContent = 'Секрет: ' + data.secret;
+                document.getElementById('totpVerifyCode').value = '';
+                document.getElementById('totpModal').classList.remove('hidden');
+            }
+        } catch (e) {
+            showToast('Ошибка генерации 2FA', 'error');
+        }
+    }
+
+    function closeTotpModal() {
+        document.getElementById('totpModal').classList.add('hidden');
+    }
+
+    async function submitVerifyTotp() {
+        const code = document.getElementById('totpVerifyCode').value.trim();
+        if (!code || code.length < 6) return showToast('Введите 6-значный код', 'error');
+        try {
+            const res = await fetch('/api/settings/verify-enable-totp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ secret: pendingTotpSecret, code: code })
+            });
+            if (res.ok) {
+                showToast('2FA успешно активирована!', 'success');
+                closeTotpModal();
+                loadSettings();
+            } else {
+                showToast('Неверный код подтверждения', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка подтверждения', 'error');
+        }
+    }
+
+    function openTelegramModal() {
+        document.getElementById('telegramModal').classList.remove('hidden');
+    }
+
+    function closeTelegramModal() {
+        document.getElementById('telegramModal').classList.add('hidden');
+    }
+
+    async function saveTelegramSettings() {
+        const payload = {
+            tg_bot_token: document.getElementById('cfgTgBotToken').value.trim(),
+            tg_admin_chat_id: document.getElementById('cfgTgAdminChatId').value.trim(),
+            tg_notifications_enabled: document.getElementById('cfgTgNotificationsEnabled').checked,
+            tg_2fa_enabled: document.getElementById('cfgTg2faEnabled').checked
+        };
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                showToast('Настройки Telegram сохранены!', 'success');
+                closeTelegramModal();
+                loadSettings();
+            }
+        } catch (e) {
+            showToast('Ошибка сети', 'error');
+        }
+    }
+
+    async function triggerEmergencyDisable2FA() {
+        if (!confirm('Экстренно отключить все методы 2FA? Вход будет возможен только по логину и паролю.')) return;
+        try {
+            const res = await fetch('/api/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tg_2fa_enabled: false })
+            });
+            await fetch('/api/settings/disable-totp', { method: 'POST' });
+            showToast('Все методы 2FA отключены!', 'success');
+            loadSettings();
+        } catch (e) {
+            showToast('Ошибка отключения 2FA', 'error');
+        }
+    }
+
+    async function handleRestoreBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!confirm(`Восстановить систему из бэкапа '${file.name}'? Службы будут перезапущены.`)) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            showToast('Восстановление базы данных...', 'info');
+            const res = await fetch('/api/settings/backup/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Система успешно восстановлена! Перезагрузка...', 'success');
+                setTimeout(() => { window.location.reload(); }, 2000);
+            } else {
+                showToast(data.detail || 'Ошибка восстановления бэкапа', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка загрузки файла', 'error');
+        }
+    }
+
     async function triggerOptimizeBBR() {
         try {
-            showToast('Применение BBR и буферов UDP...', 'success');
+            showToast('Применение BBR и буферов UDP...', 'info');
             const res = await fetch('/api/settings/optimize-bbr', { method: 'POST' });
             const data = await res.json();
             if (data.ok) {
@@ -660,6 +628,13 @@
         } catch (e) {
             showToast('Ошибка оптимизации сети', 'error');
         }
+    }
+
+    function copyToClipboard(id) {
+        const input = document.getElementById(id);
+        input.select();
+        navigator.clipboard.writeText(input.value);
+        showToast('Скопировано в буфер обмена!', 'success');
     }
 
     loadSettings();

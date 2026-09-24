@@ -105,6 +105,34 @@ async def root_page(request: Request):
         
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
+@app.get("/users", response_class=HTMLResponse)
+async def users_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("users.html", {"request": request, "user": user})
+
+@app.get("/node", response_class=HTMLResponse)
+async def node_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("node.html", {"request": request, "user": user})
+
+@app.get("/settings", response_class=HTMLResponse)
+async def settings_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("settings.html", {"request": request, "user": user})
+
+@app.get("/logs", response_class=HTMLResponse)
+async def logs_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return templates.TemplateResponse("logs.html", {"request": request, "user": user})
+
 @app.get("/{secret_path}", response_class=HTMLResponse)
 async def secret_path_entry(secret_path: str, request: Request):
     expected_secret = await crud.get_setting("panel_secret_path", "panel")
@@ -117,29 +145,8 @@ async def secret_path_entry(secret_path: str, request: Request):
 
     user = await check_auth_or_redirect(request)
     if user:
-        return templates.TemplateResponse("index.html", {"request": request, "user": user})
+        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     return templates.TemplateResponse("login.html", {"request": request})
-
-@app.get("/users", response_class=HTMLResponse)
-async def users_page(request: Request):
-    user = await check_auth_or_redirect(request)
-    if not user:
-        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("users.html", {"request": request, "user": user})
-
-@app.get("/settings", response_class=HTMLResponse)
-async def settings_page(request: Request):
-    user = await check_auth_or_redirect(request)
-    if not user:
-        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("settings.html", {"request": request, "user": user})
-
-@app.get("/logs", response_class=HTMLResponse)
-async def logs_page(request: Request):
-    user = await check_auth_or_redirect(request)
-    if not user:
-        return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("logs.html", {"request": request, "user": user})
 
 if __name__ == "__main__":
     import uvicorn

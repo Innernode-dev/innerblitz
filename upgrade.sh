@@ -41,6 +41,24 @@ detect_ip() {
     SERVER_IP="127.0.0.1"
 }
 
+open_firewall_port() {
+    local port=$1
+    local proto=${2:-tcp}
+    if command -v ufw &>/dev/null; then
+        ufw allow "${port}/${proto}" >/dev/null 2>&1 || true
+    fi
+    if command -v iptables &>/dev/null; then
+        iptables -C INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || true
+    fi
+    if command -v ip6tables &>/dev/null; then
+        ip6tables -C INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || ip6tables -I INPUT 1 -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || true
+    fi
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --add-port="${port}/${proto}" --permanent >/dev/null 2>&1 || true
+        firewall-cmd --reload >/dev/null 2>&1 || true
+    fi
+}
+
 echo -e "\n${C_CYAN}${C_BOLD}=== ⚡ Обновление InnerBlitz и ядра Hysteria 2 ===${C_RESET}\n"
 
 # 1. Update Hysteria 2 core
@@ -147,9 +165,14 @@ fi
 echo -e "${C_YELLOW}[5/5] Перезапуск системных служб...${C_RESET}"
 cp "${INSTALL_DIR}/systemd/innerblitz.service" /etc/systemd/system/innerblitz.service
 systemctl daemon-reload
-systemctl enable hysteria-server.service innerblitz.service --quiet
+systemctl enable hysteria-server.service innerblitz.service --quiet 2>/dev/null || true
 systemctl restart hysteria-server.service || true
 systemctl restart innerblitz.service || true
+
+# Ensure firewall allows incoming connections to panel port and hysteria port
+open_firewall_port "$CUR_PORT" "tcp"
+HY_PORT=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
+open_firewall_port "$HY_PORT" "udp"
 
 # Shortcuts
 ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/blitz

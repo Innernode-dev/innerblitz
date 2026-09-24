@@ -67,3 +67,78 @@ def flush_port_hopping() -> Tuple[bool, str]:
     except Exception as e:
         return False, str(e)
 
+def open_firewall_port(port: int, protocol: str = "tcp") -> Tuple[bool, str]:
+    """
+    Ensure port and protocol are opened in local firewall (ufw, iptables, ip6tables, firewalld).
+    Handles environments without firewalls gracefully without throwing errors.
+    """
+    proto = protocol.lower()
+    port_str = str(port)
+    success = False
+    details = []
+
+    # 1. Try ufw if active
+    try:
+        res = subprocess.run(["ufw", "status"], capture_output=True, text=True, timeout=3)
+        if res.returncode == 0:
+            ufw_res = subprocess.run(["ufw", "allow", f"{port_str}/{proto}"], capture_output=True, text=True, timeout=5)
+            if ufw_res.returncode == 0:
+                details.append("ufw:allowed")
+                success = True
+    except Exception:
+        pass
+
+    # 2. Try iptables
+    try:
+        chk = subprocess.run(
+            ["iptables", "-C", "INPUT", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+            capture_output=True, timeout=3
+        )
+        if chk.returncode != 0:
+            ins = subprocess.run(
+                ["iptables", "-I", "INPUT", "1", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+                capture_output=True, text=True, timeout=5
+            )
+            if ins.returncode == 0:
+                details.append("iptables:inserted")
+                success = True
+        else:
+            details.append("iptables:exists")
+            success = True
+    except Exception:
+        pass
+
+    # 3. Try ip6tables
+    try:
+        chk6 = subprocess.run(
+            ["ip6tables", "-C", "INPUT", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+            capture_output=True, timeout=3
+        )
+        if chk6.returncode != 0:
+            ins6 = subprocess.run(
+                ["ip6tables", "-I", "INPUT", "1", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+                capture_output=True, text=True, timeout=5
+            )
+            if ins6.returncode == 0:
+                details.append("ip6tables:inserted")
+        else:
+            details.append("ip6tables:exists")
+    except Exception:
+        pass
+
+    # 4. Try firewalld
+    try:
+        chk_fwd = subprocess.run(["firewall-cmd", "--state"], capture_output=True, text=True, timeout=3)
+        if chk_fwd.returncode == 0 and "running" in chk_fwd.stdout:
+            subprocess.run(["firewall-cmd", f"--add-port={port_str}/{proto}", "--permanent"], capture_output=True, timeout=5)
+            subprocess.run(["firewall-cmd", "--reload"], capture_output=True, timeout=5)
+            details.append("firewalld:allowed")
+            success = True
+    except Exception:
+        pass
+
+    msg = ", ".join(details) if details else "skipped_or_failed"
+    logger.info(f"Firewall hole punching for {port_str}/{proto}: {msg}")
+    return success, msg
+
+

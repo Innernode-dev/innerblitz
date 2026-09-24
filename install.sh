@@ -50,6 +50,25 @@ detect_ip() {
     SERVER_IP="127.0.0.1"
 }
 
+open_firewall_port() {
+    local port=$1
+    local proto=${2:-tcp}
+    log_info "Открытие порта ${port}/${proto} в брандмауэре..."
+    if command -v ufw &>/dev/null; then
+        ufw allow "${port}/${proto}" >/dev/null 2>&1 || true
+    fi
+    if command -v iptables &>/dev/null; then
+        iptables -C INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || iptables -I INPUT 1 -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || true
+    fi
+    if command -v ip6tables &>/dev/null; then
+        ip6tables -C INPUT -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || ip6tables -I INPUT 1 -p "${proto}" --dport "${port}" -j ACCEPT 2>/dev/null || true
+    fi
+    if command -v firewall-cmd &>/dev/null; then
+        firewall-cmd --add-port="${port}/${proto}" --permanent >/dev/null 2>&1 || true
+        firewall-cmd --reload >/dev/null 2>&1 || true
+    fi
+}
+
 check_system() {
     log_info "Проверка совместимости операционной системы..."
     if [ -f /etc/os-release ]; then
@@ -241,6 +260,10 @@ configure_innerblitz() {
 
     # Create default user
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" add-user -u "default" -t 50 -d 30 || true
+
+    # Open firewall ports
+    open_firewall_port "$PANEL_PORT" "tcp"
+    open_firewall_port "$LISTEN_PORT" "udp"
 
     log_success "Конфигурация успешно создана."
 }

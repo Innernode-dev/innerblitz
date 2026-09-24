@@ -23,7 +23,7 @@ from app.core.security import (
 )
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl
-from app.core.firewall import configure_port_hopping, flush_port_hopping
+from app.core.firewall import configure_port_hopping, flush_port_hopping, open_firewall_port
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(get_current_admin)])
 
@@ -106,10 +106,20 @@ async def update_settings(payload: SettingsPayload):
             target_port = int(updates.get("listen_port", 443))
             configure_port_hopping(hopping_range, target_port, enable=hopping_on)
 
-        # If panel port changed, schedule service restart after response is sent
+        # If panel port changed, punch firewall and schedule service restart after response is sent
         if "panel_port" in updates:
             try:
+                open_firewall_port(int(updates["panel_port"]), "tcp")
+            except Exception:
+                pass
+            try:
                 subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+            except Exception:
+                pass
+
+        if "listen_port" in updates:
+            try:
+                open_firewall_port(int(updates["listen_port"]), "udp")
             except Exception:
                 pass
 
@@ -242,6 +252,7 @@ async def change_admin_username(payload: ChangeUsernamePayload):
 async def reset_ports_endpoint():
     """Reset Hysteria 2 ports to standard 443 UDP and flush iptables hopping rules."""
     flush_port_hopping()
+    open_firewall_port(443, "udp")
     await crud.set_settings({
         "listen_port": "443",
         "port_hopping_enabled": "0"
@@ -273,6 +284,11 @@ async def reset_panel_access_endpoint(payload: ResetPanelPayload):
         updates["tg_2fa_enabled"] = "0"
 
     await crud.set_settings(updates)
+    try:
+        open_firewall_port(int(updates["panel_port"]), "tcp")
+    except Exception:
+        pass
+
     server_ip = await crud.get_setting("server_ip", "127.0.0.1")
     ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
     proto = "https" if ssl_mode in ("self_signed_ip", "domain", "https") else "http"

@@ -250,7 +250,7 @@ manage_ports_menu() {
                 echo ""
                 read -rp "Введите новый UDP порт [текущий: $l_port]: " new_lp
                 if [ -n "$new_lp" ]; then
-                    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; asyncio.run(init_db()); asyncio.run(crud.set_setting('listen_port', '$new_lp')); asyncio.run(apply_and_save_config()); restart_hysteria()"
+                    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; from app.core.firewall import open_firewall_port; asyncio.run(init_db()); asyncio.run(crud.set_setting('listen_port', '$new_lp')); open_firewall_port(int('$new_lp'), 'udp'); asyncio.run(apply_and_save_config()); restart_hysteria()"
                     echo -e "${C_GREEN}✔ Порт изменен на $new_lp и Hysteria перезапущена!${C_RESET}"
                 fi
                 read -rp "Нажмите Enter для продолжения..."

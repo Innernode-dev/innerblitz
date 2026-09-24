@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Request, HTTPException, status, Response
 from fastapi.responses import HTMLResponse, PlainTextResponse
-from fastapi.templating import Jinja2Templates
 from pathlib import Path
 import qrcode
 import io
@@ -9,9 +8,10 @@ from datetime import datetime, timedelta
 
 from app.database import crud
 from app.core.subscription import build_hy2_uri, build_clash_yaml, build_singbox_json, build_base64_sub
+from app.core.templates import render_template
 
 router = APIRouter()
-templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
+
 
 def _get_sub_userinfo_header(user: dict) -> str:
     """Generate Subscription-Userinfo header recognized by modern proxy clients."""
@@ -101,10 +101,10 @@ async def client_portal_page(request: Request, token: str):
     if user["max_traffic_gb"] > 0:
         percent_used = min(100, int((user["used_traffic_gb"] / user["max_traffic_gb"]) * 100))
 
-    return templates.TemplateResponse(
+    return render_template(
+        request,
         "client_portal.html",
         {
-            "request": request,
             "user": user,
             "hy2_uri": hy2_uri,
             "qr_base64": f"data:image/png;base64,{qr_b64}",
@@ -114,3 +114,4 @@ async def client_portal_page(request: Request, token: str):
             "settings": settings_dict
         }
     )
+

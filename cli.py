@@ -28,7 +28,7 @@ from app.core.hysteria import (
     is_hysteria_running, get_hysteria_version, get_hysteria_logs,
     run_systemctl
 )
-from app.core.firewall import flush_port_hopping, configure_port_hopping
+from app.core.firewall import flush_port_hopping, configure_port_hopping, open_firewall_port
 from app.core.subscription import build_hy2_uri
 from app.core.security import hash_password, generate_secret_path
 
@@ -46,6 +46,10 @@ def init_system():
     async def _init():
         await init_db()
         await apply_and_save_config()
+        p = await crud.get_setting("panel_port", "8080")
+        h = await crud.get_setting("listen_port", "443")
+        open_firewall_port(int(p), "tcp")
+        open_firewall_port(int(h), "udp")
         click.echo(click.style("✔ InnerBlitz database & config initialized.", fg="green"))
     run_async(_init())
 
@@ -215,6 +219,11 @@ def set_panel_access(port, path, theme):
         if theme: updates["decoy_theme"] = str(theme)
         if updates:
             await crud.set_settings(updates)
+            if port:
+                try:
+                    open_firewall_port(int(port), "tcp")
+                except Exception:
+                    pass
             run_systemctl("restart", "innerblitz.service")
             click.echo(click.style(f"✔ Panel access updated: Port={port or 'unchanged'}, Path=/{path or 'unchanged'}, Decoy Theme={theme or 'unchanged'}", fg="green"))
     run_async(_set())
@@ -250,6 +259,10 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
             click.echo(click.style("✔ Admin password updated.", fg="yellow"))
 
         await crud.set_settings(updates)
+        try:
+            open_firewall_port(int(updates["panel_port"]), "tcp")
+        except Exception:
+            pass
         run_systemctl("restart", "innerblitz.service")
 
         ip = await crud.get_setting("server_ip", "127.0.0.1")
@@ -279,6 +292,7 @@ def reset_ports(port, flush_hopping):
             "listen_port": str(port),
             "port_hopping_enabled": "0"
         })
+        open_firewall_port(port, "udp")
         await apply_and_save_config()
         ok, out = restart_hysteria()
         if ok:

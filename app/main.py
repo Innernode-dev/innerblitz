@@ -36,6 +36,19 @@ async def lifespan(app: FastAPI):
     if not Path(settings.HYSTERIA_CONFIG_PATH).exists():
         await apply_and_save_config()
 
+    # Open firewall ports for Web Panel and Hysteria 2
+    try:
+        from app.core.firewall import open_firewall_port
+        p_val = await crud.get_setting("panel_port", "")
+        p_port = int(p_val) if p_val and p_val.isdigit() else settings.PANEL_PORT
+        open_firewall_port(p_port, "tcp")
+        
+        h_val = await crud.get_setting("listen_port", "443")
+        if h_val and h_val.isdigit():
+            open_firewall_port(int(h_val), "udp")
+    except Exception as e:
+        logger.warning(f"Initial firewall setup notice: {e}")
+
     # Start background daemons
     traffic_task = asyncio.create_task(traffic_collector.start_loop(interval_seconds=4))
     limiter_task = asyncio.create_task(limiter_daemon.start_loop(interval_seconds=15))
@@ -91,8 +104,7 @@ static_dir = Path(__file__).parent / "static"
 static_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-templates_dir = Path(__file__).parent / "templates"
-templates = Jinja2Templates(directory=str(templates_dir))
+from app.core.templates import render_template, templates
 
 # Include API and Subscription Routers
 app.include_router(auth_router)
@@ -125,10 +137,10 @@ async def login_page(request: Request):
         if decoy_enabled:
             theme = await crud.get_setting("decoy_theme", "innernode")
             status_code = 404 if theme == "404" else 200
-            return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+            return render_template(request, "decoy.html", {"theme": theme}, status_code=status_code)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
-    return templates.TemplateResponse("login.html", {"request": request})
+    return render_template(request, "login.html")
 
 @app.get("/", response_class=HTMLResponse)
 async def root_page(request: Request):
@@ -137,13 +149,13 @@ async def root_page(request: Request):
     
     # If admin is logged in, show dashboard
     if user:
-        return templates.TemplateResponse("index.html", {"request": request, "user": user})
+        return render_template(request, "index.html", {"user": user})
     
     # If unauthenticated and decoy enabled, render fake open-source cloud node page (anti-RKN)
     if decoy_enabled:
         theme = await crud.get_setting("decoy_theme", "innernode")
         status_code = 404 if theme == "404" else 200
-        return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+        return render_template(request, "decoy.html", {"theme": theme}, status_code=status_code)
         
     return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
 
@@ -152,28 +164,28 @@ async def users_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("users.html", {"request": request, "user": user})
+    return render_template(request, "users.html", {"user": user})
 
 @app.get("/node", response_class=HTMLResponse)
 async def node_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("node.html", {"request": request, "user": user})
+    return render_template(request, "node.html", {"user": user})
 
 @app.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("settings.html", {"request": request, "user": user})
+    return render_template(request, "settings.html", {"user": user})
 
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     user = await check_auth_or_redirect(request)
     if not user:
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("logs.html", {"request": request, "user": user})
+    return render_template(request, "logs.html", {"user": user})
 
 @app.get("/{secret_path}", response_class=HTMLResponse)
 async def secret_path_entry(secret_path: str, request: Request):
@@ -184,13 +196,13 @@ async def secret_path_entry(secret_path: str, request: Request):
         if decoy_enabled:
             theme = await crud.get_setting("decoy_theme", "innernode")
             status_code = 404 if theme == "404" else 200
-            return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+            return render_template(request, "decoy.html", {"theme": theme}, status_code=status_code)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
 
     user = await check_auth_or_redirect(request)
     if user:
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    return templates.TemplateResponse("login.html", {"request": request})
+    return render_template(request, "login.html")
 
 @app.exception_handler(404)
 async def custom_404_handler(request: Request, exc):
@@ -199,7 +211,7 @@ async def custom_404_handler(request: Request, exc):
     if decoy_enabled:
         theme = await crud.get_setting("decoy_theme", "innernode")
         status_code = 404 if theme == "404" else 200
-        return templates.TemplateResponse("decoy.html", {"request": request, "theme": theme}, status_code=status_code)
+        return render_template(request, "decoy.html", {"theme": theme}, status_code=status_code)
     return HTMLResponse("<html><body><h1>404 Not Found</h1><hr><address>nginx/1.24.0 (Ubuntu)</address></body></html>", status_code=404)
 
 if __name__ == "__main__":
@@ -227,6 +239,13 @@ if __name__ == "__main__":
 
     listen_port, ssl_mode, cert_file, key_file = asyncio.run(get_launch_config())
     
+    # Open firewall port before listening
+    try:
+        from app.core.firewall import open_firewall_port
+        open_firewall_port(listen_port, "tcp")
+    except Exception:
+        pass
+
     use_ssl = (
         ssl_mode in ("self_signed_ip", "domain", "https")
         and os.path.exists(cert_file)
@@ -245,3 +264,4 @@ if __name__ == "__main__":
         kwargs["ssl_keyfile"] = key_file
 
     uvicorn.run(**kwargs)
+

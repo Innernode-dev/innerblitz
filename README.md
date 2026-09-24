@@ -117,3 +117,12 @@ bash /etc/hysteria/uninstall.sh
 
 Проект распространяется под свободной лицензией **GPL-3.0**.  
 Разработано с заботой о приватности и скорости командой **InnerNode** (`Innernode-dev`).
+
+---
+
+## 🙏 Благодарности и первоисточники (Credits & Acknowledgments)
+
+- [HyNetworks / Hysteria Team](https://github.com/HyNetworks/hysteria) — за создание революционного протокола Hysteria 2.
+- [ReturnFI (Blitz Panel)](https://github.com/ReturnFI/Blitz) — за оригинальную концепцию панели Blitz, вдохновившую на создание этой полной переработки (Next-Gen Rewrite).
+- [IamSarina](https://github.com/Iam54r1n4) — за вклад в сообщество Hysteria.
+

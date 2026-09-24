@@ -190,6 +190,35 @@ configure_innerblitz() {
         ADMIN_PASS=${user_pass:-$ADMIN_PASS}
     fi
 
+    echo ""
+    echo -e " ${C_CYAN}${C_BOLD}--- Режим протокола и SSL для веб-панели ---${C_RESET}"
+    echo -e " ${C_GREEN}[1]${C_RESET} ${C_BOLD}HTTP (Без сертификата / Plain HTTP)${C_RESET}"
+    echo -e "     Быстрый вход без предупреждений браузера о самоподписанном SSL на IP."
+    echo -e " ${C_GREEN}[2]${C_RESET} ${C_BOLD}HTTPS на IP (Самоподписанный IP SAN, ротация каждые 6 дней)${C_RESET}"
+    echo -e "     Шифрованный SSL трафик на IP. Сертификат автоматически обновляется каждые 6 дней."
+    echo -e " ${C_GREEN}[3]${C_RESET} ${C_BOLD}HTTPS на Домен (Let's Encrypt / Доменный SSL)${C_RESET}"
+    echo -e "     Доверенный SSL сертификат для доменного имени."
+    echo ""
+    while true; do
+        read -rp "Выберите режим SSL веб-панели [1/2/3] (по умолчанию 1): " user_ssl_choice
+        user_ssl_choice=${user_ssl_choice:-1}
+        if [ "$user_ssl_choice" == "1" ] || [ "$user_ssl_choice" == "2" ] || [ "$user_ssl_choice" == "3" ]; then
+            break
+        fi
+        echo -e "${C_YELLOW}Пожалуйста, введите 1, 2 или 3.${C_RESET}"
+    done
+
+    PANEL_SSL_MODE="http"
+    if [ "$user_ssl_choice" == "2" ]; then
+        PANEL_SSL_MODE="self_signed_ip"
+    elif [ "$user_ssl_choice" == "3" ]; then
+        PANEL_SSL_MODE="domain"
+        if [ -z "$DOMAIN" ]; then
+            read -rp "Введите домен для веб-панели: " user_panel_domain
+            DOMAIN=$(echo "${user_panel_domain:-""}" | tr -d '[:space:]')
+        fi
+    fi
+
     log_info "Инициализация базы данных SQLite и сертификата на IP..."
     
     # Run CLI init
@@ -198,7 +227,12 @@ configure_innerblitz() {
     # Set panel access (custom or random port & secret path + stealth decoy)
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-panel-access --port "$PANEL_PORT" --path "$PANEL_SECRET" --theme "nginx"
 
-    # Generate IP Certificate
+    # Set panel SSL mode
+    local ssl_args=("--mode" "$PANEL_SSL_MODE")
+    if [ -n "$DOMAIN" ]; then ssl_args+=("--domain" "$DOMAIN"); fi
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-panel-ssl "${ssl_args[@]}"
+
+    # Generate IP Certificate for Hysteria 2
     TARGET_HOST=${DOMAIN:-$SERVER_IP}
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" gen-ip-cert --ip "$TARGET_HOST"
 
@@ -246,25 +280,40 @@ EOF
     ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/hys2
     chmod +x /usr/local/bin/blitz /usr/local/bin/inb /usr/local/bin/hys2
 
+    # Add daily automated certificate renewal check cron job
+    mkdir -p /etc/cron.daily
+    cat << 'EOF' > /etc/cron.daily/innerblitz-cert
+#!/bin/bash
+/etc/hysteria/venv/bin/python3 /etc/hysteria/cli.py renew-panel-cert --check-only >/dev/null 2>&1
+EOF
+    chmod +x /etc/cron.daily/innerblitz-cert 2>/dev/null || true
+
     log_success "Службы запущены и добавлены в автозагрузку."
 }
 
 print_summary() {
+    local panel_proto="http"
+    if [ "$PANEL_SSL_MODE" == "self_signed_ip" ] || [ "$PANEL_SSL_MODE" == "domain" ]; then
+        panel_proto="https"
+    fi
+    local panel_host=${DOMAIN:-$SERVER_IP}
+
     echo ""
     echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}        🎉 InnerBlitz Panel успешно установлена! 🎉          ${C_RESET}"
     echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}"
     echo ""
-    echo -e " ${C_BOLD}🌐 Секретная ссылка на панель:${C_RESET} ${C_CYAN}http://${SERVER_IP}:${PANEL_PORT}/${PANEL_SECRET}${C_RESET}"
+    echo -e " ${C_BOLD}🌐 Секретная ссылка на панель:${C_RESET} ${C_CYAN}${panel_proto}://${panel_host}:${PANEL_PORT}/${PANEL_SECRET}${C_RESET}"
+    echo -e " ${C_BOLD}🔒 SSL режим веб-панели:${C_RESET}       ${C_GREEN}${PANEL_SSL_MODE} (${panel_proto^^})${C_RESET}"
     echo -e " ${C_BOLD}👤 Логин администратора:${C_RESET}       ${C_WHITE}admin${C_RESET}"
     echo -e " ${C_BOLD}🔑 Пароль администратора:${C_RESET}      ${C_YELLOW}${ADMIN_PASS}${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}🛡️ Маскировка от РКН/сканеров:${C_RESET} ${C_GREEN}АКТИВНА (Decoy Nginx/Cloud Node)${C_RESET}"
-    echo -e "   ${C_GRAY}(Корень http://${SERVER_IP}:${PANEL_PORT}/ и сторонние запросы маскируются под Nginx)${C_RESET}"
+    echo -e "   ${C_GRAY}(Корень ${panel_proto}://${panel_host}:${PANEL_PORT}/ и сторонние запросы маскируются под Nginx)${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}🔒 Порт Hysteria 2:${C_RESET}            ${C_WHITE}${LISTEN_PORT} UDP${C_RESET}"
     echo -e " ${C_BOLD}⚡ Port Hopping диапазон:${C_RESET}      ${C_WHITE}${PORT_HOP_RANGE}${C_RESET}"
-    echo -e " ${C_BOLD}🛡️ Сертификат на IP:${C_RESET}          ${C_GREEN}Активен (SAN + pinSHA256)${C_RESET}"
+    echo -e " ${C_BOLD}🛡️ Сертификат ядра Hysteria:${C_RESET}  ${C_GREEN}Активен (SAN + pinSHA256)${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}Команда управления в терминале:${C_RESET} ${C_PURPLE}${C_BOLD}blitz${C_RESET} (или ${C_CYAN}inb${C_RESET}, ${C_CYAN}hys2${C_RESET})"
     echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}\n"

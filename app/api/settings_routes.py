@@ -50,6 +50,7 @@ class SettingsPayload(BaseModel):
     decoy_theme: Optional[str] = None
     panel_port: Optional[str] = None
     panel_secret_path: Optional[str] = None
+    panel_ssl_mode: Optional[str] = None
 
 class ChangePasswordPayload(BaseModel):
     old_password: str
@@ -68,6 +69,10 @@ class VerifyTotpPayload(BaseModel):
     secret: str
     code: str
 
+class PanelSslPayload(BaseModel):
+    mode: str
+    domain: Optional[str] = None
+
 @router.get("")
 async def get_settings():
     """Retrieve system settings safely (masking sensitive fields)."""
@@ -75,6 +80,9 @@ async def get_settings():
     # Mask password hash
     data.pop("admin_password_hash", None)
     data.pop("_current_tg_otp", None)
+
+    from app.core.cert import get_cert_info
+    data["panel_cert_info"] = get_cert_info()
     return data
 
 @router.post("")
@@ -266,6 +274,10 @@ async def reset_panel_access_endpoint(payload: ResetPanelPayload):
 
     await crud.set_settings(updates)
     server_ip = await crud.get_setting("server_ip", "127.0.0.1")
+    ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+    proto = "https" if ssl_mode in ("self_signed_ip", "domain", "https") else "http"
+    domain = await crud.get_setting("server_domain", "")
+    host = domain if (ssl_mode == "domain" and domain) else server_ip
 
     # Schedule background service restart to bind new port
     try:
@@ -278,7 +290,59 @@ async def reset_panel_access_endpoint(payload: ResetPanelPayload):
         "message": "Panel access updated. Please reconnect using the new URL.",
         "panel_port": updates["panel_port"],
         "panel_secret_path": updates["panel_secret_path"],
-        "new_url": f"http://{server_ip}:{updates['panel_port']}/{updates['panel_secret_path']}"
+        "new_url": f"{proto}://{host}:{updates['panel_port']}/{updates['panel_secret_path']}"
+    }
+
+@router.post("/panel-ssl")
+async def update_panel_ssl(payload: PanelSslPayload):
+    """Configure Web Panel SSL mode (HTTP, 6-day self-signed IP cert, or Domain)."""
+    mode = payload.mode.lower()
+    if mode not in ("http", "self_signed_ip", "domain"):
+        raise HTTPException(status_code=400, detail="Invalid SSL mode. Use http, self_signed_ip, or domain.")
+
+    ip = await crud.get_setting("server_ip", "127.0.0.1")
+    updates = {"panel_ssl_mode": mode}
+    if payload.domain:
+        updates["server_domain"] = payload.domain.strip()
+
+    if mode == "self_signed_ip":
+        from app.core.cert import generate_panel_cert
+        generate_panel_cert(ip, valid_days=6)
+    elif mode == "domain":
+        dom = payload.domain or await crud.get_setting("server_domain", "")
+        if not dom:
+            raise HTTPException(status_code=400, detail="Domain name is required for domain mode.")
+        from app.core.cert import generate_panel_cert
+        generate_panel_cert(dom, valid_days=90)
+
+    await crud.set_settings(updates)
+    try:
+        subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+    except Exception:
+        pass
+
+    from app.core.cert import get_cert_info
+    return {
+        "ok": True,
+        "mode": mode,
+        "message": f"Web panel SSL mode changed to {mode}. Panel is restarting.",
+        "cert_info": get_cert_info()
+    }
+
+@router.post("/renew-panel-cert")
+async def renew_panel_cert_endpoint():
+    """Manually trigger immediate renewal of the 6-day Web Panel IP certificate."""
+    ip = await crud.get_setting("server_ip", "127.0.0.1")
+    from app.core.cert import generate_panel_cert, get_cert_info
+    generate_panel_cert(ip, valid_days=6)
+    try:
+        subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+    except Exception:
+        pass
+    return {
+        "ok": True,
+        "message": "6-day IP certificate renewed and panel restarting.",
+        "cert_info": get_cert_info()
     }
 
 @router.post("/optimize-bbr")

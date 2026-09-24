@@ -103,3 +103,73 @@ def get_certificate_sha256(cert_path: Optional[str] = None) -> str:
     except Exception as e:
         logger.error(f"Failed to read certificate {target_path}: {e}")
         return ""
+
+def generate_panel_cert(
+    server_ip_or_domain: str, 
+    valid_days: int = 6
+) -> Tuple[str, str, str]:
+    """
+    Generate or renew the 6-day self-signed IP/domain certificate for the Web Panel.
+    Defaults to 6-day validity for automated rotation.
+    """
+    cert_p, key_p, sha = generate_self_signed_cert(
+        server_ip_or_domain=server_ip_or_domain,
+        cert_path=settings.PANEL_CERT_PATH,
+        key_path=settings.PANEL_KEY_PATH,
+        valid_days=valid_days
+    )
+    logger.info(f"Generated Web Panel certificate (validity: {valid_days} days) at {cert_p}")
+    return cert_p, key_p, sha
+
+def get_cert_info(cert_path: Optional[str] = None) -> dict:
+    """
+    Inspect a PEM certificate and return its validity period, days remaining,
+    Common Name, SANs, and SHA-256 fingerprint.
+    """
+    target_path = cert_path or settings.PANEL_CERT_PATH
+    if not os.path.exists(target_path):
+        return {"exists": False, "days_left": 0.0, "hours_left": 0.0, "is_expired": True}
+    try:
+        with open(target_path, "rb") as f:
+            cert = x509.load_pem_x509_certificate(f.read())
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if hasattr(cert, "not_valid_after_utc"):
+            expiry = cert.not_valid_after_utc
+        else:
+            expiry = cert.not_valid_after.replace(tzinfo=datetime.timezone.utc)
+            
+        delta_sec = (expiry - now).total_seconds()
+        days_left = max(0.0, round(delta_sec / 86400.0, 1))
+        hours_left = max(0.0, round(delta_sec / 3600.0, 1))
+        
+        cn = ""
+        for attr in cert.subject:
+            if attr.oid == NameOID.COMMON_NAME:
+                cn = attr.value
+                break
+                
+        return {
+            "exists": True,
+            "common_name": cn,
+            "expiry_iso": expiry.isoformat(),
+            "days_left": days_left,
+            "hours_left": hours_left,
+            "is_expired": delta_sec <= 0,
+            "sha256": cert.fingerprint(hashes.SHA256()).hex(),
+            "cert_path": target_path
+        }
+    except Exception as e:
+        logger.error(f"Error inspecting cert {target_path}: {e}")
+        return {"exists": False, "days_left": 0.0, "hours_left": 0.0, "is_expired": True, "error": str(e)}
+
+def check_and_renew_panel_cert(server_ip_or_domain: str, min_days_left: float = 1.0) -> bool:
+    """
+    Check if the 6-day panel certificate needs rotation, and regenerate it if needed.
+    Returns True if the certificate was renewed, False if still valid.
+    """
+    info = get_cert_info(settings.PANEL_CERT_PATH)
+    if not info.get("exists") or info.get("is_expired") or info.get("days_left", 0.0) <= min_days_left:
+        generate_panel_cert(server_ip_or_domain, valid_days=6)
+        return True
+    return False
+

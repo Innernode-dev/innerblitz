@@ -33,6 +33,14 @@ class Settings(BaseSettings):
         return str(self.DATA_DIR / "server.key")
 
     @property
+    def PANEL_CERT_PATH(self) -> str:
+        return str(self.DATA_DIR / "panel.crt")
+
+    @property
+    def PANEL_KEY_PATH(self) -> str:
+        return str(self.DATA_DIR / "panel.key")
+
+    @property
     def GEOIP_PATH(self) -> str:
         return str(self.DATA_DIR / "geoip.dat")
 

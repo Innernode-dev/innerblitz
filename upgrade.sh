@@ -102,15 +102,17 @@ async def check():
     decoy = await crud.get_setting("decoy_enabled", "1")
     theme = await crud.get_setting("decoy_theme", "nginx")
     user = await crud.get_setting("admin_username", "admin")
-    print(f"{port}|{path}|{decoy}|{theme}|{user}")
+    ssl_m = await crud.get_setting("panel_ssl_mode", "http")
+    print(f"{port}|{path}|{decoy}|{theme}|{user}|{ssl_m}")
 
 asyncio.run(check())
 EOF
 )
 
-IFS='|' read -r CUR_PORT CUR_PATH CUR_DECOY CUR_THEME CUR_USER <<< "$PANEL_INFO"
+IFS='|' read -r CUR_PORT CUR_PATH CUR_DECOY CUR_THEME CUR_USER CUR_SSL <<< "$PANEL_INFO"
 CUR_PORT=${CUR_PORT:-"8080"}
 CUR_PATH=${CUR_PATH:-"panel"}
+CUR_SSL=${CUR_SSL:-"http"}
 
 # Check if using legacy insecure port 8080 or default path
 if [ "$CUR_PORT" == "8080" ] || [ "$CUR_PATH" == "panel" ] || [ -z "$CUR_PATH" ]; then
@@ -155,16 +157,30 @@ ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/inb
 ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/hys2
 chmod +x /usr/local/bin/blitz /usr/local/bin/inb /usr/local/bin/hys2
 
+# Daily certificate renewal cron
+mkdir -p /etc/cron.daily
+cat << 'EOF' > /etc/cron.daily/innerblitz-cert
+#!/bin/bash
+/etc/hysteria/venv/bin/python3 /etc/hysteria/cli.py renew-panel-cert --check-only >/dev/null 2>&1
+EOF
+chmod +x /etc/cron.daily/innerblitz-cert 2>/dev/null || true
+
+PANEL_PROTO="http"
+if [ "$CUR_SSL" == "self_signed_ip" ] || [ "$CUR_SSL" == "domain" ] || [ "$CUR_SSL" == "https" ]; then
+    PANEL_PROTO="https"
+fi
+
 echo ""
 echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}"
 echo -e "${C_GREEN}${C_BOLD}        🎉 InnerBlitz успешно обновлен до версии 2.0! 🎉        ${C_RESET}"
 echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}"
 echo ""
-echo -e " ${C_BOLD}🌐 Секретная ссылка на панель:${C_RESET} ${C_CYAN}${C_BOLD}http://${SERVER_IP}:${CUR_PORT}/${CUR_PATH}${C_RESET}"
+echo -e " ${C_BOLD}🌐 Секретная ссылка на панель:${C_RESET} ${C_CYAN}${C_BOLD}${PANEL_PROTO}://${SERVER_IP}:${CUR_PORT}/${CUR_PATH}${C_RESET}"
+echo -e " ${C_BOLD}🔒 SSL режим веб-панели:${C_RESET}       ${C_GREEN}${CUR_SSL} (${PANEL_PROTO^^})${C_RESET}"
 echo -e " ${C_BOLD}👤 Логин администратора:${C_RESET}       ${C_WHITE}${CUR_USER}${C_RESET}"
 echo ""
 echo -e " ${C_BOLD}🛡️ Маскировка от РКН/сканеров:${C_RESET} ${C_GREEN}АКТИВНА (Decoy Nginx/Cloud Node)${C_RESET}"
-echo -e "   ${C_GRAY}(Корень http://${SERVER_IP}:${CUR_PORT}/ и сторонние запросы маскируются под Nginx)${C_RESET}"
+echo -e "   ${C_GRAY}(Корень ${PANEL_PROTO}://${SERVER_IP}:${CUR_PORT}/ и сторонние запросы маскируются под Nginx)${C_RESET}"
 echo ""
 echo -e " ${C_BOLD}Команда управления в терминале:${C_RESET} ${C_PURPLE}${C_BOLD}blitz${C_RESET} (или ${C_CYAN}inb${C_RESET}, ${C_CYAN}hys2${C_RESET})"
 echo -e "${C_GREEN}${C_BOLD}================================================================${C_RESET}\n"

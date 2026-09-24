@@ -19,7 +19,10 @@ from app.config import settings
 from app.database.connection import init_db
 from app.database import crud
 from app.database.models import UserCreate, UserUpdate
-from app.core.cert import generate_self_signed_cert
+from app.core.cert import (
+    generate_self_signed_cert, generate_panel_cert, 
+    get_cert_info, check_and_renew_panel_cert
+)
 from app.core.hysteria import (
     apply_and_save_config, restart_hysteria, 
     is_hysteria_running, get_hysteria_version, get_hysteria_logs,
@@ -250,8 +253,13 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
         run_systemctl("restart", "innerblitz.service")
 
         ip = await crud.get_setting("server_ip", "127.0.0.1")
+        ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+        proto = "https" if ssl_mode in ("self_signed_ip", "domain", "https") else "http"
+        domain = await crud.get_setting("server_domain", "")
+        host = domain if (ssl_mode == "domain" and domain) else ip
+
         click.echo(click.style("✔ Web panel access successfully reset!", fg="green", bold=True))
-        click.echo(f"Secret URL: http://{ip}:{updates['panel_port']}/{updates['panel_secret_path']}")
+        click.echo(f"Secret URL: {proto}://{host}:{updates['panel_port']}/{updates['panel_secret_path']}")
         click.echo(f"Port: {updates['panel_port']} | Path: /{updates['panel_secret_path']}")
         click.echo(click.style("✔ Service innerblitz.service restarted.", fg="green"))
     run_async(_reset())
@@ -301,19 +309,115 @@ def show_panel_url():
         port = await crud.get_setting("panel_port", "8080")
         path = await crud.get_setting("panel_secret_path", "panel")
         user = await crud.get_setting("admin_username", "admin")
+        ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+        proto = "https" if ssl_mode in ("self_signed_ip", "domain", "https") else "http"
+        domain = await crud.get_setting("server_domain", "")
+        host = domain if (ssl_mode == "domain" and domain) else ip
         decoy_on = await crud.get_setting("decoy_enabled", "1") == "1"
         theme = await crud.get_setting("decoy_theme", "nginx")
         totp_on = await crud.get_setting("totp_enabled", "0") == "1"
         tg_on = await crud.get_setting("tg_2fa_enabled", "0") == "1"
 
         click.echo(click.style("\n=== InnerBlitz Stealth Panel Access ===", fg="cyan", bold=True))
-        click.echo(f"Web Panel URL:  http://{ip}:{port}/{path}")
+        click.echo(f"Web Panel URL:  {proto}://{host}:{port}/{path}")
+        click.echo(f"SSL Mode:       {ssl_mode.upper()} ({proto.upper()})")
         click.echo(f"Secret Path:    /{path}")
         click.echo(f"Port:           {port}")
-        click.echo(f"Decoy Root URL: http://{ip}:{port}/ (Статус: {'Активен' if decoy_on else 'Выключен'}, Тема: {theme})")
+        click.echo(f"Decoy Root URL: {proto}://{host}:{port}/ (Статус: {'Активен' if decoy_on else 'Выключен'}, Тема: {theme})")
         click.echo(f"Admin Username: {user}")
         click.echo(f"2FA Status:     {'Google TOTP' if totp_on else ('Telegram' if tg_on else 'Disabled')}\n")
     run_async(_show())
+
+@cli.command("set-panel-ssl")
+@click.option("--mode", type=click.Choice(["http", "self_signed_ip", "domain"], case_sensitive=False), required=True, help="Web panel SSL mode")
+@click.option("--domain", default=None, help="Domain name if mode is domain")
+@click.option("--force-renew", is_flag=True, help="Force immediate certificate generation")
+def set_panel_ssl(mode, domain, force_renew):
+    """Configure Web Panel SSL mode (HTTP, 6-day self-signed IP cert, or Domain)."""
+    async def _ssl():
+        await init_db()
+        mode_lower = mode.lower()
+        ip = await crud.get_setting("server_ip", "127.0.0.1")
+        updates = {"panel_ssl_mode": mode_lower}
+        if domain:
+            updates["server_domain"] = domain.strip()
+
+        if mode_lower == "self_signed_ip":
+            generate_panel_cert(ip, valid_days=6)
+            info = get_cert_info()
+            click.echo(click.style(f"✔ Generated 6-day IP SAN certificate for {ip}.", fg="green", bold=True))
+            click.echo(f"Validity: 6 days (expires: {info.get('expiry_iso', '')})")
+            click.echo("Auto-renewal: enabled (InnerBlitz auto-renews every 6 days)")
+        elif mode_lower == "domain":
+            dom = domain or await crud.get_setting("server_domain", "")
+            if not dom:
+                click.echo(click.style("✖ Error: Domain name is required for domain SSL mode. Use --domain <name>", fg="red"))
+                return
+            generate_panel_cert(dom, valid_days=90)
+            click.echo(click.style(f"✔ Configured domain certificate for {dom}.", fg="green"))
+        else:
+            click.echo(click.style("✔ Web panel SSL disabled. Panel will run over plain HTTP.", fg="yellow"))
+
+        await crud.set_settings(updates)
+        run_systemctl("restart", "innerblitz.service")
+        click.echo(click.style("✔ Service innerblitz.service restarted.", fg="green"))
+    run_async(_ssl())
+
+@cli.command("renew-panel-cert")
+@click.option("--force", is_flag=True, help="Force regeneration regardless of expiry")
+@click.option("--check-only", is_flag=True, help="Check and renew only if < 1 day remaining")
+def renew_panel_cert(force, check_only):
+    """Renew the 6-day self-signed IP certificate for Web Panel."""
+    async def _renew():
+        await init_db()
+        ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+        if ssl_mode != "self_signed_ip" and not force:
+            click.echo(f"Panel is in '{ssl_mode}' mode. 6-day IP renewal is only active for 'self_signed_ip' mode.")
+            return
+
+        ip = await crud.get_setting("server_ip", "127.0.0.1")
+        info = get_cert_info()
+
+        if check_only and not force:
+            if info.get("days_left", 0.0) > 1.0 and not info.get("is_expired"):
+                click.echo(f"Certificate is still valid ({info.get('days_left')} days left). No renewal needed.")
+                return
+
+        cert_p, key_p, sha = generate_panel_cert(ip, valid_days=6)
+        click.echo(click.style(f"✔ 6-day Web Panel IP certificate successfully renewed for {ip}!", fg="green", bold=True))
+        click.echo(f"Certificate: {cert_p}")
+        click.echo(f"SHA-256: {sha}")
+        run_systemctl("restart", "innerblitz.service")
+        click.echo(click.style("✔ Service innerblitz.service restarted with new certificate.", fg="green"))
+    run_async(_renew())
+
+@cli.command("show-panel-ssl")
+def show_panel_ssl():
+    """Inspect current Web Panel SSL/TLS configuration and certificate status."""
+    async def _status():
+        await init_db()
+        ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+        ip = await crud.get_setting("server_ip", "127.0.0.1")
+        domain = await crud.get_setting("server_domain", "")
+        info = get_cert_info()
+
+        click.echo(click.style("\n=== Web Panel SSL / TLS Status ===", fg="cyan", bold=True))
+        click.echo(f"SSL Mode:            {ssl_mode.upper()}")
+        click.echo(f"Protocol:            {'https://' if ssl_mode in ('self_signed_ip', 'domain', 'https') else 'http://'}")
+        if ssl_mode == "self_signed_ip":
+            click.echo(f"Target IP:           {ip}")
+            click.echo("Rotation Schedule:   Every 6 days (Automated)")
+            click.echo(f"Cert Exists:         {'Yes' if info.get('exists') else 'No'}")
+            click.echo(f"Days Remaining:      {info.get('days_left', 0.0)} days ({info.get('hours_left', 0.0)} hours)")
+            click.echo(f"Expires At:          {info.get('expiry_iso', 'N/A')}")
+            click.echo(f"Is Expired:          {'YES - RENEWAL REQUIRED' if info.get('is_expired') else 'No'}\n")
+        elif ssl_mode == "domain":
+            click.echo(f"Domain Name:         {domain or 'Not set'}")
+            click.echo(f"Cert Exists:         {'Yes' if info.get('exists') else 'No'}")
+            click.echo(f"Days Remaining:      {info.get('days_left', 0.0)} days\n")
+        else:
+            click.echo("Status:              Plain HTTP without certificate (Fast & Clean)\n")
+    run_async(_status())
 
 @cli.command("toggle-decoy")
 @click.option("--enable/--disable", default=True, help="Enable or disable decoy site on root /")

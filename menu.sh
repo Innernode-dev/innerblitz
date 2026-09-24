@@ -303,6 +303,27 @@ manage_webpanel_menu() {
         local p_decoy=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
         local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
         local cur_ip=$(detect_server_ip)
+        local p_ssl=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_ssl_mode', 'http')))" 2>/dev/null || echo "http")
+        local p_domain=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('server_domain', '')))" 2>/dev/null || echo "")
+        
+        local p_proto="http"
+        local p_host=$cur_ip
+        if [ "$p_ssl" == "self_signed_ip" ] || [ "$p_ssl" == "domain" ] || [ "$p_ssl" == "https" ]; then
+            p_proto="https"
+        fi
+        if [ "$p_ssl" == "domain" ] && [ -n "$p_domain" ]; then
+            p_host=$p_domain
+        fi
+
+        local ssl_status_str
+        if [ "$p_ssl" == "self_signed_ip" ]; then
+            local d_left=$($PYTHON_BIN -c "from app.core.cert import get_cert_info; print(get_cert_info().get('days_left', 6.0))" 2>/dev/null || echo "6.0")
+            ssl_status_str="${C_GREEN}HTTPS на IP (SAN, ротация каждые 6 дн., осталось: ${d_left} дн.)${C_RESET}"
+        elif [ "$p_ssl" == "domain" ]; then
+            ssl_status_str="${C_CYAN}HTTPS на Домен (${p_domain:-не задан})${C_RESET}"
+        else
+            ssl_status_str="${C_YELLOW}HTTP (без сертификата)${C_RESET}"
+        fi
 
         local decoy_status_str
         if [ "$p_decoy" == "1" ]; then
@@ -311,8 +332,9 @@ manage_webpanel_menu() {
             decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
         fi
 
-        echo -e " 🌐 Секретный адрес входа: ${C_CYAN}${C_BOLD}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
+        echo -e " 🌐 Секретный адрес входа: ${C_CYAN}${C_BOLD}${p_proto}://${p_host}:${p_port}/${p_path}${C_RESET}"
         echo -e " 📁 Секретная директория: ${C_WHITE}/${p_path}${C_RESET} | Порт панели: ${C_WHITE}${p_port}${C_RESET}"
+        echo -e " 🔒 SSL веб-панели:       ${ssl_status_str}"
         echo -e " 🛡️ Маскировка от РКН (Decoy): ${decoy_status_str}\n"
 
         echo -e " ${C_GREEN}[1]${C_RESET} 🌐 Показать секретную ссылку для входа и реквизиты"
@@ -321,12 +343,13 @@ manage_webpanel_menu() {
         echo -e " ${C_GREEN}[4]${C_RESET} ⚙️ Сменить порт панели и секретную директорию (URL-путь) вручную"
         echo -e " ${C_GREEN}[5]${C_RESET} 🎲 ${C_BOLD}Сгенерировать случайный stealth-порт и директорию (Защита от РКН)${C_RESET}"
         echo -e " ${C_GREEN}[6]${C_RESET} 🎭 Настроить маскировку от РКН (Decoy сайт и темы Nginx/Cloud)"
-        echo -e " ${C_YELLOW}[7]${C_RESET} ${C_BOLD}🔄 Сбросить настройки панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
-        echo -e " ${C_RED}[8]${C_RESET} 🚨 Экстренно отключить 2FA (TOTP + Telegram подтверждение)"
-        echo -e " ${C_GREEN}[9]${C_RESET} 🔄 Перезапустить службу веб-панели"
-        echo -e " ${C_GREEN}[10]${C_RESET} 📜 Просмотреть логи веб-панели"
+        echo -e " ${C_GREEN}[7]${C_RESET} 🔒 ${C_BOLD}Настроить SSL / Протокол панели (HTTP / 6-дн. IP cert / Домен)${C_RESET}"
+        echo -e " ${C_YELLOW}[8]${C_RESET} ${C_BOLD}🔄 Сбросить настройки панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
+        echo -e " ${C_RED}[9]${C_RESET} 🚨 Экстренно отключить 2FA (TOTP + Telegram подтверждение)"
+        echo -e " ${C_GREEN}[10]${C_RESET} 🔄 Перезапустить службу веб-панели"
+        echo -e " ${C_GREEN}[11]${C_RESET} 📜 Просмотреть логи веб-панели"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад в главное меню\n"
-        read -rp "Выберите пункт [0-10]: " wopt
+        read -rp "Выберите пункт [0-11]: " wopt
 
         case "$wopt" in
             1)
@@ -395,6 +418,37 @@ manage_webpanel_menu() {
                 ;;
             7)
                 echo ""
+                echo -e "${C_CYAN}${C_BOLD}=== 🔒 Настройка SSL / Протокола веб-панели ===${C_RESET}"
+                echo -e " Текущий статус: ${ssl_status_str}\n"
+                echo -e " 1) Переключить на HTTP (без сертификата / быстро и стабильно)"
+                echo -e " 2) Переключить на HTTPS на IP (Самоподписанный IP SAN, ротация каждые 6 дней)"
+                echo -e " 3) Переключить на HTTPS на Домен"
+                echo -e " 4) Обновить / перевыпустить 6-дневный IP сертификат прямо сейчас"
+                echo -e " 0) Назад"
+                echo ""
+                read -rp "Выберите пункт [0-4]: " s_choice
+                case "$s_choice" in
+                    1)
+                        $CLI_CMD set-panel-ssl --mode http
+                        ;;
+                    2)
+                        $CLI_CMD set-panel-ssl --mode self_signed_ip
+                        ;;
+                    3)
+                        read -rp "Введите доменное имя (например, panel.example.com): " ndom
+                        if [ -n "$ndom" ]; then
+                            $CLI_CMD set-panel-ssl --mode domain --domain "$ndom"
+                        fi
+                        ;;
+                    4)
+                        $CLI_CMD renew-panel-cert --force
+                        ;;
+                    *) ;;
+                esac
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            8)
+                echo ""
                 echo -e "${C_YELLOW}${C_BOLD}=== Мастер сброса настроек доступа к панели ===${C_RESET}"
                 echo -e " 1) Сбросить на стандартный порт 8080 и путь /panel"
                 echo -e " 2) Сгенерировать новый случайный stealth-порт и путь"
@@ -415,7 +469,7 @@ manage_webpanel_menu() {
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
-            8)
+            9)
                 echo ""
                 read -rp "Действительно отключить 2FA для входа? (y/N): " c2fa
                 if [[ "$c2fa" =~ ^[Yy]$ ]]; then
@@ -423,12 +477,12 @@ manage_webpanel_menu() {
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
-            9)
+            10)
                 systemctl restart innerblitz.service
                 echo -e "${C_GREEN}✔ Служба innerblitz.service успешно перезапущена.${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
-            10)
+            11)
                 echo -e "${C_CYAN}Последние 50 строк логов панели (нажмите q для выхода):${C_RESET}"
                 journalctl -u innerblitz.service -n 50 -e
                 ;;
@@ -625,10 +679,20 @@ show_hysteria_status() {
     echo -e " Port Hopping:            ${hop_status_str}"
     echo -e " Режим TLS:               ${C_WHITE}${tls_t}${C_RESET}"
     echo -e " Salamander Obfs:         ${C_WHITE}${obfs_t}${C_RESET}"
-    echo ""
+    local p_ssl=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_ssl_mode', 'http')))" 2>/dev/null || echo "http")
+    local p_domain=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('server_domain', '')))" 2>/dev/null || echo "")
+    local p_proto="http"
+    local p_host=$cur_ip
+    if [ "$p_ssl" == "self_signed_ip" ] || [ "$p_ssl" == "domain" ] || [ "$p_ssl" == "https" ]; then
+        p_proto="https"
+    fi
+    if [ "$p_ssl" == "domain" ] && [ -n "$p_domain" ]; then
+        p_host=$p_domain
+    fi
+
     echo -e " ${C_BOLD}--- Веб-панель и Стелс ---${C_RESET}"
     echo -e " Служба (systemd):        $panel_active"
-    echo -e " Ссылка для входа:        ${C_CYAN}http://${cur_ip}:${p_port}/${p_path}${C_RESET}"
+    echo -e " Ссылка для входа:        ${C_CYAN}${p_proto}://${p_host}:${p_port}/${p_path}${C_RESET} (${p_ssl})"
     echo -e " Маскировка Decoy:        ${decoy_status_str}"
     echo -e " Клиенты в базе:          ${C_WHITE}${total_users}${C_RESET} (Активных: ${C_GREEN}${active_users}${C_RESET})"
     echo ""

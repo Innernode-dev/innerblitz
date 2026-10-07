@@ -400,6 +400,10 @@ configure_innerblitz() {
     TARGET_HOST=${DOMAIN:-$SERVER_IP}
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" gen-ip-cert --ip "$TARGET_HOST"
 
+    # Set Hysteria listening port and port hopping
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-hysteria-port "$LISTEN_PORT"
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-port-hopping --enable --range "$PORT_HOP_RANGE"
+
     # Set client SNI domain
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-sni "$CLIENT_SNI"
 

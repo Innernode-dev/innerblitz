@@ -55,6 +55,20 @@
         .glass-card:hover {
             border-color: #2e3d54;
         }
+        /* Active nav item neon styling */
+        .nav-item-active {
+            background: linear-gradient(90deg, rgba(37, 99, 235, 0.22) 0%, rgba(59, 130, 246, 0.08) 60%, transparent 100%);
+            border-left: 3px solid #3b82f6;
+            color: #ffffff !important;
+            font-weight: 600;
+            box-shadow: 0 0 15px -3px rgba(59, 130, 246, 0.25);
+        }
+        .bottom-nav-active {
+            color: #60a5fa !important;
+        }
+        .bottom-nav-active i {
+            filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.6));
+        }
         /* High density 3x-ui scrollbar */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #090d16; }
@@ -68,13 +82,16 @@
     <!-- Toast Notification Container -->
     <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-    <div class="flex flex-1">
-        <!-- Sidebar -->
-        <aside class="w-64 bg-[#0c1220] flex flex-col border-r border-[#1e293b] z-20 transition-all duration-300">
-            <!-- Brand Logo -->
-            <div class="p-5 flex items-center justify-between border-b border-[#1e293b]">
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300"></div>
+
+    <div class="flex flex-1 relative overflow-hidden">
+        <!-- Sidebar (Desktop permanent, Mobile off-canvas drawer) -->
+        <aside id="appSidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-[#0c1220]/95 lg:bg-[#0c1220] backdrop-blur-xl lg:backdrop-blur-none flex flex-col border-r border-[#1e293b] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
+            <!-- Brand Logo & Mobile Close -->
+            <div class="p-4 sm:p-5 flex items-center justify-between border-b border-[#1e293b]">
                 <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold shadow">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-cyan-500 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20">
                         <i data-lucide="zap" class="w-5 h-5"></i>
                     </div>
                     <div>
@@ -85,36 +102,52 @@
                         <span class="text-[11px] text-slate-400 font-mono">Hysteria 2 Panel</span>
                     </div>
                 </div>
+                <!-- Close Button (Mobile Only) -->
+                <button onclick="toggleSidebar(false)" class="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition" title="Закрыть меню">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
             </div>
 
             <!-- Navigation Links -->
             <nav class="flex-1 p-3 space-y-1 overflow-y-auto text-xs font-medium">
-                <a href="/" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/' %}bg-blue-600 text-white font-semibold shadow-sm{% endif %}">
-                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
-                    <span>Дашборд</span>
+                <a href="/" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 {% if request.url.path == '/' %}text-blue-400{% endif %}"></i>
+                        <span>Дашборд</span>
+                    </div>
                 </a>
-                <a href="/node" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/node' %}bg-blue-600 text-white font-semibold shadow-sm{% endif %}">
-                    <i data-lucide="server" class="w-4 h-4"></i>
-                    <span>Узел / Inbound</span>
+                <a href="/node" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/node' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="server" class="w-4 h-4 {% if request.url.path == '/node' %}text-blue-400{% endif %}"></i>
+                        <span>Узел / Inbound</span>
+                    </div>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">QUIC</span>
                 </a>
-                <a href="/users" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/users' %}bg-blue-600 text-white font-semibold shadow-sm{% endif %}">
-                    <i data-lucide="users" class="w-4 h-4"></i>
-                    <span>Клиенты / Подписки</span>
+                <a href="/users" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/users' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="users" class="w-4 h-4 {% if request.url.path == '/users' %}text-blue-400{% endif %}"></i>
+                        <span>Клиенты / Подписки</span>
+                    </div>
+                    <span id="navUsersCount" class="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">-</span>
                 </a>
-                <a href="/settings" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/settings' %}bg-blue-600 text-white font-semibold shadow-sm{% endif %}">
-                    <i data-lucide="shield-check" class="w-4 h-4"></i>
-                    <span>Настройки и Стелс</span>
+                <a href="/settings" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/settings' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="shield-check" class="w-4 h-4 {% if request.url.path == '/settings' %}text-blue-400{% endif %}"></i>
+                        <span>Настройки и Стелс</span>
+                    </div>
                 </a>
-                <a href="/logs" class="flex items-center gap-3 px-3.5 py-2.5 rounded-lg transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/logs' %}bg-blue-600 text-white font-semibold shadow-sm{% endif %}">
-                    <i data-lucide="terminal" class="w-4 h-4"></i>
-                    <span>Журнал логов</span>
+                <a href="/logs" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/60 {% if request.url.path == '/logs' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="terminal" class="w-4 h-4 {% if request.url.path == '/logs' %}text-blue-400{% endif %}"></i>
+                        <span>Журнал логов</span>
+                    </div>
                 </a>
             </nav>
 
             <!-- Bottom Status Indicator -->
             <div class="p-3 border-t border-[#1e293b]">
-                <div class="p-2.5 rounded-lg bg-[#090d16] border border-[#1e293b] flex items-center justify-between">
-                    <div class="flex items-center gap-2">
+                <div class="p-2.5 rounded-xl bg-[#090d16] border border-[#1e293b] flex items-center justify-between shadow-inner">
+                    <div class="flex items-center gap-2.5">
                         <span id="hysIndicator" class="relative flex h-2.5 w-2.5">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -124,7 +157,7 @@
                             <p id="hysVersion" class="text-slate-400 text-[10px] font-mono">Checking...</p>
                         </div>
                     </div>
-                    <button onclick="restartCore()" title="Перезапустить ядро" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                    <button onclick="restartCore()" title="Перезапустить ядро" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition shadow-sm">
                         <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
@@ -134,48 +167,98 @@
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <!-- Top Header Bar -->
-            <header class="h-14 bg-[#0c1220] border-b border-[#1e293b] px-6 flex items-center justify-between">
-                <div class="flex items-center gap-4">
-                    <h2 class="text-base font-semibold text-white">{% block page_title %}{% endblock %}</h2>
+            <header class="h-14 bg-[#0c1220]/90 backdrop-blur-md border-b border-[#1e293b] px-3.5 sm:px-6 flex items-center justify-between z-10">
+                <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
+                    <!-- Hamburger Menu Button (Mobile & Tablet) -->
+                    <button onclick="toggleSidebar(true)" class="lg:hidden p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition flex-shrink-0" title="Открыть меню навигации">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    
+                    <h2 class="text-sm sm:text-base font-semibold text-white truncate">{% block page_title %}{% endblock %}</h2>
                 </div>
 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                     <!-- Stealth Mode Badge -->
-                    <div class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0f172a] border border-[#1e293b] text-xs font-mono text-slate-300" title="Стелс-маскировка активна">
+                    <div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0f172a] border border-[#1e293b] text-xs font-mono text-slate-300" title="Стелс-маскировка активна">
                         <i data-lucide="shield" class="w-3.5 h-3.5 text-blue-400"></i>
                         <span id="headerStealthBadge">Стелс: активен</span>
                     </div>
 
                     <!-- Live Server IP Badge -->
-                    <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#0f172a] border border-[#1e293b] text-xs font-mono text-slate-300">
+                    <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0f172a] border border-[#1e293b] text-xs font-mono text-slate-300">
                         <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
                         <span id="headerServerIp">Loading...</span>
                     </div>
 
                     <!-- User / Logout -->
                     <div class="flex items-center gap-2 pl-2 border-l border-[#1e293b]">
-                        <span class="text-xs font-medium text-slate-300 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span class="text-xs font-medium text-slate-300 hidden sm:flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                             <span id="currentAdminName">admin</span>
                         </span>
-                        <button onclick="handleLogout()" class="px-2.5 py-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-medium transition flex items-center gap-1">
-                            <i data-lucide="log-out" class="w-3 h-3"></i>
-                            <span>Выйти</span>
+                        <button onclick="handleLogout()" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-medium transition flex items-center gap-1">
+                            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                            <span class="hidden sm:inline">Выйти</span>
                         </button>
                     </div>
                 </div>
             </header>
 
-            <!-- Page Body -->
-            <main class="flex-1 overflow-y-auto p-6">
+            <!-- Page Body (Adjusted padding for mobile bottom bar) -->
+            <main class="flex-1 overflow-y-auto p-3.5 sm:p-6 pb-20 lg:pb-6">
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
 
+    <!-- Mobile Bottom Navigation Bar (Smartphones & Tablets < lg) -->
+    <nav class="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-[#0c1220]/95 backdrop-blur-xl border-t border-[#1e293b] px-2 py-1.5 flex items-center justify-around shadow-2xl">
+        <a href="/" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+            <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
+            <span>Дашборд</span>
+        </a>
+        <a href="/node" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/node' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+            <i data-lucide="server" class="w-5 h-5 mb-0.5"></i>
+            <span>Узел</span>
+        </a>
+        <a href="/users" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium relative {% if request.url.path == '/users' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+            <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
+            <span>Клиенты</span>
+            <span id="mobileNavUsersDot" class="absolute top-1 right-3 w-1.5 h-1.5 rounded-full bg-blue-500 hidden"></span>
+        </a>
+        <a href="/settings" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/settings' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+            <i data-lucide="shield-check" class="w-5 h-5 mb-0.5"></i>
+            <span>Стелс</span>
+        </a>
+        <a href="/logs" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/logs' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+            <i data-lucide="terminal" class="w-5 h-5 mb-0.5"></i>
+            <span>Логи</span>
+        </a>
+    </nav>
+
     <!-- Scripts -->
     <script>
         lucide.createIcons();
+
+        // Mobile drawer toggle
+        function toggleSidebar(open) {
+            const sidebar = document.getElementById('appSidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (!sidebar || !backdrop) return;
+            
+            if (open) {
+                sidebar.classList.remove('-translate-x-full');
+                backdrop.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                backdrop.classList.add('hidden');
+            }
+        }
+
+        // Close sidebar on ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') toggleSidebar(false);
+        });
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
@@ -204,9 +287,15 @@
                     document.getElementById('hysVersion').textContent = data.hysteria_version || 'Active';
                     const ind = document.getElementById('hysIndicator');
                     if (data.hysteria_running) {
-                        ind.innerHTML = `<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>`;
+                        ind.innerHTML = `<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>`;
                     } else {
-                        ind.innerHTML = `<span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>`;
+                        ind.innerHTML = `<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>`;
+                    }
+                    if (data.total_users !== undefined) {
+                        const cnt = document.getElementById('navUsersCount');
+                        if (cnt) cnt.textContent = `${data.total_users}`;
+                        const dot = document.getElementById('mobileNavUsersDot');
+                        if (dot && data.total_users > 0) dot.classList.remove('hidden');
                     }
                 }
                 const setRes = await fetch('/api/settings');

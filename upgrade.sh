@@ -24,6 +24,9 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+export PYTHONPATH="${INSTALL_DIR}:${PYTHONPATH}"
+cd "${INSTALL_DIR}" 2>/dev/null || true
+
 detect_ip() {
     local ip=""
     for url in "https://api.ipify.org" "https://icanhazip.com" "https://ip.sb" "https://ifconfig.me" "https://checkip.amazonaws.com"; do
@@ -108,26 +111,16 @@ echo -e "${C_YELLOW}[4/5] Проверка защиты от РКН и пара�
 detect_ip
 
 PYTHON_BIN="${INSTALL_DIR}/venv/bin/python3"
-PANEL_INFO=$($PYTHON_BIN - << 'EOF'
-import asyncio
-from app.database.connection import init_db
-from app.database import crud
+CLI_CMD="${PYTHON_BIN} ${INSTALL_DIR}/cli.py"
+cd "${INSTALL_DIR}" 2>/dev/null || true
 
-async def check():
-    await init_db()
-    port = await crud.get_setting("panel_port", "")
-    path = await crud.get_setting("panel_secret_path", "")
-    decoy = await crud.get_setting("decoy_enabled", "1")
-    theme = await crud.get_setting("decoy_theme", "nginx")
-    user = await crud.get_setting("admin_username", "admin")
-    ssl_m = await crud.get_setting("panel_ssl_mode", "http")
-    print(f"{port}|{path}|{decoy}|{theme}|{user}|{ssl_m}")
-
-asyncio.run(check())
-EOF
-)
-
-IFS='|' read -r CUR_PORT CUR_PATH CUR_DECOY CUR_THEME CUR_USER CUR_SSL <<< "$PANEL_INFO"
+SYS_INFO=$($CLI_CMD get-system-info 2>/dev/null || true)
+CUR_PORT=$(echo "$SYS_INFO" | grep '^panel_port=' | cut -d'=' -f2 || echo "8080")
+CUR_PATH=$(echo "$SYS_INFO" | grep '^panel_secret_path=' | cut -d'=' -f2 || echo "panel")
+CUR_DECOY=$(echo "$SYS_INFO" | grep '^decoy_enabled=' | cut -d'=' -f2 || echo "1")
+CUR_THEME=$(echo "$SYS_INFO" | grep '^decoy_theme=' | cut -d'=' -f2 || echo "nginx")
+CUR_USER=$(echo "$SYS_INFO" | grep '^admin_username=' | cut -d'=' -f2 || echo "admin")
+CUR_SSL=$(echo "$SYS_INFO" | grep '^panel_ssl_mode=' | cut -d'=' -f2 || echo "http")
 CUR_PORT=${CUR_PORT:-"8080"}
 CUR_PATH=${CUR_PATH:-"panel"}
 CUR_SSL=${CUR_SSL:-"http"}
@@ -150,7 +143,7 @@ if [ "$CUR_PORT" == "8080" ] || [ "$CUR_PATH" == "panel" ] || [ -z "$CUR_PATH" ]
         RANDOM_PORT=$(( 20000 + RANDOM % 40000 ))
         RANDOM_LEN=$(( 12 + RANDOM % 5 ))
         RANDOM_PATH=$(tr -dc 'a-z0-9' < /dev/urandom 2>/dev/null | head -c "$RANDOM_LEN" || openssl rand -hex 8 | cut -c 1-"$RANDOM_LEN")
-        $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); asyncio.run(crud.set_settings({'panel_port': '$RANDOM_PORT', 'panel_secret_path': '$RANDOM_PATH', 'decoy_enabled': '1', 'decoy_theme': 'nginx'}))"
+        $CLI_CMD set-panel-access --port "$RANDOM_PORT" --path "$RANDOM_PATH" --theme "nginx"
         CUR_PORT=$RANDOM_PORT
         CUR_PATH=$RANDOM_PATH
         CUR_DECOY="1"
@@ -158,7 +151,9 @@ if [ "$CUR_PORT" == "8080" ] || [ "$CUR_PATH" == "panel" ] || [ -z "$CUR_PATH" ]
     fi
 else
     # Ensure decoy_theme is set to nginx for existing setups if empty
-    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); t = asyncio.run(crud.get_setting('decoy_theme', '')); asyncio.run(crud.set_setting('decoy_theme', 'nginx')) if not t else None"
+    if [ -z "$CUR_THEME" ]; then
+        $CLI_CMD set-panel-access --theme "nginx" >/dev/null 2>&1 || true
+    fi
 fi
 
 # 6. Service setup and shortcuts
@@ -179,8 +174,10 @@ if command -v ip6tables &>/dev/null; then
     ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
 fi
 open_firewall_port "$CUR_PORT" "tcp"
-HY_PORT=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
+HY_PORT=$(echo "$SYS_INFO" | grep '^listen_port=' | cut -d'=' -f2 || echo "443")
+HY_PORT=${HY_PORT:-443}
 open_firewall_port "$HY_PORT" "udp"
+
 
 # Shortcuts
 ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/blitz

@@ -236,18 +236,32 @@ def set_panel_access(port, path, theme):
 @click.option("--reset-2fa", is_flag=True, help="Disable 2FA if locked out")
 @click.option("--password", default=None, help="Optional new password")
 def reset_panel_access(port, path, use_random, reset_2fa, password):
-    """Reset Web Panel port, path, 2FA and admin credentials."""
+    """Reset Web Panel port, path, 2FA and admin credentials without clobbering unchanged fields."""
     async def _reset():
         await init_db()
         updates = {}
+        cur_port = await crud.get_setting("panel_port", "8080")
+        cur_path = await crud.get_setting("panel_secret_path", "panel")
+
         if use_random:
             updates["panel_port"] = str(secrets.randbelow(40000) + 20000)
             updates["panel_secret_path"] = generate_secret_path()
             updates["decoy_enabled"] = "1"
             updates["decoy_theme"] = "nginx"
         else:
-            updates["panel_port"] = str(port or "8080")
-            updates["panel_secret_path"] = str(path or "panel").strip("/ ")
+            if port is not None:
+                updates["panel_port"] = str(port)
+            elif not password and not reset_2fa:
+                updates["panel_port"] = "8080"
+            else:
+                updates["panel_port"] = cur_port
+
+            if path is not None:
+                updates["panel_secret_path"] = str(path).strip("/ ")
+            elif not password and not reset_2fa:
+                updates["panel_secret_path"] = "panel"
+            else:
+                updates["panel_secret_path"] = cur_path
         
         if reset_2fa:
             updates["totp_enabled"] = "0"
@@ -272,11 +286,92 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
         domain = await crud.get_setting("server_domain", "")
         host = domain if (ssl_mode == "domain" and domain) else ip
 
-        click.echo(click.style("✔ Web panel access successfully reset!", fg="green", bold=True))
+        click.echo(click.style("✔ Web panel access successfully updated!", fg="green", bold=True))
         click.echo(f"Secret URL: {proto}://{host}:{updates['panel_port']}/{updates['panel_secret_path']}")
         click.echo(f"Port: {updates['panel_port']} | Path: /{updates['panel_secret_path']}")
         click.echo(click.style("✔ Service innerblitz.service restarted.", fg="green"))
     run_async(_reset())
+
+@cli.command("set-hysteria-port")
+@click.argument("port", type=int)
+def set_hysteria_port_cli(port):
+    """Change Hysteria 2 UDP listening port safely."""
+    async def _p():
+        await init_db()
+        await crud.set_setting("listen_port", str(port))
+        open_firewall_port(port, "udp")
+        await apply_and_save_config()
+        ok, out = restart_hysteria()
+        if ok:
+            click.echo(click.style(f"✔ Hysteria 2 UDP port changed to {port}. Core restarted.", fg="green"))
+        else:
+            click.echo(click.style(f"✖ Failed to restart Hysteria: {out}", fg="red"))
+    run_async(_p())
+
+@cli.command("set-port-hopping")
+@click.option("--enable/--disable", default=None, help="Enable or disable port hopping")
+@click.option("--range", "hop_range", default=None, help="Port hopping range (e.g. 20000:50000)")
+def set_port_hopping_cli(enable, hop_range):
+    """Configure UDP port hopping and firewall redirection rules."""
+    async def _h():
+        await init_db()
+        l_port = int(await crud.get_setting("listen_port", "443"))
+        cur_range = await crud.get_setting("port_hopping_range", "20000:50000")
+        cur_on = await crud.get_setting("port_hopping_enabled", "1") == "1"
+
+        new_range = hop_range.strip() if hop_range else cur_range
+        new_on = enable if enable is not None else cur_on
+
+        await crud.set_settings({
+            "port_hopping_range": new_range,
+            "port_hopping_enabled": "1" if new_on else "0"
+        })
+        configure_port_hopping(new_range, l_port, new_on)
+        await apply_and_save_config()
+        restart_hysteria()
+        click.echo(click.style(f"✔ Port hopping updated: {'ENABLED' if new_on else 'DISABLED'} (Range: {new_range})", fg="green"))
+    run_async(_h())
+
+@cli.command("set-user-password")
+@click.argument("username")
+@click.argument("new_password")
+def set_user_password_cli(username, new_password):
+    """Change proxy client password."""
+    async def _up():
+        await init_db()
+        u = await crud.update_user(username, UserUpdate(password=new_password))
+        if u:
+            click.echo(click.style(f"✔ Password for user '{username}' successfully updated.", fg="green"))
+        else:
+            click.echo(click.style(f"✖ User '{username}' not found.", fg="red"))
+    run_async(_up())
+
+@cli.command("get-system-info")
+def get_system_info_cli():
+    """Output system parameters in key=value format for shell menu integration."""
+    async def _info():
+        await init_db()
+        s = await crud.get_all_settings()
+        users = await crud.get_all_users()
+        active_u = len([u for u in users if not u.get("blocked") and not u.get("is_expired")])
+        
+        click.echo(f"LISTEN_PORT={s.get('listen_port', '443')}")
+        click.echo(f"PORT_HOPPING_ENABLED={s.get('port_hopping_enabled', '1')}")
+        click.echo(f"PORT_HOPPING_RANGE={s.get('port_hopping_range', '20000:50000')}")
+        click.echo(f"PANEL_PORT={s.get('panel_port', '8080')}")
+        click.echo(f"PANEL_SECRET_PATH={s.get('panel_secret_path', 'panel')}")
+        click.echo(f"PANEL_SSL_MODE={s.get('panel_ssl_mode', 'http')}")
+        click.echo(f"SERVER_DOMAIN={s.get('server_domain', '')}")
+        click.echo(f"DECOY_ENABLED={s.get('decoy_enabled', '1')}")
+        click.echo(f"DECOY_THEME={s.get('decoy_theme', 'nginx')}")
+        click.echo(f"SNI={s.get('sni', 'bing.com')}")
+        click.echo(f"CERT_SHA256={s.get('cert_sha256', '')}")
+        click.echo(f"ADMIN_USERNAME={s.get('admin_username', 'admin')}")
+        click.echo(f"TLS_TYPE={s.get('tls_type', 'self_signed_ip')}")
+        click.echo(f"OBFS_TYPE={s.get('obfs_type', 'salamander')}")
+        click.echo(f"TOTAL_USERS={len(users)}")
+        click.echo(f"ACTIVE_USERS={active_u}")
+    run_async(_info())
 
 @cli.command("reset-ports")
 @click.option("--port", default=443, type=int, help="Hysteria 2 UDP port [default: 443]")

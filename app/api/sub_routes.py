@@ -33,7 +33,7 @@ def _get_sub_userinfo_header(user: dict) -> str:
     return f"upload={upload}; download={download}; total={total}; expire={expire_ts}"
 
 @router.get("/sub/{token}")
-async def get_raw_subscription(token: str, response: Response):
+async def get_raw_subscription(token: str):
     """Universal Base64 subscription endpoint for v2rayN, Shadowrocket, NekoBox, Hiddify."""
     user = await crud.get_user_by_token(token)
     if not user:
@@ -42,12 +42,14 @@ async def get_raw_subscription(token: str, response: Response):
     settings_dict = await crud.get_all_settings()
     sub_content = build_base64_sub(user, settings_dict)
 
-    response.headers["Subscription-Userinfo"] = _get_sub_userinfo_header(user)
-    response.headers["Content-Disposition"] = f'attachment; filename="InnerBlitz-{user["username"]}.txt"'
-    return PlainTextResponse(sub_content)
+    headers = {
+        "Subscription-Userinfo": _get_sub_userinfo_header(user),
+        "Content-Disposition": f'attachment; filename="InnerBlitz-{user["username"]}.txt"'
+    }
+    return PlainTextResponse(sub_content, headers=headers)
 
 @router.get("/sub/{token}/clash")
-async def get_clash_subscription(token: str, response: Response):
+async def get_clash_subscription(token: str):
     """Clash Meta / Mihomo configuration subscription."""
     user = await crud.get_user_by_token(token)
     if not user:
@@ -56,9 +58,11 @@ async def get_clash_subscription(token: str, response: Response):
     settings_dict = await crud.get_all_settings()
     clash_content = build_clash_yaml(user, settings_dict)
 
-    response.headers["Subscription-Userinfo"] = _get_sub_userinfo_header(user)
-    response.headers["Content-Disposition"] = f'attachment; filename="InnerBlitz-{user["username"]}.yaml"'
-    return PlainTextResponse(clash_content, media_type="text/yaml")
+    headers = {
+        "Subscription-Userinfo": _get_sub_userinfo_header(user),
+        "Content-Disposition": f'attachment; filename="InnerBlitz-{user["username"]}.yaml"'
+    }
+    return PlainTextResponse(clash_content, media_type="text/yaml", headers=headers)
 
 @router.get("/sub/{token}/singbox")
 async def get_singbox_subscription(token: str, response: Response):

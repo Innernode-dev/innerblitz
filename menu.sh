@@ -5,7 +5,16 @@
 # https://github.com/Innernode-dev/innerblitz
 
 INSTALL_DIR="/etc/hysteria"
+if [ ! -d "$INSTALL_DIR" ] && [ -d "./app" ]; then
+    INSTALL_DIR="$(pwd)"
+fi
+export PYTHONPATH="${INSTALL_DIR}:${PYTHONPATH}"
+cd "${INSTALL_DIR}" 2>/dev/null || true
+
 PYTHON_BIN="${INSTALL_DIR}/venv/bin/python3"
+if [ ! -f "$PYTHON_BIN" ]; then
+    PYTHON_BIN="$(which python3 2>/dev/null || echo python3)"
+fi
 CLI_CMD="${PYTHON_BIN} ${INSTALL_DIR}/cli.py"
 
 # Colors
@@ -19,6 +28,31 @@ C_PURPLE='\033[0;35m'
 C_CYAN='\033[0;36m'
 C_WHITE='\033[1;37m'
 C_GRAY='\033[0;90m'
+
+load_system_info() {
+    LISTEN_PORT="443"
+    PORT_HOPPING_ENABLED="1"
+    PORT_HOPPING_RANGE="20000:50000"
+    PANEL_PORT="8080"
+    PANEL_SECRET_PATH="panel"
+    PANEL_SSL_MODE="http"
+    SERVER_DOMAIN=""
+    DECOY_ENABLED="1"
+    DECOY_THEME="nginx"
+    SNI="bing.com"
+    CERT_SHA256=""
+    ADMIN_USERNAME="admin"
+    TLS_TYPE="self_signed_ip"
+    OBFS_TYPE="salamander"
+    TOTAL_USERS="0"
+    ACTIVE_USERS="0"
+
+    local raw_info
+    raw_info=$($CLI_CMD get-system-info 2>/dev/null)
+    if [ -n "$raw_info" ]; then
+        eval "$raw_info"
+    fi
+}
 
 check_root() {
     if [ "$(id -u)" -ne 0 ]; then
@@ -144,8 +178,7 @@ manage_users_menu() {
                     newupass=$(openssl rand -base64 10 | tr -dc 'a-zA-Z0-9' | head -c 12)
                     echo -e "Сгенерирован пароль: ${C_YELLOW}${newupass}${C_RESET}"
                 fi
-                $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.database.models import UserUpdate; asyncio.run(init_db()); asyncio.run(crud.update_user('$uname', UserUpdate(password='$newupass')))"
-                echo -e "${C_GREEN}✔ Пароль пользователя $uname успешно обновлен!${C_RESET}"
+                $CLI_CMD set-user-password "$uname" "$newupass"
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             6)
@@ -181,8 +214,9 @@ manage_certs_menu() {
     while true; do
         print_header
         echo -e "${C_CYAN}${C_BOLD}=== 🔒 Сертификаты, SNI и Домены ===${C_RESET}\n"
-        local cur_sni=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('sni', 'bing.com')))" 2>/dev/null || echo "bing.com")
-        local cur_pin=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('cert_sha256', '')))" 2>/dev/null || echo "")
+        load_system_info
+        local cur_sni="${SNI}"
+        local cur_pin="${CERT_SHA256}"
 
         echo -e " Текущий маскировочный SNI:   ${C_GREEN}${cur_sni}${C_RESET}"
         echo -e " Отпечаток pinSHA256:         ${C_YELLOW}${cur_pin:0:32}...${C_RESET}\n"
@@ -240,9 +274,10 @@ manage_ports_menu() {
         print_header
         echo -e "${C_CYAN}${C_BOLD}=== ⚡ Управление портами Hysteria 2 и Брандмауэром ===${C_RESET}\n"
         
-        local l_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
-        local h_on=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_enabled', '1')))" 2>/dev/null || echo "1")
-        local h_range=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_range', '20000:50000')))" 2>/dev/null || echo "20000:50000")
+        load_system_info
+        local l_port="${LISTEN_PORT}"
+        local h_on="${PORT_HOPPING_ENABLED}"
+        local h_range="${PORT_HOPPING_RANGE}"
 
         local hop_status_str
         if [ "$h_on" == "1" ]; then
@@ -270,8 +305,7 @@ manage_ports_menu() {
                 echo ""
                 read -rp "Введите новый UDP порт [текущий: $l_port]: " new_lp
                 if [ -n "$new_lp" ]; then
-                    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; from app.core.firewall import open_firewall_port; asyncio.run(init_db()); asyncio.run(crud.set_setting('listen_port', '$new_lp')); open_firewall_port(int('$new_lp'), 'udp'); asyncio.run(apply_and_save_config()); restart_hysteria()"
-                    echo -e "${C_GREEN}✔ Порт изменен на $new_lp и Hysteria перезапущена!${C_RESET}"
+                    $CLI_CMD set-hysteria-port "$new_lp"
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
@@ -279,18 +313,16 @@ manage_ports_menu() {
                 echo ""
                 read -rp "Введите новый диапазон портов [текущий: $h_range]: " new_hr
                 if [ -n "$new_hr" ]; then
-                    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; from app.core.firewall import configure_port_hopping; asyncio.run(init_db()); asyncio.run(crud.set_setting('port_hopping_range', '$new_hr')); configure_port_hopping('$new_hr', int('$l_port'), True); asyncio.run(apply_and_save_config()); restart_hysteria()"
-                    echo -e "${C_GREEN}✔ Диапазон Port Hopping обновлен на $new_hr!${C_RESET}"
+                    $CLI_CMD set-port-hopping --range "$new_hr"
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             3)
-                local toggle_to="1"
                 if [ "$h_on" == "1" ]; then
-                    toggle_to="0"
+                    $CLI_CMD set-port-hopping --disable
+                else
+                    $CLI_CMD set-port-hopping --enable
                 fi
-                $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; from app.core.firewall import configure_port_hopping; asyncio.run(init_db()); asyncio.run(crud.set_setting('port_hopping_enabled', '$toggle_to')); configure_port_hopping('$h_range', int('$l_port'), bool(int('$toggle_to'))); asyncio.run(apply_and_save_config()); restart_hysteria()"
-                echo -e "${C_GREEN}✔ Статус Port Hopping изменен!${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             4)
@@ -344,13 +376,14 @@ manage_webpanel_menu() {
         print_header
         echo -e "${C_CYAN}${C_BOLD}=== 🖥️ Управление веб-панелью и Стелс-защитой ===${C_RESET}\n"
 
-        local p_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_port', '8080')))" 2>/dev/null || echo "8080")
-        local p_path=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_secret_path', 'panel')))" 2>/dev/null || echo "panel")
-        local p_decoy=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
-        local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
+        load_system_info
+        local p_port="${PANEL_PORT}"
+        local p_path="${PANEL_SECRET_PATH}"
+        local p_decoy="${DECOY_ENABLED}"
+        local p_theme="${DECOY_THEME}"
         local cur_ip=$(detect_server_ip)
-        local p_ssl=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_ssl_mode', 'http')))" 2>/dev/null || echo "http")
-        local p_domain=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('server_domain', '')))" 2>/dev/null || echo "")
+        local p_ssl="${PANEL_SSL_MODE}"
+        local p_domain="${SERVER_DOMAIN}"
         
         local p_proto="http"
         local p_host=$cur_ip
@@ -385,12 +418,12 @@ manage_webpanel_menu() {
 
         echo -e " ${C_GREEN}[1]${C_RESET} 🌐 Показать секретную ссылку для входа и реквизиты"
         echo -e " ${C_GREEN}[2]${C_RESET} 👤 Сменить логин администратора"
-        echo -e " ${C_GREEN}[3]${C_RESET} 🔑 Сменить пароль администратора"
+        echo -e " ${C_GREEN}[3]${C_RESET} 🔑 Сменить пароль администратора (только пароль)"
         echo -e " ${C_GREEN}[4]${C_RESET} ⚙️ Сменить порт панели и секретную директорию (URL-путь) вручную"
         echo -e " ${C_GREEN}[5]${C_RESET} 🎲 ${C_BOLD}Сгенерировать случайный stealth-порт и директорию (Защита от РКН)${C_RESET}"
         echo -e " ${C_GREEN}[6]${C_RESET} 🎭 Настроить маскировку от РКН (Decoy сайт и темы Nginx/Cloud)"
         echo -e " ${C_GREEN}[7]${C_RESET} 🔒 ${C_BOLD}Настроить SSL / Протокол панели (HTTP / 6-дн. IP cert / Домен)${C_RESET}"
-        echo -e " ${C_YELLOW}[8]${C_RESET} ${C_BOLD}🔄 Сбросить настройки панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
+        echo -e " ${C_YELLOW}[8]${C_RESET} ${C_BOLD}🔄 Сбросить сетевой адрес панели (Порт 8080/рандом, Путь /panel, Сброс 2FA)${C_RESET}"
         echo -e " ${C_RED}[9]${C_RESET} 🚨 Экстренно отключить 2FA (TOTP + Telegram подтверждение)"
         echo -e " ${C_GREEN}[10]${C_RESET} 🔄 Перезапустить службу веб-панели"
         echo -e " ${C_GREEN}[11]${C_RESET} 📜 Просмотреть логи веб-панели"
@@ -495,7 +528,8 @@ manage_webpanel_menu() {
                 ;;
             8)
                 echo ""
-                echo -e "${C_YELLOW}${C_BOLD}=== Мастер сброса настроек доступа к панели ===${C_RESET}"
+                echo -e "${C_YELLOW}${C_BOLD}=== Мастер сброса сетевого адреса панели ===${C_RESET}"
+                echo -e "${C_GRAY}(Внимание: пароль администратора не меняется)${C_RESET}\n"
                 echo -e " 1) Сбросить на стандартный порт 8080 и путь /panel"
                 echo -e " 2) Сгенерировать новый случайный stealth-порт и путь"
                 read -rp "Выберите режим [1/2]: " rmode
@@ -504,14 +538,10 @@ manage_webpanel_menu() {
                 r2fa_flag=""
                 if [[ "$r2fa" =~ ^[Yy]$ ]]; then r2fa_flag="--reset-2fa"; fi
 
-                read -rp "Задать новый пароль админа (Enter чтобы не менять): " rpass
-                rpass_flag=""
-                if [ -n "$rpass" ]; then rpass_flag="--password $rpass"; fi
-
                 if [ "$rmode" == "2" ]; then
-                    $CLI_CMD reset-panel-access --random $r2fa_flag $rpass_flag
+                    $CLI_CMD reset-panel-access --random $r2fa_flag
                 else
-                    $CLI_CMD reset-panel-access --port 8080 --path panel $r2fa_flag $rpass_flag
+                    $CLI_CMD reset-panel-access --port 8080 --path panel $r2fa_flag
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
@@ -717,35 +747,22 @@ show_hysteria_status() {
     local hys_ver=$(hysteria version 2>/dev/null | grep "Version:" | awk '{print $2}' || echo "Не установлено")
     local cur_ip=$(detect_server_ip)
 
-    local l_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
-    local h_on=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_enabled', '1')))" 2>/dev/null || echo "1")
-    local h_range=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_range', '20000:50000')))" 2>/dev/null || echo "20000:50000")
-    local tls_t=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('tls_type', 'self_signed_ip')))" 2>/dev/null || echo "self_signed_ip")
-    local obfs_t=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('obfs_type', 'salamander')))" 2>/dev/null || echo "salamander")
-    local p_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_port', '8080')))" 2>/dev/null || echo "8080")
-    local p_path=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_secret_path', 'panel')))" 2>/dev/null || echo "panel")
-    local p_decoy=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_enabled', '1')))" 2>/dev/null || echo "1")
-    local p_theme=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('decoy_theme', 'nginx')))" 2>/dev/null || echo "nginx")
-    local u_counts=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); users = asyncio.run(crud.get_all_users()); print(f'{len(users)}|{len([u for u in users if not u[\"blocked\"] and not u[\"is_expired\"]])}')" 2>/dev/null || echo "0|0")
-    
-    IFS='|' read -r total_users active_users <<< "$u_counts"
-
-    local hop_status_str
-    if [ "$h_on" == "1" ]; then
-        hop_status_str="${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}"
-    else
-        hop_status_str="${C_RED}ВЫКЛЮЧЕН${C_RESET}"
-    fi
-
-    local decoy_status_str
-    if [ "$p_decoy" == "1" ]; then
-        decoy_status_str="${C_GREEN}АКТИВНА (${p_theme})${C_RESET}"
-    else
-        decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
-    fi
-
-    local hys_sni=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('sni', 'bing.com')))" 2>/dev/null || echo "bing.com")
-    local hys_pin=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('cert_sha256', '')))" 2>/dev/null || echo "")
+    load_system_info
+    local l_port="${LISTEN_PORT}"
+    local h_on="${PORT_HOPPING_ENABLED}"
+    local h_range="${PORT_HOPPING_RANGE}"
+    local tls_t="${TLS_TYPE}"
+    local obfs_t="${OBFS_TYPE}"
+    local p_port="${PANEL_PORT}"
+    local p_path="${PANEL_SECRET_PATH}"
+    local p_decoy="${DECOY_ENABLED}"
+    local p_theme="${DECOY_THEME}"
+    local total_users="${TOTAL_USERS}"
+    local active_users="${ACTIVE_USERS}"
+    local hys_sni="${SNI}"
+    local hys_pin="${CERT_SHA256}"
+    local p_ssl="${PANEL_SSL_MODE}"
+    local p_domain="${SERVER_DOMAIN}"
 
     echo -e " ${C_BOLD}--- Ядро Hysteria 2 ---${C_RESET}"
     echo -e " Служба (systemd):        $hys_active (PID: ${hys_pid}, Память: ${hys_mem})"

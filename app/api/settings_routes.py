@@ -23,7 +23,10 @@ from app.core.security import (
 )
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl
-from app.core.firewall import configure_port_hopping, flush_port_hopping, open_firewall_port
+from app.core.firewall import (
+    configure_port_hopping, flush_port_hopping, 
+    open_firewall_port, close_firewall_port, ensure_firewall_permissive
+)
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(get_current_admin)])
 
@@ -51,6 +54,12 @@ class SettingsPayload(BaseModel):
     panel_port: Optional[str] = None
     panel_secret_path: Optional[str] = None
     panel_ssl_mode: Optional[str] = None
+    sni: Optional[str] = None
+
+class FirewallPortPayload(BaseModel):
+    port: int
+    proto: str = "tcp"
+    comment: Optional[str] = ""
 
 class ChangePasswordPayload(BaseModel):
     old_password: str
@@ -123,13 +132,110 @@ async def update_settings(payload: SettingsPayload):
             except Exception:
                 pass
 
+        if "sni" in updates and updates["sni"]:
+            updates["sni"] = updates["sni"].strip()
+            if "masquerade_target" not in updates:
+                updates["masquerade_target"] = f"https://{updates['sni']}"
+            
+            # If in self_signed_ip mode, regenerate cert with new SNI SAN and update fingerprint pin
+            cur_tls = updates.get("tls_type") or await crud.get_setting("tls_type", "self_signed_ip")
+            if cur_tls == "self_signed_ip":
+                server_ip = updates.get("server_ip") or await crud.get_setting("server_ip", "127.0.0.1")
+                cert_p, key_p, new_sha = generate_self_signed_cert(server_ip, sni=updates["sni"])
+                updates["cert_sha256"] = new_sha
+
+        await crud.set_settings(updates)
+        await apply_and_save_config()
+        restart_hysteria()
+
     return {"ok": True, "message": "Settings updated and Hysteria config applied"}
+
+@router.get("/firewall")
+async def get_firewall_info():
+    """Retrieve firewall status, system ports and custom opened ports."""
+    p_val = await crud.get_setting("panel_port", "8080")
+    h_val = await crud.get_setting("listen_port", "443")
+    hop_on = await crud.get_setting("port_hopping_enabled", "1") == "1"
+    hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
+    custom_ports_raw = await crud.get_setting("custom_firewall_ports", "[]")
+    
+    import json
+    try:
+        custom_ports = json.loads(custom_ports_raw)
+    except Exception:
+        custom_ports = []
+
+    return {
+        "status": "permissive",
+        "policy": "ACCEPT",
+        "description": "Все порты открыты по умолчанию без ограничений",
+        "panel_port": {"port": int(p_val) if p_val.isdigit() else 8080, "proto": "tcp", "role": "Панель управления InnerBlitz"},
+        "hysteria_port": {"port": int(h_val) if h_val.isdigit() else 443, "proto": "udp", "role": "Hysteria 2 Core"},
+        "port_hopping": {"enabled": hop_on, "range": hop_range, "proto": "udp"},
+        "custom_ports": custom_ports
+    }
+
+@router.post("/firewall/open")
+async def open_port_endpoint(payload: FirewallPortPayload):
+    """Open a custom port in the firewall and save to custom ports list."""
+    if payload.port < 1 or payload.port > 65535:
+        raise HTTPException(status_code=400, detail="Порт должен быть числом от 1 до 65535")
+    
+    proto = payload.proto.lower()
+    if proto not in ("tcp", "udp", "both"):
+        raise HTTPException(status_code=400, detail="Протокол должен быть tcp, udp или both")
+
+    protos = ["tcp", "udp"] if proto == "both" else [proto]
+    for pr in protos:
+        open_firewall_port(payload.port, pr)
+
+    import json
+    from datetime import datetime
+    custom_ports_raw = await crud.get_setting("custom_firewall_ports", "[]")
+    try:
+        custom_ports = json.loads(custom_ports_raw)
+    except Exception:
+        custom_ports = []
+
+    # Check if already present
+    exists = any(item.get("port") == payload.port and item.get("proto") == proto for item in custom_ports)
+    if not exists:
+        custom_ports.append({
+            "port": payload.port,
+            "proto": proto,
+            "comment": payload.comment or f"Пользовательский порт {payload.port}",
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+        await crud.set_setting("custom_firewall_ports", json.dumps(custom_ports))
+
+    return {"ok": True, "message": f"Порт {payload.port}/{proto.upper()} успешно открыт в брандмауэре", "custom_ports": custom_ports}
+
+@router.post("/firewall/close")
+async def close_port_endpoint(payload: FirewallPortPayload):
+    """Close / remove a custom port rule from the firewall."""
+    proto = payload.proto.lower()
+    protos = ["tcp", "udp"] if proto == "both" else [proto]
+    for pr in protos:
+        close_firewall_port(payload.port, pr)
+
+    import json
+    custom_ports_raw = await crud.get_setting("custom_firewall_ports", "[]")
+    try:
+        custom_ports = json.loads(custom_ports_raw)
+    except Exception:
+        custom_ports = []
+
+    custom_ports = [item for item in custom_ports if not (item.get("port") == payload.port and item.get("proto") == proto)]
+    await crud.set_setting("custom_firewall_ports", json.dumps(custom_ports))
+
+    return {"ok": True, "message": f"Порт {payload.port}/{proto.upper()} удален из открытых", "custom_ports": custom_ports}
 
 @router.post("/generate-ip-cert")
 async def generate_ip_certificate():
-    """Generate or renew self-signed certificate with IP Subject Alternative Name."""
+    """Generate or renew self-signed certificate with IP Subject Alternative Name and custom SNI."""
     server_ip = await crud.get_setting("server_ip", "127.0.0.1")
-    cert_path, key_path, sha256_pin = generate_self_signed_cert(server_ip)
+    sni = await crud.get_setting("sni", "bing.com")
+    cert_path, key_path, sha256_pin = generate_self_signed_cert(server_ip, sni=sni)
 
     await crud.set_settings({
         "tls_type": "self_signed_ip",
@@ -140,7 +246,7 @@ async def generate_ip_certificate():
 
     return {
         "ok": True,
-        "message": f"Certificate generated for {server_ip}",
+        "message": f"Certificate generated for {server_ip} (SNI: {sni})",
         "cert_sha256": sha256_pin
     }
 

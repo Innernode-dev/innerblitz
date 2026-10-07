@@ -141,4 +141,74 @@ def open_firewall_port(port: int, protocol: str = "tcp") -> Tuple[bool, str]:
     logger.info(f"Firewall hole punching for {port_str}/{proto}: {msg}")
     return success, msg
 
+def close_firewall_port(port: int, protocol: str = "tcp") -> Tuple[bool, str]:
+    """
+    Remove allow rule for port/proto in ufw, iptables, ip6tables, firewalld.
+    """
+    proto = protocol.lower()
+    port_str = str(port)
+    details = []
+
+    # 1. ufw delete
+    try:
+        res = subprocess.run(["ufw", "delete", "allow", f"{port_str}/{proto}"], capture_output=True, text=True, timeout=5)
+        if res.returncode == 0:
+            details.append("ufw:deleted")
+    except Exception:
+        pass
+
+    # 2. iptables delete
+    try:
+        del_res = subprocess.run(
+            ["iptables", "-D", "INPUT", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+            capture_output=True, text=True, timeout=3
+        )
+        if del_res.returncode == 0:
+            details.append("iptables:deleted")
+    except Exception:
+        pass
+
+    # 3. ip6tables delete
+    try:
+        del6_res = subprocess.run(
+            ["ip6tables", "-D", "INPUT", "-p", proto, "--dport", port_str, "-j", "ACCEPT"],
+            capture_output=True, text=True, timeout=3
+        )
+        if del6_res.returncode == 0:
+            details.append("ip6tables:deleted")
+    except Exception:
+        pass
+
+    # 4. firewalld remove
+    try:
+        chk_fwd = subprocess.run(["firewall-cmd", "--state"], capture_output=True, text=True, timeout=3)
+        if chk_fwd.returncode == 0 and "running" in chk_fwd.stdout:
+            subprocess.run(["firewall-cmd", f"--remove-port={port_str}/{proto}", "--permanent"], capture_output=True, timeout=5)
+            subprocess.run(["firewall-cmd", "--reload"], capture_output=True, timeout=5)
+            details.append("firewalld:removed")
+    except Exception:
+        pass
+
+    msg = ", ".join(details) if details else "rule_removed_or_not_present"
+    logger.info(f"Firewall close port {port_str}/{proto}: {msg}")
+    return True, msg
+
+def ensure_firewall_permissive() -> Tuple[bool, str]:
+    """
+    Ensure the server firewall default policy does not drop or restrict other ports.
+    Sets INPUT, FORWARD, and OUTPUT default policy to ACCEPT.
+    Everything is open from restrictions by default.
+    """
+    try:
+        subprocess.run(["iptables", "-P", "INPUT", "ACCEPT"], capture_output=True, timeout=3)
+        subprocess.run(["iptables", "-P", "FORWARD", "ACCEPT"], capture_output=True, timeout=3)
+        subprocess.run(["iptables", "-P", "OUTPUT", "ACCEPT"], capture_output=True, timeout=3)
+        subprocess.run(["ip6tables", "-P", "INPUT", "ACCEPT"], capture_output=True, timeout=3)
+        subprocess.run(["ip6tables", "-P", "FORWARD", "ACCEPT"], capture_output=True, timeout=3)
+        subprocess.run(["ip6tables", "-P", "OUTPUT", "ACCEPT"], capture_output=True, timeout=3)
+        return True, "Firewall policy set to permissive (ACCEPT all)"
+    except Exception as e:
+        return False, str(e)
+
+
 

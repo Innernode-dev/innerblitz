@@ -162,6 +162,7 @@ configure_innerblitz() {
     LISTEN_PORT=443
     PORT_HOP_RANGE="20000:50000"
     DOMAIN=""
+    CLIENT_SNI="bing.com"
     RANDOM_PANEL_PORT=$(( 20000 + RANDOM % 40000 ))
     RANDOM_LEN=$(( 12 + RANDOM % 5 ))
     RANDOM_PANEL_SECRET=$(tr -dc 'a-z0-9' < /dev/urandom 2>/dev/null | head -c "$RANDOM_LEN" || openssl rand -hex 8 | cut -c 1-"$RANDOM_LEN")
@@ -183,6 +184,9 @@ configure_innerblitz() {
 
         read -rp "Использовать домен? (Оставьте пустым для прямого IP $SERVER_IP): " user_domain
         DOMAIN=$(echo "${user_domain:-""}" | tr -d '[:space:]')
+
+        read -rp "Маскировочный SNI для клиентов (Enter для bing.com): " user_sni
+        CLIENT_SNI=$(echo "${user_sni:-bing.com}" | tr -d '[:space:]')
 
         read -rp "Диапазон Port Hopping [20000:50000]: " user_hop
         PORT_HOP_RANGE=${user_hop:-"20000:50000"}
@@ -255,11 +259,24 @@ configure_innerblitz() {
     TARGET_HOST=${DOMAIN:-$SERVER_IP}
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" gen-ip-cert --ip "$TARGET_HOST"
 
+    # Set client SNI domain
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-sni "$CLIENT_SNI"
+
     # Set admin password
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" set-admin-password "$ADMIN_PASS"
 
     # Create default user
     "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" add-user -u "default" -t 50 -d 30 || true
+
+    # Ensure firewall policy is permissive (all ports open by default from restrictions)
+    iptables -P INPUT ACCEPT 2>/dev/null || true
+    iptables -P FORWARD ACCEPT 2>/dev/null || true
+    iptables -P OUTPUT ACCEPT 2>/dev/null || true
+    if command -v ip6tables &>/dev/null; then
+        ip6tables -P INPUT ACCEPT 2>/dev/null || true
+        ip6tables -P FORWARD ACCEPT 2>/dev/null || true
+        ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
+    fi
 
     # Open firewall ports
     open_firewall_port "$PANEL_PORT" "tcp"
@@ -336,6 +353,7 @@ print_summary() {
     echo ""
     echo -e " ${C_BOLD}🔒 Порт Hysteria 2:${C_RESET}            ${C_WHITE}${LISTEN_PORT} UDP${C_RESET}"
     echo -e " ${C_BOLD}⚡ Port Hopping диапазон:${C_RESET}      ${C_WHITE}${PORT_HOP_RANGE}${C_RESET}"
+    echo -e " ${C_BOLD}🎭 Маскировочный SNI:${C_RESET}          ${C_CYAN}${CLIENT_SNI}${C_RESET}"
     echo -e " ${C_BOLD}🛡️ Сертификат ядра Hysteria:${C_RESET}  ${C_GREEN}Активен (SAN + pinSHA256)${C_RESET}"
     echo ""
     echo -e " ${C_BOLD}Команда управления в терминале:${C_RESET} ${C_PURPLE}${C_BOLD}blitz${C_RESET} (или ${C_CYAN}inb${C_RESET}, ${C_CYAN}hys2${C_RESET})"

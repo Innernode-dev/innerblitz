@@ -158,11 +158,12 @@ def gen_cert(ip):
     async def _gen():
         await init_db()
         server_ip = ip or await crud.get_setting("server_ip", "127.0.0.1")
-        cert_p, key_p, sha256_pin = generate_self_signed_cert(server_ip)
+        sni = await crud.get_setting("sni", "bing.com")
+        cert_p, key_p, sha256_pin = generate_self_signed_cert(server_ip, sni=sni)
         await crud.set_settings({"server_ip": server_ip, "cert_sha256": sha256_pin})
         await apply_and_save_config()
         restart_hysteria()
-        click.echo(click.style(f"✔ Generated IP certificate for {server_ip}", fg="green"))
+        click.echo(click.style(f"✔ Generated IP certificate for {server_ip} with SNI '{sni}'", fg="green"))
         click.echo(f"Certificate: {cert_p}")
         click.echo(f"Private Key: {key_p}")
         click.echo(f"pinSHA256: {sha256_pin}")
@@ -518,6 +519,110 @@ def restore_system(backup_file):
         click.echo(click.style(f"✔ System restored successfully from {backup_file}!", fg="green", bold=True))
     except Exception as e:
         click.echo(click.style(f"✖ Restore failed: {e}", fg="red"))
+
+@cli.command("set-sni")
+@click.argument("sni_domain")
+def set_sni(sni_domain):
+    """Set custom SNI domain for clients to disguise traffic and bypass DPI."""
+    async def _sni():
+        await init_db()
+        dom = sni_domain.strip()
+        server_ip = await crud.get_setting("server_ip", "127.0.0.1")
+        tls_type = await crud.get_setting("tls_type", "self_signed_ip")
+        updates = {
+            "sni": dom,
+            "masquerade_target": f"https://{dom}"
+        }
+        if tls_type == "self_signed_ip":
+            cert_p, key_p, sha256_pin = generate_self_signed_cert(server_ip, sni=dom)
+            updates["cert_sha256"] = sha256_pin
+        await crud.set_settings(updates)
+        await apply_and_save_config()
+        restart_hysteria()
+        click.echo(click.style(f"✔ Client SNI domain set to '{dom}'.", fg="green", bold=True))
+        if tls_type == "self_signed_ip":
+            click.echo(f"Certificate regenerated with SAN '{dom}'. pinSHA256: {updates.get('cert_sha256')}")
+        click.echo(click.style("✔ Hysteria 2 configuration updated and service restarted.", fg="green"))
+    run_async(_sni())
+
+@cli.command("open-port")
+@click.option("--port", "-p", required=True, type=int, help="Port number")
+@click.option("--proto", type=click.Choice(["tcp", "udp", "both"], case_sensitive=False), default="tcp", help="Protocol")
+@click.option("--comment", default="", help="Optional description")
+def open_port_cli(port, proto, comment):
+    """Open a port in the firewall and save to allowed list."""
+    import json
+    protos = ["tcp", "udp"] if proto.lower() == "both" else [proto.lower()]
+    for pr in protos:
+        open_firewall_port(port, pr)
+    
+    async def _save():
+        await init_db()
+        raw = await crud.get_setting("custom_firewall_ports", "[]")
+        try:
+            ports = json.loads(raw)
+        except Exception:
+            ports = []
+        if not any(item.get("port") == port and item.get("proto") == proto.lower() for item in ports):
+            ports.append({"port": port, "proto": proto.lower(), "comment": comment or f"Port {port}", "created_at": datetime.now().strftime("%Y-%m-%d %H:%M")})
+            await crud.set_setting("custom_firewall_ports", json.dumps(ports))
+        click.echo(click.style(f"✔ Port {port}/{proto.upper()} successfully opened in firewall!", fg="green"))
+    run_async(_save())
+
+@cli.command("close-port")
+@click.option("--port", "-p", required=True, type=int, help="Port number")
+@click.option("--proto", type=click.Choice(["tcp", "udp", "both"], case_sensitive=False), default="tcp", help="Protocol")
+def close_port_cli(port, proto):
+    """Remove a port rule from the firewall."""
+    import json
+    from app.core.firewall import close_firewall_port
+    protos = ["tcp", "udp"] if proto.lower() == "both" else [proto.lower()]
+    for pr in protos:
+        close_firewall_port(port, pr)
+    
+    async def _remove():
+        await init_db()
+        raw = await crud.get_setting("custom_firewall_ports", "[]")
+        try:
+            ports = json.loads(raw)
+        except Exception:
+            ports = []
+        ports = [item for item in ports if not (item.get("port") == port and item.get("proto") == proto.lower())]
+        await crud.set_setting("custom_firewall_ports", json.dumps(ports))
+        click.echo(click.style(f"✔ Port {port}/{proto.upper()} rule removed from firewall.", fg="yellow"))
+    run_async(_remove())
+
+@cli.command("list-ports")
+def list_ports_cli():
+    """List all open system and custom ports in firewall."""
+    import json
+    async def _list():
+        await init_db()
+        p = await crud.get_setting("panel_port", "8080")
+        h = await crud.get_setting("listen_port", "443")
+        hop_on = await crud.get_setting("port_hopping_enabled", "1") == "1"
+        hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
+        sni = await crud.get_setting("sni", "bing.com")
+        raw = await crud.get_setting("custom_firewall_ports", "[]")
+        try:
+            c_ports = json.loads(raw)
+        except Exception:
+            c_ports = []
+        
+        click.echo(click.style("\n=== InnerBlitz Port & Firewall Status ===", fg="cyan", bold=True))
+        click.echo(f"Policy:                 ACCEPT (Permissive / Все порты открыты без ограничений)")
+        click.echo(f"Web Panel Port:         {p}/TCP")
+        click.echo(f"Hysteria 2 Port:        {h}/UDP")
+        click.echo(f"Client SNI Domain:      {sni}")
+        click.echo(f"Port Hopping:           {'Active (' + hop_range + '/UDP)' if hop_on else 'Disabled'}")
+        if c_ports:
+            click.echo("\nCustom Opened Ports:")
+            for cp in c_ports:
+                click.echo(f" - {cp['port']}/{cp['proto'].upper()} ({cp.get('comment', '')})")
+        else:
+            click.echo("Custom Opened Ports:    None")
+        click.echo("")
+    run_async(_list())
 
 if __name__ == "__main__":
     cli()

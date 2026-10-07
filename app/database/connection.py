@@ -119,9 +119,31 @@ async def init_db():
                 ("decoy_enabled", "1"),
                 ("panel_port", rand_panel_port),
                 ("panel_secret_path", rand_secret_path),
+                ("panel_ssl_mode", "http"),
+                ("sni", "bing.com"),
+                ("custom_firewall_ports", "[]"),
             ]
             await db.executemany("INSERT INTO settings (key, value) VALUES (?, ?);", default_settings)
             logger.info("Default settings and admin account created.")
+
+        # Ensure critical keys exist even on upgraded databases
+        critical_defaults = [
+            ("sni", "bing.com"),
+            ("custom_firewall_ports", "[]"),
+            ("panel_ssl_mode", "http"),
+            ("port_hopping_enabled", "1"),
+            ("port_hopping_range", "20000:50000"),
+            ("listen_port", "443"),
+            ("tls_type", "self_signed_ip"),
+            ("obfs_type", "salamander"),
+            ("masquerade_type", "proxy"),
+            ("masquerade_target", "https://bing.com"),
+        ]
+        for k, v in critical_defaults:
+            await db.execute("""
+                INSERT INTO settings (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO NOTHING;
+            """, (k, v))
 
         await db.commit()
     finally:

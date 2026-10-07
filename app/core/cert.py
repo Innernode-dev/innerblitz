@@ -18,11 +18,13 @@ def generate_self_signed_cert(
     server_ip_or_domain: str, 
     cert_path: Optional[str] = None, 
     key_path: Optional[str] = None,
-    valid_days: int = 3650
+    valid_days: int = 3650,
+    sni: Optional[str] = None,
+    extra_sans: Optional[list] = None
 ) -> Tuple[str, str, str]:
     """
     Generate an Elliptic Curve (ECDSA prime256v1) self-signed certificate
-    with Subject Alternative Name (SAN) supporting either an IP address or domain.
+    with Subject Alternative Names (SAN) supporting IP addresses, custom disguise SNI, and domains.
     Returns: (cert_path, key_path, sha256_fingerprint)
     """
     cert_file = cert_path or settings.CERT_PATH
@@ -35,19 +37,38 @@ def generate_self_signed_cert(
     private_key = ec.generate_private_key(ec.SECP256R1())
 
     # 2. Build Subject & Issuer
-    common_name = server_ip_or_domain.strip() if server_ip_or_domain else "127.0.0.1"
+    common_name = (sni.strip() if sni else (server_ip_or_domain.strip() if server_ip_or_domain else "127.0.0.1"))
     subject = issuer = x509.Name([
         x509.NameAttribute(NameOID.COMMON_NAME, common_name),
         x509.NameAttribute(NameOID.ORGANIZATION_NAME, "InnerBlitz Secure Proxy"),
     ])
 
-    # 3. Add SAN (Subject Alternative Name) for IP or DNS
+    # 3. Add SANs (Subject Alternative Names) for IP, SNI and domains
     san_entries = []
-    try:
-        ip_obj = ipaddress.ip_address(common_name)
-        san_entries.append(x509.IPAddress(ip_obj))
-    except ValueError:
-        san_entries.append(x509.DNSName(common_name))
+    seen_sans = set()
+
+    def _add_san_entry(val: str):
+        val = val.strip()
+        if not val or val in seen_sans:
+            return
+        seen_sans.add(val)
+        try:
+            ip_obj = ipaddress.ip_address(val)
+            san_entries.append(x509.IPAddress(ip_obj))
+        except ValueError:
+            san_entries.append(x509.DNSName(val))
+
+    if server_ip_or_domain:
+        _add_san_entry(server_ip_or_domain)
+    if sni:
+        _add_san_entry(sni)
+    if extra_sans:
+        for extra in extra_sans:
+            _add_san_entry(str(extra))
+    
+    # Always include localhost and 127.0.0.1 for local health checks
+    _add_san_entry("127.0.0.1")
+    _add_san_entry("localhost")
 
     now = datetime.datetime.now(datetime.timezone.utc)
     cert_builder = (
@@ -84,14 +105,14 @@ def generate_self_signed_cert(
     except Exception:
         pass
 
-    # 5. Compute SHA256 fingerprint (in hex format accepted by Hysteria 2 clients)
-    sha256_hex = cert.fingerprint(hashes.SHA256()).hex()
+    # 5. Compute SHA256 fingerprint (in lowercase 64-char hex accepted by Hysteria 2)
+    sha256_hex = cert.fingerprint(hashes.SHA256()).hex().lower()
     logger.info(f"Generated self-signed TLS certificate for {common_name}. SHA256: {sha256_hex}")
 
     return cert_file, key_file, sha256_hex
 
 def get_certificate_sha256(cert_path: Optional[str] = None) -> str:
-    """Read an existing certificate and return its SHA-256 fingerprint in hex."""
+    """Read an existing certificate and return its SHA-256 fingerprint in lowercase hex."""
     target_path = cert_path or settings.CERT_PATH
     if not os.path.exists(target_path):
         return ""
@@ -99,9 +120,28 @@ def get_certificate_sha256(cert_path: Optional[str] = None) -> str:
         with open(target_path, "rb") as f:
             cert_data = f.read()
         cert = x509.load_pem_x509_certificate(cert_data)
-        return cert.fingerprint(hashes.SHA256()).hex()
+        return cert.fingerprint(hashes.SHA256()).hex().lower()
     except Exception as e:
         logger.error(f"Failed to read certificate {target_path}: {e}")
+        return ""
+
+def get_certificate_spki_sha256(cert_path: Optional[str] = None) -> str:
+    """Read certificate and return Base64-encoded SubjectPublicKeyInfo (SPKI) SHA256 for Sing-box."""
+    target_path = cert_path or settings.CERT_PATH
+    if not os.path.exists(target_path):
+        return ""
+    try:
+        with open(target_path, "rb") as f:
+            cert_data = f.read()
+        cert = x509.load_pem_x509_certificate(cert_data)
+        spki_der = cert.public_key().public_bytes(
+            encoding=serialization.Encoding.DER,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        digest = hashlib.sha256(spki_der).digest()
+        return base64.b64encode(digest).decode("utf-8")
+    except Exception as e:
+        logger.error(f"Failed to compute SPKI hash for {target_path}: {e}")
         return ""
 
 def generate_panel_cert(

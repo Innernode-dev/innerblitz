@@ -26,6 +26,32 @@ from app.api.system_routes import router as system_router
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("innerblitz")
 
+from aiohttp import web
+from app.core.auth import authenticate_client
+
+async def _hys_auth_handler(request: web.Request) -> web.Response:
+    try:
+        data = await request.json()
+        addr = data.get("addr", "")
+        auth_str = data.get("auth", "")
+        is_ok, user_id, msg = await authenticate_client(auth_str, addr)
+        if is_ok:
+            return web.json_response({"ok": True, "id": user_id})
+        return web.json_response({"ok": False, "msg": msg})
+    except Exception as e:
+        logger.error(f"[Hysteria Auth Hook] Internal error: {e}")
+        return web.json_response({"ok": False, "msg": "Internal server error"}, status=500)
+
+async def start_hys_auth_server():
+    auth_app = web.Application()
+    auth_app.router.add_post("/auth", _hys_auth_handler)
+    runner = web.AppRunner(auth_app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", settings.HYSTERIA_AUTH_PORT)
+    await site.start()
+    logger.info(f"Hysteria 2 Internal Auth Server listening on 127.0.0.1:{settings.HYSTERIA_AUTH_PORT}/auth")
+    return runner
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
@@ -35,6 +61,13 @@ async def lifespan(app: FastAPI):
     # Ensure Hysteria config exists on disk
     if not Path(settings.HYSTERIA_CONFIG_PATH).exists():
         await apply_and_save_config()
+
+    # Start dedicated internal auth server for Hysteria 2 core
+    auth_runner = None
+    try:
+        auth_runner = await start_hys_auth_server()
+    except Exception as e:
+        logger.error(f"Failed to start Hysteria internal auth server on {settings.HYSTERIA_AUTH_PORT}: {e}")
 
     # Open firewall ports for Web Panel and Hysteria 2
     try:
@@ -78,6 +111,8 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down InnerBlitz services...")
+    if auth_runner:
+        await auth_runner.cleanup()
     traffic_collector.stop()
     limiter_daemon.stop()
     tg_bot.stop()

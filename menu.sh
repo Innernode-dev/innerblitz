@@ -180,12 +180,19 @@ manage_users_menu() {
 manage_certs_menu() {
     while true; do
         print_header
-        echo -e "${C_CYAN}${C_BOLD}=== 🔒 Сертификаты и Домены ===${C_RESET}\n"
+        echo -e "${C_CYAN}${C_BOLD}=== 🔒 Сертификаты, SNI и Домены ===${C_RESET}\n"
+        local cur_sni=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('sni', 'bing.com')))" 2>/dev/null || echo "bing.com")
+        local cur_pin=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('cert_sha256', '')))" 2>/dev/null || echo "")
+
+        echo -e " Текущий маскировочный SNI:   ${C_GREEN}${cur_sni}${C_RESET}"
+        echo -e " Отпечаток pinSHA256:         ${C_YELLOW}${cur_pin:0:32}...${C_RESET}\n"
+
         echo -e " ${C_GREEN}[1]${C_RESET} Выпустить / Обновить сертификат на IP (ECDSA SAN + pinSHA256)"
         echo -e " ${C_GREEN}[2]${C_RESET} Настроить доменное имя и Let's Encrypt (ACME)"
-        echo -e " ${C_GREEN}[3]${C_RESET} Показать текущий SHA256 отпечаток сертификата"
+        echo -e " ${C_GREEN}[3]${C_RESET} 🎭 Сменить маскировочный SNI для клиентов (DPI Bypass, например bing.com)"
+        echo -e " ${C_GREEN}[4]${C_RESET} 📜 Показать полный SHA256 отпечаток и реквизиты сертификата"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад\n"
-        read -rp "Выберите пункт [0-3]: " copt
+        read -rp "Выберите пункт [0-4]: " copt
 
         case "$copt" in
             1)
@@ -207,7 +214,17 @@ manage_certs_menu() {
                 ;;
             3)
                 echo ""
-                $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); pin = asyncio.run(crud.get_setting('cert_sha256', '')); print(f'Текущий pinSHA256: {pin}')"
+                read -rp "Введите маскировочный SNI домен [текущий: $cur_sni]: " newsni
+                newsni=$(echo "$newsni" | tr -d '[:space:]')
+                if [ -n "$newsni" ]; then
+                    $CLI_CMD set-sni "$newsni"
+                fi
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            4)
+                echo ""
+                echo -e "Маскировочный SNI:   ${C_CYAN}${cur_sni}${C_RESET}"
+                echo -e "Полный pinSHA256:    ${C_YELLOW}${cur_pin}${C_RESET}"
                 echo ""
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
@@ -221,7 +238,7 @@ manage_certs_menu() {
 manage_ports_menu() {
     while true; do
         print_header
-        echo -e "${C_CYAN}${C_BOLD}=== ⚡ Управление портами Hysteria 2 ===${C_RESET}\n"
+        echo -e "${C_CYAN}${C_BOLD}=== ⚡ Управление портами Hysteria 2 и Брандмауэром ===${C_RESET}\n"
         
         local l_port=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
         local h_on=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('port_hopping_enabled', '1')))" 2>/dev/null || echo "1")
@@ -242,8 +259,11 @@ manage_ports_menu() {
         echo -e " ${C_GREEN}[3]${C_RESET} Включить / Выключить Port Hopping"
         echo -e " ${C_GREEN}[4]${C_RESET} Очистить правила iptables для Port Hopping"
         echo -e " ${C_YELLOW}[5]${C_RESET} ${C_BOLD}🔄 Полный сброс портов на стандартные (Порт 443 + сброс iptables)${C_RESET}"
+        echo -e " ${C_CYAN}[6]${C_RESET} 🛡️ Просмотреть статус брандмауэра и список открытых портов"
+        echo -e " ${C_CYAN}[7]${C_RESET} 🔓 Открыть дополнительный порт в брандмауэре (TCP/UDP)"
+        echo -e " ${C_RED}[8]${C_RESET} 🔒 Закрыть пользовательский порт в брандмауэре"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад\n"
-        read -rp "Выберите пункт [0-5]: " popt
+        read -rp "Выберите пункт [0-8]: " popt
 
         case "$popt" in
             1)
@@ -283,6 +303,32 @@ manage_ports_menu() {
                 read -rp "Сбросить порт Hysteria 2 на 443 и очистить iptables? (y/N): " rconf
                 if [[ "$rconf" =~ ^[Yy]$ ]]; then
                     $CLI_CMD reset-ports --port 443 --flush-hopping
+                fi
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            6)
+                echo ""
+                $CLI_CMD list-ports
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            7)
+                echo ""
+                read -rp "Номер порта для открытия: " o_port
+                read -rp "Протокол [tcp/udp/both] (Enter = tcp): " o_proto
+                o_proto=${o_proto:-tcp}
+                read -rp "Описание (например Outline, Game, SSH): " o_comm
+                if [ -n "$o_port" ]; then
+                    $CLI_CMD open-port -p "$o_port" --proto "$o_proto" --comment "$o_comm"
+                fi
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            8)
+                echo ""
+                read -rp "Номер порта для закрытия: " c_port
+                read -rp "Протокол [tcp/udp/both] (Enter = tcp): " c_proto
+                c_proto=${c_proto:-tcp}
+                if [ -n "$c_port" ]; then
+                    $CLI_CMD close-port -p "$c_port" --proto "$c_proto"
                 fi
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
@@ -671,6 +717,9 @@ show_hysteria_status() {
         decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
     fi
 
+    local hys_sni=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('sni', 'bing.com')))" 2>/dev/null || echo "bing.com")
+    local hys_pin=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('cert_sha256', '')))" 2>/dev/null || echo "")
+
     echo -e " ${C_BOLD}--- Ядро Hysteria 2 ---${C_RESET}"
     echo -e " Служба (systemd):        $hys_active (PID: ${hys_pid}, Память: ${hys_mem})"
     echo -e " Версия бинарника:        ${C_WHITE}${hys_ver}${C_RESET}"
@@ -678,6 +727,10 @@ show_hysteria_status() {
     echo -e " Основной UDP порт:       ${C_WHITE}${l_port} UDP${C_RESET}"
     echo -e " Port Hopping:            ${hop_status_str}"
     echo -e " Режим TLS:               ${C_WHITE}${tls_t}${C_RESET}"
+    echo -e " Маскировочный SNI:       ${C_CYAN}${hys_sni}${C_RESET}"
+    if [ -n "$hys_pin" ]; then
+        echo -e " Отпечаток pinSHA256:     ${C_YELLOW}${hys_pin:0:28}...${C_RESET}"
+    fi
     echo -e " Salamander Obfs:         ${C_WHITE}${obfs_t}${C_RESET}"
     local p_ssl=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_ssl_mode', 'http')))" 2>/dev/null || echo "http")
     local p_domain=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('server_domain', '')))" 2>/dev/null || echo "")

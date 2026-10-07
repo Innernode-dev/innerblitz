@@ -170,6 +170,14 @@ systemctl restart hysteria-server.service || true
 systemctl restart innerblitz.service || true
 
 # Ensure firewall allows incoming connections to panel port and hysteria port
+iptables -P INPUT ACCEPT 2>/dev/null || true
+iptables -P FORWARD ACCEPT 2>/dev/null || true
+iptables -P OUTPUT ACCEPT 2>/dev/null || true
+if command -v ip6tables &>/dev/null; then
+    ip6tables -P INPUT ACCEPT 2>/dev/null || true
+    ip6tables -P FORWARD ACCEPT 2>/dev/null || true
+    ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
+fi
 open_firewall_port "$CUR_PORT" "tcp"
 HY_PORT=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('listen_port', '443')))" 2>/dev/null || echo "443")
 open_firewall_port "$HY_PORT" "udp"

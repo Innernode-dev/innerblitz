@@ -23,15 +23,21 @@ def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
         params["obfs"] = "salamander"
         params["obfs-password"] = settings_dict.get("obfs_password")
 
-    # TLS
+    # TLS & SNI
     tls_type = settings_dict.get("tls_type", "self_signed_ip")
+    custom_sni = (settings_dict.get("sni") or settings_dict.get("custom_sni") or "").strip()
+    domain = (settings_dict.get("server_domain") or "").strip()
+
+    if custom_sni:
+        params["sni"] = custom_sni
+    elif domain:
+        params["sni"] = domain
+
     if tls_type == "self_signed_ip":
         params["insecure"] = "1"
         cert_sha256 = settings_dict.get("cert_sha256", "")
         if cert_sha256:
             params["pinSHA256"] = cert_sha256
-    elif settings_dict.get("server_domain"):
-        params["sni"] = settings_dict.get("server_domain")
 
     query_str = urllib.parse.urlencode(params)
     tag = f"InnerBlitz-{username}"
@@ -55,8 +61,9 @@ def build_clash_yaml(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str
         "skip-cert-verify": True,
     }
 
-    if settings_dict.get("server_domain"):
-        clash_proxy["sni"] = settings_dict.get("server_domain")
+    custom_sni = (settings_dict.get("sni") or settings_dict.get("custom_sni") or settings_dict.get("server_domain") or "").strip()
+    if custom_sni:
+        clash_proxy["sni"] = custom_sni
 
     if str(settings_dict.get("port_hopping_enabled", "1")).lower() in ("1", "true"):
         mport = settings_dict.get("port_hopping_range", "20000:50000").replace(":", "-")
@@ -107,8 +114,23 @@ def build_singbox_json(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> D
             "insecure": True
         }
     }
-    if settings_dict.get("server_domain"):
-        outbound["tls"]["server_name"] = settings_dict.get("server_domain")
+    custom_sni = (settings_dict.get("sni") or settings_dict.get("custom_sni") or settings_dict.get("server_domain") or "").strip()
+    if custom_sni:
+        outbound["tls"]["server_name"] = custom_sni
+
+    from app.core.cert import get_certificate_spki_sha256
+    spki_hash = get_certificate_spki_sha256()
+    if spki_hash:
+        outbound["tls"]["certificate_public_key_sha256"] = spki_hash
+
+    cert_sha256 = settings_dict.get("cert_sha256", "")
+    if cert_sha256:
+        outbound["tls"]["pinSHA256"] = cert_sha256
+
+    if str(settings_dict.get("port_hopping_enabled", "1")).lower() in ("1", "true"):
+        mport = settings_dict.get("port_hopping_range", "20000:50000").replace(":", "-")
+        if mport:
+            outbound["server_ports"] = mport
 
     if settings_dict.get("obfs_type") == "salamander" and settings_dict.get("obfs_password"):
         outbound["obfs"] = {

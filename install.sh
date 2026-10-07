@@ -50,6 +50,79 @@ detect_ip() {
     SERVER_IP="127.0.0.1"
 }
 
+is_port_occupied() {
+    local port=$1
+    local proto=${2:-udp}
+    if command -v ss &>/dev/null; then
+        if [ "$proto" == "udp" ]; then
+            ss -uln "sport = :$port" 2>/dev/null | grep -q ":$port\b" && return 0
+        else
+            ss -tln "sport = :$port" 2>/dev/null | grep -q ":$port\b" && return 0
+        fi
+    elif command -v netstat &>/dev/null; then
+        netstat -"${proto:0:1}"ln 2>/dev/null | grep -q ":$port " && return 0
+    elif command -v lsof &>/dev/null; then
+        lsof -i"${proto}":"$port" &>/dev/null && return 0
+    fi
+    return 1
+}
+
+get_port_process() {
+    local port=$1
+    local proto=${2:-udp}
+    local proc=""
+    if command -v ss &>/dev/null; then
+        if [ "$proto" == "udp" ]; then
+            proc=$(ss -ulpn "sport = :$port" 2>/dev/null | grep -o 'users:(("[^"]*' | cut -d'"' -f2 | head -n 1)
+        else
+            proc=$(ss -tlpn "sport = :$port" 2>/dev/null | grep -o 'users:(("[^"]*' | cut -d'"' -f2 | head -n 1)
+        fi
+    fi
+    if [ -z "$proc" ] && command -v lsof &>/dev/null; then
+        proc=$(lsof -i"${proto}":"$port" 2>/dev/null | awk 'NR>1 {print $1}' | head -n 1)
+    fi
+    echo "${proc:-неизвестный процесс}"
+}
+
+scan_and_display_active_services() {
+    echo ""
+    echo -e "${C_CYAN}${C_BOLD}┌────────────────────────────────────────────────────────┐${C_RESET}"
+    echo -e "${C_CYAN}${C_BOLD}│      🔍 Анализ активных сетевых служб на сервере       │${C_RESET}"
+    echo -e "${C_CYAN}${C_BOLD}└────────────────────────────────────────────────────────┘${C_RESET}"
+
+    local found=0
+    if command -v ss &>/dev/null; then
+        local raw_ss
+        raw_ss=$(ss -tulnp 2>/dev/null | awk 'NR>1 {print $1, $5, $7}')
+        if [ -n "$raw_ss" ]; then
+            echo -e " ${C_GRAY}Обнаружены следующие слушающие службы на хосте:${C_RESET}"
+            while read -r pr loc prc; do
+                local p
+                p=$(echo "$loc" | awk -F: '{print $NF}')
+                local pname
+                pname=$(echo "$prc" | grep -o 'users:(("[^"]*' | cut -d'"' -f2 || echo "")
+                [ -z "$pname" ] && pname="системная служба"
+                if [[ "$p" =~ ^[0-9]+$ ]]; then
+                    printf "   • ${C_WHITE}%-5s${C_RESET} порт ${C_YELLOW}%-6s${C_RESET} -> ${C_CYAN}%s${C_RESET}\n" "${pr^^}" "$p" "$pname"
+                    found=1
+                fi
+            done <<< "$raw_ss"
+        fi
+    fi
+
+    if [ "$found" -eq 0 ]; then
+        echo -e " ${C_GREEN}Все ключевые порты свободны.${C_RESET}"
+    fi
+
+    echo ""
+    echo -e "${C_YELLOW}${C_BOLD}💡 Рекомендация по обходу блокировок ТСПУ/DPI (РФ):${C_RESET}"
+    echo -e "  • В РФ операторы связи часто глушат и замедляют UDP на стандартном порту 443."
+    echo -e "  • Использование нестандартного порта (${C_GREEN}8443, 2053, 11443${C_RESET}) или диапазона"
+    echo -e "    Port Hopping (${C_GREEN}20000:50000${C_RESET}) обеспечивает стабильную скорость без сбоев."
+    echo ""
+}
+
+
 open_firewall_port() {
     local port=$1
     local proto=${2:-tcp}
@@ -138,6 +211,10 @@ setup_python_env() {
 }
 
 configure_innerblitz() {
+    # Scan host listening services before asking questions to avoid collisions
+    scan_and_display_active_services
+    detect_ip
+
     echo ""
     echo -e "${C_PURPLE}${C_BOLD}┌────────────────────────────────────────────────────────┐${C_RESET}"
     echo -e "${C_PURPLE}${C_BOLD}│            Режим установки InnerBlitz                  │${C_RESET}"
@@ -157,9 +234,7 @@ configure_innerblitz() {
         echo -e "${C_YELLOW}Некорректный ввод '$install_mode'! Пожалуйста, введите 1 (Экспресс) или 2 (Кастомная).${C_RESET}"
     done
 
-    detect_ip
-
-    LISTEN_PORT=443
+    LISTEN_PORT=8443
     PORT_HOP_RANGE="20000:50000"
     DOMAIN=""
     CLIENT_SNI="bing.com"
@@ -170,12 +245,70 @@ configure_innerblitz() {
     PANEL_SECRET=$RANDOM_PANEL_SECRET
     ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
 
+    if [ "$install_mode" == "1" ]; then
+        echo ""
+        echo -e " ${C_CYAN}${C_BOLD}--- Выбор UDP порта Hysteria 2 (Обход блокировок ТСПУ) ---${C_RESET}"
+        if is_port_occupied 443 "udp" || is_port_occupied 443 "tcp"; then
+            local busy443=$(get_port_process 443 udp)
+            [ "$busy443" == "неизвестный процесс" ] && busy443=$(get_port_process 443 tcp)
+            log_warn "Порт 443 уже занят процессом '$busy443'! По умолчанию выбран порт 8443."
+        fi
+        echo -e " ${C_GREEN}[1]${C_RESET} ${C_BOLD}8443 UDP${C_RESET}  — Рекомендуется (Обход DPI и замедлений 443 в РФ)"
+        echo -e " ${C_WHITE}[2]${C_RESET} 443 UDP   — Стандартный HTTPS (часто глушится ТСПУ)"
+        echo -e " ${C_WHITE}[3]${C_RESET} 2053 UDP  — Cloudflare QUIC"
+        echo -e " ${C_WHITE}[4]${C_RESET} Ввести свой порт"
+        read -rp "Выберите порт [1-4] (по умолчанию 1 - 8443): " port_choice
+        port_choice=${port_choice:-1}
+        case "$port_choice" in
+            1) LISTEN_PORT=8443 ;;
+            2) LISTEN_PORT=443 ;;
+            3) LISTEN_PORT=2053 ;;
+            4)
+                while true; do
+                    read -rp "Введите желаемый UDP порт: " custom_port
+                    if [[ "$custom_port" =~ ^[0-9]+$ ]] && [ "$custom_port" -ge 1 ] && [ "$custom_port" -le 65535 ]; then
+                        if is_port_occupied "$custom_port" "udp"; then
+                            local busy_p=$(get_port_process "$custom_port" "udp")
+                            log_warn "Порт $custom_port/UDP уже занят процессом '$busy_p'!"
+                            read -rp "Продолжить всё равно? [y/N]: " force_p
+                            if [[ "$force_p" =~ ^[Yy]$ ]]; then
+                                LISTEN_PORT=$custom_port
+                                break
+                            fi
+                            continue
+                        fi
+                        LISTEN_PORT=$custom_port
+                        break
+                    fi
+                    echo -e "${C_YELLOW}Порт должен быть числом от 1 до 65535!${C_RESET}"
+                done
+                ;;
+            *) LISTEN_PORT=8443 ;;
+        esac
+
+        # Ensure random panel port is not occupied
+        while is_port_occupied "$RANDOM_PANEL_PORT" "tcp" || [ "$RANDOM_PANEL_PORT" -eq "$LISTEN_PORT" ]; do
+            RANDOM_PANEL_PORT=$(( 20000 + RANDOM % 40000 ))
+        done
+        PANEL_PORT=$RANDOM_PANEL_PORT
+    fi
+
     if [ "$install_mode" == "2" ]; then
         echo ""
         while true; do
-            read -rp "Основной UDP порт Hysteria 2 [443]: " user_port
-            user_port=${user_port:-443}
+            read -rp "Основной UDP порт Hysteria 2 [8443]: " user_port
+            user_port=${user_port:-8443}
             if [[ "$user_port" =~ ^[0-9]+$ ]] && [ "$user_port" -ge 1 ] && [ "$user_port" -le 65535 ]; then
+                if is_port_occupied "$user_port" "udp"; then
+                    local busy_p=$(get_port_process "$user_port" "udp")
+                    log_warn "Порт $user_port/UDP уже используется процессом '$busy_p'!"
+                    read -rp "Продолжить и занять этот порт? [y/N]: " force_p
+                    if [[ "$force_p" =~ ^[Yy]$ ]]; then
+                        LISTEN_PORT=$user_port
+                        break
+                    fi
+                    continue
+                fi
                 LISTEN_PORT=$user_port
                 break
             fi
@@ -198,6 +331,14 @@ configure_innerblitz() {
                 if [ "$user_panel_port" -eq "$LISTEN_PORT" ]; then
                     echo -e "${C_YELLOW}Порт веб-панели не может совпадать с основным портом Hysteria ($LISTEN_PORT)!${C_RESET}"
                     continue
+                fi
+                if is_port_occupied "$user_panel_port" "tcp"; then
+                    local busy_tcp=$(get_port_process "$user_panel_port" "tcp")
+                    log_warn "Порт $user_panel_port/TCP уже используется процессом '$busy_tcp'!"
+                    read -rp "Продолжить всё равно? [y/N]: " force_tcp
+                    if ! [[ "$force_tcp" =~ ^[Yy]$ ]]; then
+                        continue
+                    fi
                 fi
                 PANEL_PORT=$user_panel_port
                 break

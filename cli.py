@@ -624,6 +624,35 @@ def list_ports_cli():
         click.echo("")
     run_async(_list())
 
+@cli.command("clear-logs")
+def clear_logs_cli():
+    """Clear and rotate system journalctl logs."""
+    from app.core.hysteria import clear_service_logs
+    ok, msg = clear_service_logs()
+    if ok:
+        click.echo(click.style(f"✔ {msg}", fg="green"))
+    else:
+        click.echo(click.style(f"✖ {msg}", fg="red"))
+
+@cli.command("set-logging")
+@click.option("--level", "-l", type=click.Choice(["debug", "info", "warn", "error"], case_sensitive=False), default="info", help="Log level")
+@click.option("--zero-logs", is_flag=True, help="Disable log recording to disk (Zero-Logs privacy mode)")
+def set_logging_cli(level, zero_logs):
+    """Configure Hysteria log level and privacy mode."""
+    from app.core.hysteria import configure_service_logging
+    async def _set():
+        await init_db()
+        await crud.set_setting("log_level", level.lower())
+        await crud.set_setting("zero_logs", "1" if zero_logs else "0")
+        ok, msg = configure_service_logging(level=level, zero_logs=zero_logs)
+        if ok:
+            status = "ZERO-LOGS (Приватный режим: логи отключены)" if zero_logs else f"Уровень: {level.upper()}"
+            click.echo(click.style(f"✔ Логирование обновлено: {status}", fg="green"))
+        else:
+            click.echo(click.style(f"✖ Ошибка настройки: {msg}", fg="red"))
+    run_async(_set())
+
 if __name__ == "__main__":
     cli()
+
 

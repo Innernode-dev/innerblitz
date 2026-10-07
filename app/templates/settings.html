@@ -305,7 +305,19 @@
             </div>
             <button onclick="triggerOptimizeBBR()" class="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2">
                 <i data-lucide="zap" class="w-4 h-4"></i>
-                <span>Применить BBR оптимизацию</span>
+        </div>
+    </div>
+
+    <!-- Sticky Bottom Save Bar -->
+    <div class="sticky bottom-4 z-40 bg-[#0c1220]/95 backdrop-blur-md border border-[#1e293b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5 text-xs text-slate-300">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+            <span>Параметры порта панели, URL-пути и маскировки Decoy:</span>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+                <i data-lucide="save" class="w-4 h-4"></i>
+                <span>Сохранить параметры панели</span>
             </button>
         </div>
     </div>

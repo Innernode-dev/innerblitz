@@ -6,27 +6,32 @@
 {% block content %}
 <div class="space-y-8">
 
-    <!-- Quick Action Banner -->
-    <div class="glass p-6 rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-900/30 via-slate-900/40 to-slate-900/30 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-            <div class="flex items-center gap-2 text-brand-400 font-semibold mb-1">
-                <i data-lucide="sparkles" class="w-4 h-4"></i>
-                <span>Быстрые действия</span>
+    <!-- Quick Action Bar (3x-UI Style) -->
+    <div class="glass-card p-4 rounded-xl border border-[#1e293b] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <i data-lucide="shield-check" class="w-5 h-5"></i>
             </div>
-            <p class="text-sm text-slate-300">Управляйте прокси-сервером в один клик: применяйте профили обхода блокировок или обновляйте IP-сертификат.</p>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-white">Панель управления Hysteria 2</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">QUIC v2</span>
+                </div>
+                <p class="text-xs text-slate-400">Управление узлом, пользователями, TLS сертификатами и обходом блокировок ТСПУ.</p>
+            </div>
         </div>
-        <div class="flex flex-wrap items-center gap-3">
-            <button onclick="applyPreset('anti-dpi')" class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition shadow-lg shadow-brand-600/30 flex items-center gap-2">
-                <i data-lucide="shield" class="w-4 h-4"></i>
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="applyPreset('anti-dpi')" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-sm">
+                <i data-lucide="shield" class="w-3.5 h-3.5"></i>
                 <span>Анти-DPI Пресет</span>
             </button>
-            <button onclick="generateIpCert()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-sm transition flex items-center gap-2">
-                <i data-lucide="lock" class="w-4 h-4 text-emerald-400"></i>
-                <span>Обновить IP-сертификат</span>
+            <button onclick="generateIpCert()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition flex items-center gap-1.5">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Обновить IP SAN</span>
             </button>
-            <a href="/users" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-sm transition flex items-center gap-2">
-                <i data-lucide="user-plus" class="w-4 h-4 text-brand-400"></i>
-                <span>Добавить юзера</span>
+            <a href="/users" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition flex items-center gap-1.5">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>Добавить клиента</span>
             </a>
         </div>
     </div>

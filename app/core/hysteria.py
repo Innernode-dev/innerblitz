@@ -15,11 +15,9 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     port_hop = config_data.get("port_hopping_enabled", True)
     port_range = config_data.get("port_hopping_range", "20000:50000").replace(":", "-")
 
-    # In Hysteria 2 Linux, listen can be a port or range: e.g. :20000-50000 or :443
-    if port_hop and port_range and "-" in port_range:
-        listen_str = f":{port_range}"
-    else:
-        listen_str = f":{listen_port}"
+    # Hysteria 2 core listens directly on listen_port.
+    # Dynamic port hopping is handled seamlessly by iptables NAT REDIRECT rules in firewall.py.
+    listen_str = f":{listen_port}"
 
     tls_type = config_data.get("tls_type", "self_signed_ip")
     server_domain = config_data.get("server_domain", "").strip()
@@ -204,3 +202,53 @@ def get_hysteria_logs(lines: int = 40) -> str:
         return res.stdout or "No logs available."
     except Exception as e:
         return f"Error fetching logs: {e}"
+
+def clear_service_logs() -> Tuple[bool, str]:
+    """Rotate and vacuum journalctl logs to immediately clear on-disk logs."""
+    try:
+        subprocess.run(["journalctl", "--rotate"], capture_output=True, timeout=5)
+        subprocess.run(["journalctl", "--vacuum-time=1s"], capture_output=True, text=True, timeout=5)
+        return True, "Системные логи успешно очищены"
+    except Exception as e:
+        return False, str(e)
+
+def configure_service_logging(level: str = "info", zero_logs: bool = False) -> Tuple[bool, str]:
+    """
+    Update systemd service configuration to control Hysteria log level
+    or completely disable log collection (Zero Logs privacy mode).
+    """
+    try:
+        service_file = Path("/etc/systemd/system/hysteria-server.service")
+        if not service_file.exists():
+            return True, "Настройка сохранена (systemd файл вне Linux)"
+
+        out_dest = "null" if zero_logs else "journal"
+        lvl = "error" if zero_logs else level.lower()
+
+        content = f"""[Unit]
+Description=Hysteria 2 Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=HYSTERIA_LOG_LEVEL={lvl}
+StandardOutput={out_dest}
+StandardError={out_dest}
+ExecStart=/usr/local/bin/hysteria server --config /etc/hysteria/config.yaml
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+"""
+        with open(service_file, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        subprocess.run(["systemctl", "daemon-reload"], capture_output=True, timeout=5)
+        restart_hysteria()
+        return True, "Конфигурация логирования успешно применена"
+    except Exception as e:
+        return False, str(e)
+

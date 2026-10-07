@@ -611,8 +611,10 @@ manage_system_menu() {
         echo -e " ${C_GREEN}[4]${C_RESET} 📥 Восстановить систему из бэкапа"
         echo -e " ${C_GREEN}[5]${C_RESET} 📜 Просмотр системных логов ядра Hysteria 2"
         echo -e " ${C_GREEN}[6]${C_RESET} 🔄 Перезапустить все службы (Hysteria 2 + Панель)"
+        echo -e " ${C_GREEN}[7]${C_RESET} 🧹 Очистить системные логи (освободить место на диске)"
+        echo -e " ${C_GREEN}[8]${C_RESET} 🛡️ Настройка уровня логов / Режим Zero-Logs (Приватность)"
         echo -e "\n ${C_YELLOW}[0]${C_RESET} Назад в главное меню\n"
-        read -rp "Выберите пункт [0-6]: " sopt
+        read -rp "Выберите пункт [0-8]: " sopt
 
         case "$sopt" in
             1)
@@ -652,6 +654,31 @@ manage_system_menu() {
                 echo ""
                 systemctl restart hysteria-server.service innerblitz.service || true
                 echo -e "${C_GREEN}✔ Все службы успешно перезапущены!${C_RESET}"
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            7)
+                echo ""
+                echo -e "${C_CYAN}Очистка системных логов...${C_RESET}"
+                $CLI_CMD clear-logs
+                read -rp "Нажмите Enter для продолжения..."
+                ;;
+            8)
+                echo ""
+                echo -e "${C_CYAN}=== 🛡️ Настройка логирования Hysteria 2 ===${C_RESET}"
+                echo -e " [1] DEBUG (Максимальная детализация)"
+                echo -e " [2] INFO (Стандартный)"
+                echo -e " [3] WARN (Только предупреждения)"
+                echo -e " [4] ERROR (Только критические ошибки)"
+                echo -e " [5] ZERO-LOGS (Полностью отключить сбор логов / Приватность)"
+                read -rp "Выберите режим [1-5]: " lopt
+                case "$lopt" in
+                    1) $CLI_CMD set-logging --level debug ;;
+                    2) $CLI_CMD set-logging --level info ;;
+                    3) $CLI_CMD set-logging --level warn ;;
+                    4) $CLI_CMD set-logging --level error ;;
+                    5) $CLI_CMD set-logging --zero-logs ;;
+                    *) echo -e "${C_YELLOW}Отмена.${C_RESET}" ;;
+                esac
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             0) return ;;

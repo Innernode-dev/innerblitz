@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 import psutil
 import time
 from datetime import datetime, timedelta
 
 from app.api.auth_routes import get_current_admin
 from app.database import crud
-from app.core.hysteria import is_hysteria_running, get_hysteria_version, get_hysteria_logs
+from app.core.hysteria import (
+    is_hysteria_running, get_hysteria_version, get_hysteria_logs,
+    clear_service_logs, configure_service_logging
+)
 
 router = APIRouter(prefix="/api/system", dependencies=[Depends(get_current_admin)])
 
@@ -84,4 +88,32 @@ def get_service_logs(service_name: str, lines: int = 80) -> str:
 async def get_logs(service: str = "hysteria", lines: int = 80):
     """Retrieve recent journalctl logs for Hysteria 2 or InnerBlitz panel."""
     return {"logs": get_service_logs(service_name=service, lines=lines)}
+
+@router.post("/logs/clear")
+async def clear_logs_endpoint():
+    """Clear and rotate system journal logs."""
+    ok, msg = clear_service_logs()
+    return {"ok": ok, "message": msg}
+
+class LogConfigPayload(BaseModel):
+    level: str = "info"
+    zero_logs: bool = False
+
+@router.get("/logs/config")
+async def get_logs_config():
+    """Get current logging level and zero-logs status."""
+    level = await crud.get_setting("log_level", "info")
+    zero_logs = (await crud.get_setting("zero_logs", "0")) == "1"
+    return {"level": level, "zero_logs": zero_logs}
+
+@router.post("/logs/config")
+async def update_logs_config(payload: LogConfigPayload):
+    """Update log level and zero-logs privacy mode."""
+    valid_levels = ["debug", "info", "warn", "error"]
+    lvl = payload.level.lower() if payload.level.lower() in valid_levels else "info"
+    await crud.set_setting("log_level", lvl)
+    await crud.set_setting("zero_logs", "1" if payload.zero_logs else "0")
+    ok, msg = configure_service_logging(level=lvl, zero_logs=payload.zero_logs)
+    return {"ok": ok, "message": msg, "level": lvl, "zero_logs": payload.zero_logs}
+
 

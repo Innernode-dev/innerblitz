@@ -1,6 +1,7 @@
 import os
 import tarfile
 import tempfile
+import logging
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse
@@ -13,6 +14,8 @@ import base64
 
 import subprocess
 from pathlib import Path
+
+logger = logging.getLogger("innerblitz.settings")
 
 from app.config import settings
 from app.api.auth_routes import get_current_admin
@@ -39,6 +42,7 @@ class SettingsPayload(BaseModel):
     tls_type: Optional[str] = None
     obfs_type: Optional[str] = None
     obfs_password: Optional[str] = None
+    warp_enabled: Optional[bool] = None
     mimic_enabled: Optional[bool] = None
     masquerade_type: Optional[str] = None
     masquerade_target: Optional[str] = None
@@ -108,11 +112,11 @@ async def update_settings(payload: SettingsPayload):
         await crud.set_settings(updates)
         await apply_and_save_config()
 
-        # Update port hopping firewall rule
-        if "port_hopping_enabled" in updates or "port_hopping_range" in updates:
-            hopping_on = updates.get("port_hopping_enabled") == "1"
-            hopping_range = updates.get("port_hopping_range", "20000:50000")
-            target_port = int(updates.get("listen_port", 443))
+        # Update port hopping firewall rule whenever hopping or listen_port changes
+        if "port_hopping_enabled" in updates or "port_hopping_range" in updates or "listen_port" in updates:
+            hopping_on = (updates.get("port_hopping_enabled") or await crud.get_setting("port_hopping_enabled", "1")) == "1"
+            hopping_range = updates.get("port_hopping_range") or await crud.get_setting("port_hopping_range", "20000:50000")
+            target_port = int(updates.get("listen_port") or await crud.get_setting("listen_port", "443"))
             configure_port_hopping(hopping_range, target_port, enable=hopping_on)
 
         # If panel port changed, punch firewall and schedule service restart after response is sent
@@ -128,9 +132,11 @@ async def update_settings(payload: SettingsPayload):
 
         if "listen_port" in updates:
             try:
-                open_firewall_port(int(updates["listen_port"]), "udp")
-            except Exception:
-                pass
+                new_lp = int(updates["listen_port"])
+                open_firewall_port(new_lp, "udp")
+                logger.info(f"Updated Hysteria 2 UDP listen port to {new_lp}")
+            except Exception as e:
+                logger.warning(f"Failed to punch firewall for listen_port: {e}")
 
         if "sni" in updates and updates["sni"]:
             updates["sni"] = updates["sni"].strip()
@@ -229,6 +235,31 @@ async def close_port_endpoint(payload: FirewallPortPayload):
     await crud.set_setting("custom_firewall_ports", json.dumps(custom_ports))
 
     return {"ok": True, "message": f"Порт {payload.port}/{proto.upper()} удален из открытых", "custom_ports": custom_ports}
+
+@router.get("/check-port")
+async def check_port_in_use(port: int, proto: str = "udp"):
+    """Check if a port is currently available or occupied by another service on host."""
+    import socket
+    proto_lower = proto.lower()
+    is_busy = False
+    try:
+        if proto_lower == "udp":
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.bind(("0.0.0.0", port))
+            sock.close()
+        else:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.bind(("0.0.0.0", port))
+            sock.close()
+    except OSError:
+        is_busy = True
+
+    return {
+        "port": port,
+        "proto": proto_lower,
+        "is_busy": is_busy,
+        "message": f"Порт {port}/{proto_lower.upper()} занят другим процессом" if is_busy else f"Порт {port}/{proto_lower.upper()} свободен"
+    }
 
 @router.post("/generate-ip-cert")
 async def generate_ip_certificate():

@@ -34,10 +34,11 @@ def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
         params["sni"] = domain
 
     if tls_type == "self_signed_ip":
-        params["insecure"] = "1"
         cert_sha256 = settings_dict.get("cert_sha256", "")
         if cert_sha256:
             params["pinSHA256"] = cert_sha256
+        else:
+            params["insecure"] = "1"
 
     query_str = urllib.parse.urlencode(params)
     tag = f"InnerBlitz-{username}"

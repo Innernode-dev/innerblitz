@@ -173,3 +173,5 @@ geosite.dat
 # .vscode/
 # !.vscode/settings.json
 
+.agents/
+

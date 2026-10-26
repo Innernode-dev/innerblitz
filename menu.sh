@@ -610,18 +610,39 @@ presets_menu() {
                 ;;
             5)
                 echo ""
-                echo -e "${C_GREEN}✔ Protocol Sniffing активен по умолчанию для корректного роутинга в Hiddify/Sing-box.${C_RESET}"
+                read -rp "Включить Protocol Sniffing? (Y/n): " s_conf
+                s_conf=${s_conf:-Y}
+                local s_val="1"
+                if [[ ! "$s_conf" =~ ^[Yy]$ ]]; then
+                    s_val="0"
+                fi
+                $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; asyncio.run(init_db()); asyncio.run(crud.set_setting('sniff_enable', '$s_val')); asyncio.run(crud.set_setting('sniff_enabled', '$s_val')); asyncio.run(apply_and_save_config()); restart_hysteria()"
+                echo -e "${C_GREEN}✔ Настройки Protocol Sniffing обновлены!${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             6)
                 echo ""
-                read -rp "Включить WARP outbound для OpenAI/Netflix? (y/N): " wconf
-                local w_val="0"
-                if [[ "$wconf" =~ ^[Yy]$ ]]; then
-                    w_val="1"
+                echo -e "${C_CYAN}--- Управление Cloudflare WARP ---${C_RESET}"
+                $PYTHON_BIN -c "import asyncio; from app.core.warp import detect_warp; info = asyncio.run(detect_warp(force_refresh=True)); print(f\"Статус WARP: {'ВКЛЮЧЕН' if info.get('active') else 'ВЫКЛЮЧЕН'} (Режим: {info.get('mode')}, IP: {info.get('external_ip', '—')})\")"
+                echo -e " [1] Переключить WARP routing (Вкл/Выкл)"
+                echo -e " [2] Установить Cloudflare WARP на сервер (скрипт install_warp.sh)"
+                echo -e " [0] Назад"
+                read -rp "Выберите действие [0-2]: " w_act
+                if [ "$w_act" == "1" ]; then
+                    read -rp "Включить WARP outbound? (y/N): " wconf
+                    local w_val="0"
+                    if [[ "$wconf" =~ ^[Yy]$ ]]; then
+                        w_val="1"
+                    fi
+                    $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; asyncio.run(init_db()); asyncio.run(crud.set_setting('warp_enabled', '$w_val')); asyncio.run(apply_and_save_config()); restart_hysteria()"
+                    echo -e "${C_GREEN}✔ Настройки WARP обновлены!${C_RESET}"
+                elif [ "$w_act" == "2" ]; then
+                    if [ -f "/etc/hysteria/scripts/install_warp.sh" ]; then
+                        bash /etc/hysteria/scripts/install_warp.sh
+                    else
+                        echo -e "${C_RED}✖ Скрипт install_warp.sh не найден!${C_RESET}"
+                    fi
                 fi
-                $PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; from app.core.hysteria import apply_and_save_config, restart_hysteria; asyncio.run(init_db()); asyncio.run(crud.set_setting('warp_enabled', '$w_val')); asyncio.run(apply_and_save_config()); restart_hysteria()"
-                echo -e "${C_GREEN}✔ Настройки WARP обновлены!${C_RESET}"
                 read -rp "Нажмите Enter для продолжения..."
                 ;;
             0) return ;;

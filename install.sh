@@ -158,7 +158,7 @@ check_system() {
 install_dependencies() {
     log_info "Обновление репозиториев и установка системных пакетов..."
     apt-get update -qq
-    apt-get install -y -qq curl git wget python3 python3-pip python3-venv iptables openssl jq ca-certificates
+    apt-get install -y -qq curl git wget python3 python3-pip python3-venv iptables openssl jq ca-certificates wireguard-tools
     log_success "Системные зависимости установлены."
 }
 
@@ -426,6 +426,18 @@ configure_innerblitz() {
     # Open firewall ports
     open_firewall_port "$PANEL_PORT" "tcp"
     open_firewall_port "$LISTEN_PORT" "udp"
+
+    # Cloudflare WARP setup
+    echo ""
+    read -rp "Установить Cloudflare WARP для интеллектуального роутинга и обхода блокировок? (Y/n): " install_warp_opt
+    install_warp_opt=${install_warp_opt:-Y}
+    if [[ "$install_warp_opt" =~ ^[Yy]$ ]]; then
+        log_info "Установка Cloudflare WARP WireGuard..."
+        chmod +x "${INSTALL_DIR}/scripts/install_warp.sh" 2>/dev/null || true
+        if [ -f "${INSTALL_DIR}/scripts/install_warp.sh" ]; then
+            bash "${INSTALL_DIR}/scripts/install_warp.sh" || log_warn "Установка WARP завершилась с предупреждением, продолжаем установку..."
+        fi
+    fi
 
     log_success "Конфигурация успешно создана."
 }

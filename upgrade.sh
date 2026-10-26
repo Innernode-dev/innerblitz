@@ -91,11 +91,12 @@ else
     git clone --depth 1 "${REPO_URL}" innerblitz_tmp --quiet
     cp -r innerblitz_tmp/app "${INSTALL_DIR}/"
     cp -r innerblitz_tmp/systemd "${INSTALL_DIR}/"
+    cp -r innerblitz_tmp/scripts "${INSTALL_DIR}/" 2>/dev/null || true
     cp innerblitz_tmp/cli.py innerblitz_tmp/menu.sh innerblitz_tmp/upgrade.sh innerblitz_tmp/uninstall.sh innerblitz_tmp/requirements.txt "${INSTALL_DIR}/"
     rm -rf innerblitz_tmp
 fi
 
-chmod +x "${INSTALL_DIR}/menu.sh" "${INSTALL_DIR}/cli.py" "${INSTALL_DIR}/upgrade.sh" "${INSTALL_DIR}/uninstall.sh" 2>/dev/null || true
+chmod +x "${INSTALL_DIR}/menu.sh" "${INSTALL_DIR}/cli.py" "${INSTALL_DIR}/upgrade.sh" "${INSTALL_DIR}/uninstall.sh" "${INSTALL_DIR}/scripts/install_warp.sh" 2>/dev/null || true
 
 # 4. Update Python dependencies in venv
 echo -e "${C_YELLOW}[3/5] Обновление модулей Python в виртуальном окружении...${C_RESET}"

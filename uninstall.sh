@@ -39,13 +39,20 @@ rm -f /etc/systemd/system/innerblitz.service
 rm -f /etc/systemd/system/hysteria-server.service
 systemctl daemon-reload
 
-echo -e "${C_YELLOW}[3/6] Очистка правил iptables для Port Hopping...${C_RESET}"
+echo -e "${C_YELLOW}[3/6] Очистка правил iptables/nftables для Port Hopping...${C_RESET}"
+iptables -t nat -D PREROUTING -p udp -j INNERBLITZ_HOPPING 2>/dev/null || true
+iptables -t nat -F INNERBLITZ_HOPPING 2>/dev/null || true
+iptables -t nat -X INNERBLITZ_HOPPING 2>/dev/null || true
 iptables -t nat -D PREROUTING -p udp -j HYSTERIA_HOPPING 2>/dev/null || true
 iptables -t nat -F HYSTERIA_HOPPING 2>/dev/null || true
 iptables -t nat -X HYSTERIA_HOPPING 2>/dev/null || true
+ip6tables -t nat -D PREROUTING -p udp -j INNERBLITZ_HOPPING 2>/dev/null || true
+ip6tables -t nat -F INNERBLITZ_HOPPING 2>/dev/null || true
+ip6tables -t nat -X INNERBLITZ_HOPPING 2>/dev/null || true
 ip6tables -t nat -D PREROUTING -p udp -j HYSTERIA_HOPPING 2>/dev/null || true
 ip6tables -t nat -F HYSTERIA_HOPPING 2>/dev/null || true
 ip6tables -t nat -X HYSTERIA_HOPPING 2>/dev/null || true
+nft delete table ip innerblitz_nat 2>/dev/null || true
 
 echo -e "${C_YELLOW}[4/6] Удаление ярлыков команд blitz, inb, hys2...${C_RESET}"
 rm -f /usr/local/bin/blitz /usr/local/bin/inb /usr/local/bin/hys2

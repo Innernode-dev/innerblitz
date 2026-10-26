@@ -99,6 +99,7 @@ async def client_portal_page(request: Request, token: str):
     host_url = str(request.base_url).rstrip("/")
     sub_url = f"{host_url}/sub/{token}"
     clash_sub_url = f"{host_url}/sub/{token}/clash"
+    singbox_sub_url = f"{host_url}/sub/{token}/singbox"
 
     # Percentage calculation
     percent_used = 0
@@ -114,6 +115,7 @@ async def client_portal_page(request: Request, token: str):
             "qr_base64": f"data:image/png;base64,{qr_b64}",
             "sub_url": sub_url,
             "clash_sub_url": clash_sub_url,
+            "singbox_sub_url": singbox_sub_url,
             "percent_used": percent_used,
             "settings": settings_dict
         }

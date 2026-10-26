@@ -25,7 +25,7 @@ from app.core.security import (
     get_totp_uri, verify_totp, generate_secret_path
 )
 from app.core.cert import generate_self_signed_cert
-from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl
+from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl, validate_hysteria_config
 from app.core.firewall import (
     configure_port_hopping, flush_port_hopping, 
     open_firewall_port, close_firewall_port, ensure_firewall_permissive
@@ -59,6 +59,21 @@ class SettingsPayload(BaseModel):
     panel_secret_path: Optional[str] = None
     panel_ssl_mode: Optional[str] = None
     sni: Optional[str] = None
+    # Routing fields
+    routing_global_outbound: Optional[str] = None
+    routing_ru: Optional[str] = None
+    routing_openai: Optional[str] = None
+    routing_discord: Optional[str] = None
+    routing_youtube: Optional[str] = None
+    routing_telegram: Optional[str] = None
+    routing_netflix: Optional[str] = None
+    routing_p2p: Optional[str] = None
+    routing_ads: Optional[Any] = None
+    routing_win_spy: Optional[Any] = None
+    ru_routing: Optional[str] = None
+    sniff_enable: Optional[Any] = None
+    sniff_timeout: Optional[str] = None
+    sniff_rewrite_domain: Optional[Any] = None
 
 class FirewallPortPayload(BaseModel):
     port: int
@@ -109,6 +124,15 @@ async def update_settings(payload: SettingsPayload):
             updates[k] = str(v)
 
     if updates:
+        if updates.get("routing_global_outbound") == "warp":
+            updates["warp_enabled"] = "1"
+        if "ru_routing" in updates and "routing_ru" not in updates:
+            updates["routing_ru"] = updates["ru_routing"]
+        elif "routing_ru" in updates and "ru_routing" not in updates:
+            updates["ru_routing"] = updates["routing_ru"]
+        if "sniff_enable" in updates:
+            updates["sniff_enabled"] = updates["sniff_enable"]
+
         await crud.set_settings(updates)
         await apply_and_save_config()
 
@@ -542,10 +566,14 @@ async def get_raw_config():
 async def save_raw_config(payload: RawConfigPayload):
     """Save raw Hysteria 2 config.yaml content and restart core."""
     try:
-        cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
-        cfg_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(cfg_path, "w", encoding="utf-8") as f:
-            f.write(payload.content)
+        is_valid, err_msg = validate_hysteria_config(payload.content)
+        if not is_valid:
+            return {"ok": False, "message": f"Validation failed: {err_msg}"}
+
+        apply_res = await apply_and_save_config(custom_yaml=payload.content)
+        if not apply_res:
+            return {"ok": False, "message": f"Failed to save config: {apply_res.message}"}
+
         ok, out = restart_hysteria()
         return {"ok": ok, "message": "Raw YAML config applied and Hysteria restarted!", "output": out}
     except Exception as e:
@@ -599,5 +627,140 @@ async def upload_backup_endpoint(file: UploadFile = File(...)):
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
+
+
+# ==================== ROUTING ENGINE API (Milestone M2) ====================
+
+class RoutingPayload(BaseModel):
+    routing_global_outbound: Optional[str] = None
+    routing_ru: Optional[str] = None
+    routing_openai: Optional[str] = None
+    routing_discord: Optional[str] = None
+    routing_youtube: Optional[str] = None
+    routing_telegram: Optional[str] = None
+    routing_netflix: Optional[str] = None
+    routing_p2p: Optional[str] = None
+    routing_ads: Optional[Any] = None
+    routing_win_spy: Optional[Any] = None
+    warp_enabled: Optional[bool] = None
+    ru_routing: Optional[str] = None
+    sniff_enable: Optional[Any] = None
+    sniff_timeout: Optional[str] = None
+    sniff_rewrite_domain: Optional[Any] = None
+
+routing_router = APIRouter(prefix="/api/routing", tags=["Routing"], dependencies=[Depends(get_current_admin)])
+
+@routing_router.get("")
+async def get_routing_settings():
+    """Retrieve all current routing policies and rules."""
+    all_settings = await crud.get_all_settings()
+    warp_on = str(all_settings.get("warp_enabled", "0")).lower() in ("1", "true")
+
+    return {
+        "ok": True,
+        "routing_global_outbound": all_settings.get("routing_global_outbound", "direct"),
+        "routing_ru": all_settings.get("routing_ru", "direct"),
+        "routing_openai": all_settings.get("routing_openai", "warp"),
+        "routing_discord": all_settings.get("routing_discord", "warp"),
+        "routing_youtube": all_settings.get("routing_youtube", "warp"),
+        "routing_telegram": all_settings.get("routing_telegram", "direct"),
+        "routing_netflix": all_settings.get("routing_netflix", "warp"),
+        "routing_p2p": all_settings.get("routing_p2p", "block"),
+        "routing_ads": all_settings.get("routing_ads", "1"),
+        "routing_win_spy": all_settings.get("routing_win_spy", "1"),
+        "warp_enabled": warp_on,
+        "warp_detected": all_settings.get("warp_detected", "0") == "1",
+        "warp_mode": all_settings.get("warp_mode", "none"),
+        "sniff_enable": str(all_settings.get("sniff_enable", "1")).lower() in ("1", "true"),
+        "sniff_timeout": all_settings.get("sniff_timeout", "2s"),
+        "sniff_rewrite_domain": str(all_settings.get("sniff_rewrite_domain", "0")).lower() in ("1", "true"),
+    }
+
+@routing_router.post("")
+async def update_routing_settings(payload: RoutingPayload):
+    """Update routing policies, rebuild Hysteria 2 config with validation, and restart core."""
+    data = payload.dict(exclude_unset=True)
+    updates = {}
+
+    if "routing_global_outbound" in data and data["routing_global_outbound"] is not None:
+        val = str(data["routing_global_outbound"]).strip().lower()
+        if val not in ("direct", "warp"):
+            raise HTTPException(status_code=400, detail="Invalid routing_global_outbound. Must be 'direct' or 'warp'")
+        updates["routing_global_outbound"] = val
+        if val == "warp":
+            updates["warp_enabled"] = "1"
+
+    ru_val = data.get("routing_ru") if "routing_ru" in data else data.get("ru_routing")
+    if ru_val is not None:
+        val = str(ru_val).strip().lower()
+        if val not in ("direct", "warp", "block"):
+            raise HTTPException(status_code=400, detail="Invalid routing_ru. Must be 'direct', 'warp', or 'block'")
+        updates["routing_ru"] = val
+        updates["ru_routing"] = val
+
+    service_keys = ["routing_openai", "routing_discord", "routing_youtube", "routing_telegram", "routing_netflix"]
+    for sk in service_keys:
+        if sk in data and data[sk] is not None:
+            val = str(data[sk]).strip().lower()
+            if val not in ("direct", "warp", "block"):
+                raise HTTPException(status_code=400, detail=f"Invalid value for {sk}. Must be 'direct', 'warp', or 'block'")
+            updates[sk] = val
+
+    if "routing_p2p" in data and data["routing_p2p"] is not None:
+        val = str(data["routing_p2p"]).strip().lower()
+        if val not in ("allow", "block"):
+            raise HTTPException(status_code=400, detail="Invalid routing_p2p. Must be 'allow' or 'block'")
+        updates["routing_p2p"] = val
+
+    if "routing_ads" in data and data["routing_ads"] is not None:
+        updates["routing_ads"] = "1" if str(data["routing_ads"]).lower() in ("1", "true") else "0"
+
+    if "routing_win_spy" in data and data["routing_win_spy"] is not None:
+        updates["routing_win_spy"] = "1" if str(data["routing_win_spy"]).lower() in ("1", "true") else "0"
+
+    if "warp_enabled" in data and data["warp_enabled"] is not None:
+        updates["warp_enabled"] = "1" if data["warp_enabled"] else "0"
+
+    if "sniff_enable" in data and data["sniff_enable"] is not None:
+        updates["sniff_enable"] = "1" if str(data["sniff_enable"]).lower() in ("1", "true") else "0"
+        updates["sniff_enabled"] = updates["sniff_enable"]
+
+    if "sniff_timeout" in data and data["sniff_timeout"] is not None:
+        updates["sniff_timeout"] = str(data["sniff_timeout"]).strip()
+
+    if "sniff_rewrite_domain" in data and data["sniff_rewrite_domain"] is not None:
+        updates["sniff_rewrite_domain"] = "1" if str(data["sniff_rewrite_domain"]).lower() in ("1", "true") else "0"
+
+    if updates:
+        await crud.set_settings(updates)
+
+    apply_res = await apply_and_save_config()
+    if not apply_res:
+        raise HTTPException(status_code=400, detail=f"Configuration validation failed: {apply_res.message}")
+
+    restart_ok, restart_out = restart_hysteria()
+    current_rules = await get_routing_settings()
+    return {
+        "ok": True,
+        "message": "Routing settings saved and Hysteria 2 config applied",
+        "service_restart": restart_ok,
+        "rules": current_rules
+    }
+
+# Also support /api/settings/routing alias
+@router.get("/routing")
+async def get_routing_alias():
+    return await get_routing_settings()
+
+@router.post("/routing")
+async def update_routing_alias(payload: RoutingPayload):
+    return await update_routing_settings(payload)
+
+# Combine settings and routing routers under the exported `router` symbol
+_settings_subrouter = router
+router = APIRouter()
+router.include_router(_settings_subrouter)
+router.include_router(routing_router)
+
 
 

@@ -6,6 +6,326 @@
 {% block content %}
 <div class="space-y-8 max-w-5xl">
 
+    <!-- 0. Интеллектуальная Маршрутизация & Cloudflare WARP -->
+    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-blue-500 shadow-xl">
+        <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="split" class="w-5 h-5 text-blue-400"></i>
+                    <span>Маршрутизация трафика & Cloudflare WARP</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    Интеллектуальное управление правилами ACL Hysteria 2 без ручной правки YAML-файлов
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="saveRoutingRules()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-4 h-4"></i>
+                    <span>Применить правила</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Global Outbound Gateway Switcher -->
+        <div class="space-y-3">
+            <label class="block text-xs font-semibold text-slate-300">Основной шлюз выхода в интернет (Global Outbound)</label>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label id="outboundDirectCard" class="p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
+                    <input type="radio" name="global_outbound" id="outboundDirect" value="direct" class="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800" onchange="handleOutboundChange('direct')">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-white">Прямой IP сервера (Direct)</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Провайдер</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Весь основной трафик идет напрямую с физического IP сервера с максимальной скоростью.</p>
+                    </div>
+                </label>
+
+                <label id="outboundWarpCard" class="p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
+                    <input type="radio" name="global_outbound" id="outboundWarp" value="warp" class="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800" onchange="handleOutboundChange('warp')">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-bold text-white">Cloudflare WARP (IP Cloudflare)</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono">Анонимность</span>
+                        </div>
+                        <p class="text-xs text-slate-400">Весь трафик маскируется под чистый IP адрес сети Cloudflare. IP хостинга не светится.</p>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Cloudflare WARP Lifecycle & Diagnostics Block -->
+        <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+                <div class="flex items-center gap-2.5">
+                    <i data-lucide="cloud-lightning" class="w-5 h-5 text-amber-400"></i>
+                    <div>
+                        <h4 class="text-sm font-bold text-white">Интеллектуальный жизненный цикл WARP</h4>
+                        <span class="text-[11px] text-slate-400" id="warpDetectionNote">Авто-определение существующего WireGuard / SOCKS5 подключения</span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="warpStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+                        <span id="warpStatusText">Проверка...</span>
+                    </span>
+                    <button onclick="checkWarpStatus()" title="Обновить статус WARP" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Diagnostics Metrics -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-500 block text-[11px]">Внешний IP WARP</span>
+                    <span class="font-mono font-bold text-white mt-0.5 block truncate" id="warpDiagIp">—</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-500 block text-[11px]">Статус Cloudflare</span>
+                    <span class="font-semibold text-emerald-400 mt-0.5 block" id="warpDiagStatus">—</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-500 block text-[11px]">Пинг / Задержка</span>
+                    <span class="font-mono text-cyan-300 mt-0.5 block" id="warpDiagPing">—</span>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
+                    <span class="text-slate-500 block text-[11px]">Тип подключения</span>
+                    <span class="font-mono text-slate-300 mt-0.5 block" id="warpDiagMode">—</span>
+                </div>
+            </div>
+
+            <!-- WARP Actions & 1-Click Installer -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <div class="text-[11px] text-slate-400">
+                    Для чистого сервера доступна автоматическая установка WireGuard WARP в 1 клик.
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openWarpLogModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition border border-slate-700 flex items-center gap-1.5">
+                        <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                        <span>Лог установки</span>
+                    </button>
+                    <button id="btnInstallWarp" onclick="startWarpInstall()" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white text-xs font-bold transition shadow-md shadow-amber-600/20 flex items-center gap-1.5">
+                        <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                        <span>Установить WARP в 1 клик</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Special Rule for Russian Federation (RU traffic) -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-200">Специальное правило для РФ (geosite:ru и geoip:ru)</label>
+                    <span class="text-[11px] text-slate-400">Направление для сайтов зоны .RU, Госуслуг, банков и российских IP</span>
+                </div>
+                <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Гео-роутинг</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label id="ruDirectLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="direct" id="ruModeDirect" class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-slate-950 border-slate-800">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            <span>⚡ Напрямую</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400">Через хостинг (мин. пинг)</span>
+                    </div>
+                </label>
+
+                <label id="ruWarpLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="warp" id="ruModeWarp" class="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                            <span>🛡️ Через WARP</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400">Под IP Cloudflare</span>
+                    </div>
+                </label>
+
+                <label id="ruBlockLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="block" id="ruModeBlock" class="w-4 h-4 text-red-600 focus:ring-red-500 bg-slate-950 border-slate-800">
+                    <div>
+                        <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                            <span>🚫 Блокировать</span>
+                        </div>
+                        <span class="text-[11px] text-slate-400">Запрет RU трафика</span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Service Presets Grid -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-200">Сервисные пресеты маршрутизации (1-Клик)</label>
+                    <span class="text-[11px] text-slate-400">Выбор шлюза выхода для конкретных приложений и белых списков</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <!-- OpenAI -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="bot" class="w-4 h-4 text-emerald-400"></i>
+                        <span class="text-xs font-medium text-white">OpenAI / ChatGPT</span>
+                    </div>
+                    <select id="routeOpenai" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="warp">WARP</option>
+                        <option value="direct">Direct</option>
+                        <option value="block">Block</option>
+                    </select>
+                </div>
+
+                <!-- Discord -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="gamepad-2" class="w-4 h-4 text-indigo-400"></i>
+                        <span class="text-xs font-medium text-white">Discord</span>
+                    </div>
+                    <select id="routeDiscord" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="warp">WARP</option>
+                        <option value="direct">Direct</option>
+                        <option value="block">Block</option>
+                    </select>
+                </div>
+
+                <!-- YouTube -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="video" class="w-4 h-4 text-red-400"></i>
+                        <span class="text-xs font-medium text-white">YouTube</span>
+                    </div>
+                    <select id="routeYoutube" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="warp">WARP</option>
+                        <option value="direct">Direct</option>
+                        <option value="block">Block</option>
+                    </select>
+                </div>
+
+                <!-- Telegram -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
+                        <span class="text-xs font-medium text-white">Telegram</span>
+                    </div>
+                    <select id="routeTelegram" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="warp">WARP</option>
+                        <option value="direct">Direct</option>
+                        <option value="block">Block</option>
+                    </select>
+                </div>
+
+                <!-- Netflix -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="film" class="w-4 h-4 text-rose-400"></i>
+                        <span class="text-xs font-medium text-white">Netflix</span>
+                    </div>
+                    <select id="routeNetflix" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="warp">WARP</option>
+                        <option value="direct">Direct</option>
+                        <option value="block">Block</option>
+                    </select>
+                </div>
+
+                <!-- P2P / Torrents -->
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="download" class="w-4 h-4 text-amber-400"></i>
+                        <span class="text-xs font-medium text-white">P2P / Торренты</span>
+                    </div>
+                    <select id="routeP2p" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                        <option value="block">Блокировать</option>
+                        <option value="allow">Разрешить</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Ad Block & Win Spy Toggles -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="space-y-0.5">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="shield-ban" class="w-4 h-4 text-red-400"></i>
+                            <span>Блокировка рекламы (category-ads-all)</span>
+                        </span>
+                        <span class="text-[11px] text-slate-400">Автоматическая фильтрация рекламных и трекинговых доменов</span>
+                    </div>
+                    <input type="checkbox" id="routeAds" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                </div>
+
+                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div class="space-y-0.5">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="eye-off" class="w-4 h-4 text-purple-400"></i>
+                            <span>Блокировка телеметрии Windows (win-spy)</span>
+                        </span>
+                        <span class="text-[11px] text-slate-400">Блокирует отправку телеметрии и отчетов Microsoft</span>
+                    </div>
+                    <input type="checkbox" id="routeWinSpy" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Sniffing & Port Hopping Interactive Controls -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+            <div class="flex items-center justify-between">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-200">Параметры Sniffing & Скачков портов (Port Hopping)</label>
+                    <span class="text-[11px] text-slate-400">Тонкие сетевые настройки обнаружения доменов и обхода фильтрации UDP</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Sniffing Block -->
+                <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="search" class="w-4 h-4 text-cyan-400"></i>
+                            <span>Распознавание доменов (Sniffing)</span>
+                        </span>
+                        <input type="checkbox" id="cfgSniffEnable" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Таймаут (Timeout)</label>
+                            <input type="text" id="cfgSniffTimeout" placeholder="2s" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-white">
+                        </div>
+                        <div>
+                            <label class="block text-[11px] text-slate-400 mb-1">Rewrite Domain</label>
+                            <select id="cfgSniffRewrite" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                                <option value="false">Выключено</option>
+                                <option value="true">Включено</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Port Hopping Block -->
+                <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
+                            <i data-lucide="shuffle" class="w-4 h-4 text-amber-400"></i>
+                            <span>Port Hopping (Скачки UDP портов)</span>
+                        </span>
+                        <input type="checkbox" id="cfgPortHoppingEnable" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] text-slate-400 mb-1">Диапазон UDP портов</label>
+                        <input type="text" id="cfgPortHoppingRange" placeholder="20000:50000" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-white">
+                        <span class="text-[10px] text-slate-500 mt-1 block">Используется цепочка iptables/nftables INNERBLITZ_HOPPING</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 1. Стелс-доступ и маскировка панели от РКН/сканеров -->
     <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-purple-500">
         <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -398,6 +718,43 @@
             <button onclick="saveTelegramSettings()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition">
                 Сохранить
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: WARP Installation Log Drawer -->
+<div id="warpLogModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-2xl rounded-2xl p-5 border border-slate-700 shadow-2xl relative space-y-3 flex flex-col max-h-[85vh]">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="terminal" class="w-4 h-4 text-amber-400"></i>
+                <span>Журнал автоматической установки Cloudflare WARP</span>
+            </h3>
+            <div class="flex items-center gap-2">
+                <span id="warpInstallStatusBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">Ожидание</span>
+                <button onclick="closeWarpLogModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="warpLogTerminal" class="flex-1 bg-black/95 rounded-xl p-3.5 border border-slate-800 font-mono text-xs text-emerald-400 overflow-y-auto space-y-1 min-h-[300px] max-h-[460px] whitespace-pre-wrap selection:bg-emerald-800 selection:text-white">
+            <div class="text-slate-500">// Журнал установки WARP появится здесь...</div>
+        </div>
+
+        <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+            <div class="text-slate-400 text-[11px] flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="warpLogIndicator"></span>
+                <span id="warpLogStatusText">Автопрокрутка активна</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="cancelWarpInstall()" class="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition">
+                    Прервать установку
+                </button>
+                <button onclick="closeWarpLogModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700">
+                    Закрыть
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -813,6 +1170,250 @@
         showToast('Скопировано в буфер обмена!', 'success');
     }
 
+    let warpLogPollInterval = null;
+    let warpLogOffset = 0;
+
+    function handleOutboundChange(mode) {
+        const directCard = document.getElementById('outboundDirectCard');
+        const warpCard = document.getElementById('outboundWarpCard');
+        if (!directCard || !warpCard) return;
+        if (mode === 'warp') {
+            warpCard.className = 'p-4 rounded-xl border-2 border-blue-500 bg-blue-950/30 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-blue-500/10';
+            directCard.className = 'p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
+            document.getElementById('outboundWarp').checked = true;
+        } else {
+            directCard.className = 'p-4 rounded-xl border-2 border-blue-500 bg-blue-950/30 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-blue-500/10';
+            warpCard.className = 'p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
+            document.getElementById('outboundDirect').checked = true;
+        }
+    }
+
+    async function loadRoutingData() {
+        try {
+            const res = await fetch('/api/routing');
+            if (res.ok) {
+                const rules = await res.json();
+                
+                const outMode = (rules.routing_global_outbound || 'direct').toLowerCase();
+                handleOutboundChange(outMode);
+
+                const ruMode = (rules.routing_ru || rules.ru_routing || 'direct').toLowerCase();
+                if (ruMode === 'warp') document.getElementById('ruModeWarp').checked = true;
+                else if (ruMode === 'block') document.getElementById('ruModeBlock').checked = true;
+                else document.getElementById('ruModeDirect').checked = true;
+
+                if (document.getElementById('routeOpenai')) document.getElementById('routeOpenai').value = (rules.routing_openai || 'warp').toLowerCase();
+                if (document.getElementById('routeDiscord')) document.getElementById('routeDiscord').value = (rules.routing_discord || 'direct').toLowerCase();
+                if (document.getElementById('routeYoutube')) document.getElementById('routeYoutube').value = (rules.routing_youtube || 'direct').toLowerCase();
+                if (document.getElementById('routeTelegram')) document.getElementById('routeTelegram').value = (rules.routing_telegram || 'direct').toLowerCase();
+                if (document.getElementById('routeNetflix')) document.getElementById('routeNetflix').value = (rules.routing_netflix || 'warp').toLowerCase();
+                if (document.getElementById('routeP2p')) document.getElementById('routeP2p').value = (rules.routing_p2p || 'block').toLowerCase();
+
+                document.getElementById('routeAds').checked = rules.routing_ads !== '0' && rules.routing_ads !== false;
+                document.getElementById('routeWinSpy').checked = rules.routing_win_spy !== '0' && rules.routing_win_spy !== false;
+
+                document.getElementById('cfgSniffEnable').checked = rules.sniff_enable !== '0' && rules.sniff_enable !== false;
+                document.getElementById('cfgSniffTimeout').value = rules.sniff_timeout || '2s';
+                document.getElementById('cfgSniffRewrite').value = (rules.sniff_rewrite_domain == '1' || rules.sniff_rewrite_domain === true) ? 'true' : 'false';
+
+                document.getElementById('cfgPortHoppingEnable').checked = rules.port_hopping_enabled == '1' || rules.port_hopping_enabled === true;
+                document.getElementById('cfgPortHoppingRange').value = rules.port_hopping_range || '20000:50000';
+            }
+        } catch (e) {
+            console.warn('Error loading routing rules:', e);
+        }
+    }
+
+    async function saveRoutingRules() {
+        const globalOutbound = document.querySelector('input[name="global_outbound"]:checked') ? document.querySelector('input[name="global_outbound"]:checked').value : 'direct';
+        const ruRouting = document.querySelector('input[name="routing_ru"]:checked') ? document.querySelector('input[name="routing_ru"]:checked').value : 'direct';
+
+        const payload = {
+            routing_global_outbound: globalOutbound,
+            routing_ru: ruRouting,
+            routing_openai: document.getElementById('routeOpenai').value,
+            routing_discord: document.getElementById('routeDiscord').value,
+            routing_youtube: document.getElementById('routeYoutube').value,
+            routing_telegram: document.getElementById('routeTelegram').value,
+            routing_netflix: document.getElementById('routeNetflix').value,
+            routing_p2p: document.getElementById('routeP2p').value,
+            routing_ads: document.getElementById('routeAds').checked,
+            routing_win_spy: document.getElementById('routeWinSpy').checked,
+            warp_enabled: (globalOutbound === 'warp'),
+            sniff_enable: document.getElementById('cfgSniffEnable').checked,
+            sniff_timeout: document.getElementById('cfgSniffTimeout').value.trim() || '2s',
+            sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite').value === 'true'),
+            port_hopping_enabled: document.getElementById('cfgPortHoppingEnable').checked,
+            port_hopping_range: document.getElementById('cfgPortHoppingRange').value.trim() || '20000:50000'
+        };
+
+        try {
+            showToast('Применение правил маршрутизации...', 'info');
+            const res = await fetch('/api/routing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast('Правила маршрутизации сохранены и ядро Hysteria 2 перезапущено!', 'success');
+                loadRoutingData();
+                checkWarpStatus();
+            } else {
+                showToast(data.detail || 'Ошибка сохранения правил', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при сохранении правил', 'error');
+        }
+    }
+
+    async function checkWarpStatus() {
+        const badge = document.getElementById('warpStatusBadge');
+        const text = document.getElementById('warpStatusText');
+        if (!badge || !text) return;
+        text.textContent = 'Опрос...';
+
+        try {
+            const checkRes = await fetch('/api/warp/check', { method: 'POST' });
+            let statusData = {};
+            if (checkRes.ok) {
+                statusData = await checkRes.json();
+            } else {
+                const sRes = await fetch('/api/warp/status');
+                if (sRes.ok) statusData = await sRes.json();
+            }
+
+            const active = statusData.active;
+            const mode = statusData.mode || 'none';
+            const warpStat = statusData.warp_status || 'off';
+
+            if (active) {
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5';
+                text.textContent = warpStat === 'plus' ? 'Active (WARP+)' : 'Active (WARP On)';
+            } else {
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+                text.textContent = 'Offline / Не подключен';
+            }
+
+            document.getElementById('warpDiagIp').textContent = statusData.external_ip || '—';
+            document.getElementById('warpDiagStatus').textContent = warpStat !== 'off' ? `warp=${warpStat}` : 'off';
+            document.getElementById('warpDiagPing').textContent = statusData.latency_ms ? `${statusData.latency_ms} ms` : '—';
+            document.getElementById('warpDiagMode').textContent = mode === 'wireguard' ? (statusData.interface || 'WireGuard') : (mode === 'socks5' ? (statusData.socks5_addr || 'SOCKS5') : '—');
+
+            if (statusData.colo) {
+                document.getElementById('warpDetectionNote').textContent = `WARP активен через узел ${statusData.colo} (${mode.toUpperCase()})`;
+            }
+        } catch (e) {
+            text.textContent = 'Ошибка проверки';
+            console.warn('Warp check failed:', e);
+        }
+    }
+
+    function openWarpLogModal() {
+        document.getElementById('warpLogModal').classList.remove('hidden');
+        warpLogOffset = 0;
+        document.getElementById('warpLogTerminal').innerHTML = '<div class="text-slate-500">// Журнал установки...</div>';
+        pollWarpLog();
+        if (!warpLogPollInterval) {
+            warpLogPollInterval = setInterval(pollWarpLog, 1200);
+        }
+    }
+
+    function closeWarpLogModal() {
+        document.getElementById('warpLogModal').classList.add('hidden');
+        if (warpLogPollInterval) {
+            clearInterval(warpLogPollInterval);
+            warpLogPollInterval = null;
+        }
+    }
+
+    async function pollWarpLog() {
+        try {
+            const res = await fetch(`/api/warp/install-log?offset=${warpLogOffset}&limit=100`);
+            if (res.ok) {
+                const data = await res.json();
+                const term = document.getElementById('warpLogTerminal');
+                const badge = document.getElementById('warpInstallStatusBadge');
+
+                badge.textContent = data.status.toUpperCase();
+                if (data.status === 'running') {
+                    badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono animate-pulse';
+                } else if (data.status === 'success') {
+                    badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono';
+                } else if (data.status === 'failed') {
+                    badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono';
+                }
+
+                if (data.lines && data.lines.length > 0) {
+                    if (warpLogOffset === 0) term.innerHTML = '';
+                    data.lines.forEach(l => {
+                        const div = document.createElement('div');
+                        div.textContent = l;
+                        term.appendChild(div);
+                    });
+                    warpLogOffset = data.next_offset;
+                    term.scrollTop = term.scrollHeight;
+                }
+
+                if (data.status === 'success' || data.status === 'failed') {
+                    if (warpLogPollInterval) {
+                        clearInterval(warpLogPollInterval);
+                        warpLogPollInterval = null;
+                    }
+                    checkWarpStatus();
+                }
+            }
+        } catch (e) {
+            console.warn('Warp log polling error:', e);
+        }
+    }
+
+    async function startWarpInstall(force = false) {
+        try {
+            const res = await fetch('/api/warp/install', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ force: force })
+            });
+
+            if (res.status === 409) {
+                if (confirm('WARP уже активен на сервере. Вы действительно хотите принудительно переустановить его?')) {
+                    return startWarpInstall(true);
+                }
+                return;
+            }
+
+            if (res.ok || res.status === 202) {
+                showToast('Установка WARP запущена...', 'info');
+                openWarpLogModal();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Не удалось запустить установку', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка запуска установки WARP', 'error');
+        }
+    }
+
+    async function cancelWarpInstall() {
+        if (!confirm('Прервать процесс установки WARP?')) return;
+        try {
+            const res = await fetch('/api/warp/install-cancel', { method: 'POST' });
+            if (res.ok) {
+                showToast('Установка отменена', 'info');
+                const term = document.getElementById('warpLogTerminal');
+                const div = document.createElement('div');
+                div.className = 'text-red-400 font-bold';
+                div.textContent = '[ABORTED] Процесс установки прерван пользователем.';
+                term.appendChild(div);
+            }
+        } catch (e) {
+            showToast('Ошибка прерывания процесса', 'error');
+        }
+    }
+
     loadSettings();
+    loadRoutingData();
+    checkWarpStatus();
 </script>
 {% endblock %}

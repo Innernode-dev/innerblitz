@@ -472,6 +472,7 @@
                 document.getElementById('nodeMasqueradeTarget').value = nodeSettings.masquerade_target || 'https://' + currentSni;
                 
                 document.getElementById('nodeWarpEnabled').checked = nodeSettings.warp_enabled == '1';
+                document.getElementById('nodeSniffEnabled').checked = (nodeSettings.sniff_enable !== '0' && nodeSettings.sniff_enabled !== '0');
                 document.getElementById('nodeUpMbps').value = nodeSettings.up_mbps || '200';
                 document.getElementById('nodeDownMbps').value = nodeSettings.down_mbps || '200';
 
@@ -559,6 +560,7 @@
                 obfs_password: document.getElementById('nodeObfsPassword').value.trim(),
                 masquerade_target: document.getElementById('nodeMasqueradeTarget').value.trim() || ('https://' + sniVal),
                 warp_enabled: document.getElementById('nodeWarpEnabled').checked,
+                sniff_enable: document.getElementById('nodeSniffEnabled').checked,
                 up_mbps: document.getElementById('nodeUpMbps').value.trim(),
                 down_mbps: document.getElementById('nodeDownMbps').value.trim()
             };

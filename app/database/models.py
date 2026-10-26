@@ -72,3 +72,27 @@ class HysteriaSettingsModel(BaseModel):
     down_mbps: str = "200"
     ignore_client_bandwidth: bool = False
     preset: str = "anti-dpi"
+    routing_global_outbound: str = "direct"
+    routing_ru: str = "direct"
+    routing_openai: str = "warp"
+    routing_discord: str = "warp"
+    routing_youtube: str = "warp"
+    routing_telegram: str = "direct"
+    routing_netflix: str = "warp"
+    routing_p2p: str = "block"
+    routing_ads: str = "1"
+    routing_win_spy: str = "1"
+
+class RoutingSettingsModel(BaseModel):
+    routing_global_outbound: str = "direct"
+    routing_ru: str = "direct"
+    routing_openai: str = "warp"
+    routing_discord: str = "warp"
+    routing_youtube: str = "warp"
+    routing_telegram: str = "direct"
+    routing_netflix: str = "warp"
+    routing_p2p: str = "block"
+    routing_ads: str = "1"
+    routing_win_spy: str = "1"
+    warp_enabled: Optional[bool] = None
+

@@ -22,6 +22,8 @@ from app.api.user_routes import router as user_router
 from app.api.settings_routes import router as settings_router
 from app.api.sub_routes import router as sub_router
 from app.api.system_routes import router as system_router
+from app.api.warp_routes import router as warp_router
+from app.core.warp import detect_warp, sync_warp_settings_from_detection
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("innerblitz")
@@ -71,14 +73,21 @@ async def lifespan(app: FastAPI):
 
     # Open firewall ports for Web Panel and Hysteria 2
     try:
-        from app.core.firewall import open_firewall_port
+        from app.core.firewall import open_firewall_port, configure_port_hopping
         p_val = await crud.get_setting("panel_port", "")
         p_port = int(p_val) if p_val and p_val.isdigit() else settings.PANEL_PORT
         open_firewall_port(p_port, "tcp")
         
         h_val = await crud.get_setting("listen_port", "443")
-        if h_val and h_val.isdigit():
-            open_firewall_port(int(h_val), "udp")
+        h_port = int(h_val) if h_val and h_val.isdigit() else 443
+        open_firewall_port(h_port, "udp")
+
+        # Boot persistence for port hopping
+        hop_enabled = await crud.get_setting("port_hopping_enabled", "0")
+        if str(hop_enabled).lower() in ("1", "true"):
+            hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
+            configure_port_hopping(hop_range, h_port, enable=True)
+            logger.info(f"Restored port hopping on boot: UDP {hop_range} -> {h_port}")
     except Exception as e:
         logger.warning(f"Initial firewall setup notice: {e}")
 
@@ -106,6 +115,21 @@ async def lifespan(app: FastAPI):
                 logger.error(f"[SSL Auto-Renew] Daemon error: {e}")
 
     cert_task = asyncio.create_task(cert_auto_renew_loop())
+
+    async def detect_warp_startup():
+        try:
+            warp_info = await detect_warp(force_refresh=True)
+            if warp_info.get("active"):
+                logger.info(
+                    f"[WARP Startup] Pre-existing WARP connection detected "
+                    f"(mode={warp_info['mode']}, target={warp_info.get('socks5_addr') or warp_info.get('interface')}). "
+                    "Adopting existing connection."
+                )
+                await sync_warp_settings_from_detection(warp_info)
+        except Exception as e:
+            logger.warning(f"[WARP Startup Detection] Notice: {e}")
+
+    warp_startup_task = asyncio.create_task(detect_warp_startup())
     
     yield
     
@@ -116,7 +140,7 @@ async def lifespan(app: FastAPI):
     traffic_collector.stop()
     limiter_daemon.stop()
     tg_bot.stop()
-    for task in [traffic_task, limiter_task, bot_task, cert_task]:
+    for task in [traffic_task, limiter_task, bot_task, cert_task, warp_startup_task]:
         task.cancel()
 
 app = FastAPI(
@@ -147,6 +171,7 @@ app.include_router(user_router)
 app.include_router(settings_router)
 app.include_router(sub_router)
 app.include_router(system_router)
+app.include_router(warp_router)
 
 # ==================== PAGE VIEW ROUTES ====================
 

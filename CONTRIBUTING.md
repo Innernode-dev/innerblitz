@@ -31,22 +31,27 @@ innerblitz/
 │   │   ├── auth_routes.py        # Login, logout, session management, 2FA
 │   │   ├── node_routes.py        # Inbound settings, YAML editor, core controls
 │   │   ├── user_routes.py        # Client creation, limits, expiration, resets
-│   │   ├── settings_routes.py    # Stealth access, backups, BBR, presets
+│   │   ├── settings_routes.py    # Stealth access, backups, BBR, presets, routing rules
 │   │   ├── sub_routes.py         # Client subscription links & portals
-│   │   └── system_routes.py      # Telemetry, live charts, service logs
+│   │   ├── system_routes.py      # Telemetry, live charts, service logs
+│   │   └── warp_routes.py        # Cloudflare WARP status, diagnostics & installer API
 │   ├── core/            # System automation & core engines
 │   │   ├── cert.py               # Self-signed ECDSA IP SAN certificate generator
-│   │   ├── firewall.py           # iptables & ip6tables Port Hopping manager
+│   │   ├── firewall.py           # iptables & nftables Port Hopping manager
 │   │   ├── hysteria.py           # Hysteria 2 config.yaml generator & systemctl
 │   │   ├── security.py           # bcrypt hashing, TOTP generator, token verification
-│   │   └── subscription.py       # URI schemes (hy2://, clash, sing-box)
+│   │   ├── subscription.py       # URI schemes (hy2://, clash meta, sing-box v1.10+)
+│   │   └── warp.py               # WARP detection, WireGuard config & trace diagnostics
 │   ├── database/        # Data layer
 │   │   ├── connection.py         # SQLite connection with WAL pragma & migrations
 │   │   ├── crud.py               # Asynchronous CRUD queries
 │   │   └── models.py             # Pydantic data schemas
 │   ├── templates/       # Jinja2 HTML templates styled with Tailwind CSS
 │   └── config.py        # Environment variables and application paths
+├── scripts/             # Auxiliary setup & system helper scripts
+│   └── install_warp.sh  # Automated Cloudflare WARP installer
 ├── systemd/             # Systemd service units
+├── tests/               # E2E test suite & verification harness
 ├── cli.py               # Command-line Click tool (/etc/hysteria/cli.py)
 ├── menu.sh              # Interactive terminal TUI management console (blitz)
 ├── install.sh           # 1-Click automated server installer

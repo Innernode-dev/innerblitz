@@ -122,6 +122,16 @@ async def init_db():
                 ("panel_ssl_mode", "http"),
                 ("sni", "bing.com"),
                 ("custom_firewall_ports", "[]"),
+                ("routing_global_outbound", "direct"),
+                ("routing_ru", "direct"),
+                ("routing_openai", "warp"),
+                ("routing_discord", "warp"),
+                ("routing_youtube", "warp"),
+                ("routing_telegram", "direct"),
+                ("routing_netflix", "warp"),
+                ("routing_p2p", "block"),
+                ("routing_ads", "1"),
+                ("routing_win_spy", "1"),
             ]
             await db.executemany("INSERT INTO settings (key, value) VALUES (?, ?);", default_settings)
             logger.info("Default settings and admin account created.")
@@ -138,6 +148,16 @@ async def init_db():
             ("obfs_type", "salamander"),
             ("masquerade_type", "proxy"),
             ("masquerade_target", "https://bing.com"),
+            ("routing_global_outbound", "direct"),
+            ("routing_ru", "direct"),
+            ("routing_openai", "warp"),
+            ("routing_discord", "warp"),
+            ("routing_youtube", "warp"),
+            ("routing_telegram", "direct"),
+            ("routing_netflix", "warp"),
+            ("routing_p2p", "block"),
+            ("routing_ads", "1"),
+            ("routing_win_spy", "1"),
         ]
         for k, v in critical_defaults:
             await db.execute("""

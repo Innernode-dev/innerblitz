@@ -123,6 +123,38 @@
         </div>
     </div>
 
+    <!-- Routing & WARP Live Gateway Status Card -->
+    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-blue-500 shadow-lg relative overflow-hidden">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                    <i data-lucide="split" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-bold text-white">Шлюз маршрутизации & Cloudflare WARP</span>
+                        <span id="dashWarpBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+                            <span id="dashWarpText">Опрос...</span>
+                        </span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2.5">
+                        <span>Основной выход: <b id="dashGlobalOutboundText" class="text-white font-mono">Прямой IP</b></span>
+                        <span>•</span>
+                        <span>Трафик РФ: <b id="dashRuTrafficText" class="text-emerald-400 font-mono">⚡ Напрямую</b></span>
+                        <span id="dashWarpIpContainer" class="hidden">• IP WARP: <b id="dashWarpIp" class="text-cyan-300 font-mono">—</b></span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 self-stretch md:self-auto justify-end">
+                <a href="/settings" class="px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                    <span>Настроить правила</span>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- Live Traffic Chart -->
     <div class="glass-card p-6 rounded-2xl">
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -271,6 +303,54 @@
                 }
                 document.getElementById('listenPortText').textContent = portStr;
             }
+
+            // Routing policy info
+            try {
+                const routeRes = await fetch('/api/routing');
+                if (routeRes.ok) {
+                    const r = await routeRes.json();
+                    const globalOut = r.routing_global_outbound === 'warp' ? 'Cloudflare WARP' : 'Прямой IP (Direct)';
+                    document.getElementById('dashGlobalOutboundText').textContent = globalOut;
+                    
+                    let ruText = '⚡ Напрямую';
+                    let ruClass = 'text-emerald-400 font-mono';
+                    if (r.routing_ru === 'warp') {
+                        ruText = '🛡️ Через WARP';
+                        ruClass = 'text-blue-400 font-mono';
+                    } else if (r.routing_ru === 'block') {
+                        ruText = '🚫 Блокировка';
+                        ruClass = 'text-red-400 font-mono';
+                    }
+                    const ruElem = document.getElementById('dashRuTrafficText');
+                    ruElem.textContent = ruText;
+                    ruElem.className = ruClass;
+                }
+            } catch (_) {}
+
+            // WARP health check
+            try {
+                const warpRes = await fetch('/api/warp/status');
+                if (warpRes.ok) {
+                    const w = await warpRes.json();
+                    const badge = document.getElementById('dashWarpBadge');
+                    const text = document.getElementById('dashWarpText');
+                    const ipElem = document.getElementById('dashWarpIp');
+                    const ipContainer = document.getElementById('dashWarpIpContainer');
+
+                    if (w.is_active) {
+                        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>Активен (WARP)</span>';
+                        if (w.ip) {
+                            ipElem.textContent = w.ip;
+                            ipContainer.classList.remove('hidden');
+                        }
+                    } else {
+                        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+                        badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span>Не подключен</span>';
+                        ipContainer.classList.add('hidden');
+                    }
+                }
+            } catch (_) {}
 
             // Users table
             const userRes = await fetch('/api/users');

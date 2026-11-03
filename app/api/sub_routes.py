@@ -15,20 +15,25 @@ router = APIRouter()
 
 def _get_sub_userinfo_header(user: dict) -> str:
     """Generate Subscription-Userinfo header recognized by modern proxy clients."""
-    upload = user.get("upload_bytes", 0)
-    download = user.get("download_bytes", 0)
-    total = user.get("max_download_bytes", 0)
+    upload = user.get("upload_bytes", 0) or 0
+    download = user.get("download_bytes", 0) or 0
+    total = user.get("total_bytes") if user.get("total_bytes") is not None else (user.get("max_download_bytes", 0) or 0)
     
     # Calculate expire timestamp
     expire_ts = 0
-    exp_days = user.get("expiration_days", 0)
-    if exp_days > 0:
-        try:
-            created = datetime.strptime(user.get("account_creation_date", ""), "%Y-%m-%d")
-            expire_dt = created + timedelta(days=exp_days)
-            expire_ts = int(expire_dt.timestamp())
-        except Exception:
-            pass
+    expiry_time = user.get("expiry_time", 0) or 0
+    if expiry_time > 0:
+        expire_ts = int(expiry_time / 1000)
+    else:
+        exp_days = user.get("expiration_days", 0) or 0
+        if exp_days > 0:
+            try:
+                creation_str = user.get("account_creation_date", "") or ""
+                created = datetime.strptime(creation_str[:10], "%Y-%m-%d")
+                expire_dt = created + timedelta(days=exp_days)
+                expire_ts = int(expire_dt.timestamp())
+            except Exception:
+                pass
 
     return f"upload={upload}; download={download}; total={total}; expire={expire_ts}"
 
@@ -56,6 +61,8 @@ async def get_clash_subscription(token: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
     settings_dict = await crud.get_all_settings()
+    custom_rules = await crud.get_routing_rules(enabled_only=True)
+    settings_dict["routing_rules"] = custom_rules
     clash_content = build_clash_yaml(user, settings_dict)
 
     headers = {
@@ -72,6 +79,8 @@ async def get_singbox_subscription(token: str, response: Response):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
     settings_dict = await crud.get_all_settings()
+    custom_rules = await crud.get_routing_rules(enabled_only=True)
+    settings_dict["routing_rules"] = custom_rules
     singbox_data = build_singbox_json(user, settings_dict)
 
     response.headers["Subscription-Userinfo"] = _get_sub_userinfo_header(user)

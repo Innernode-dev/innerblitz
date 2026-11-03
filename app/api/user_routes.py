@@ -43,8 +43,8 @@ async def update_user(username: str, data: UserUpdate):
     
     updated = await crud.update_user(username, data)
     
-    # If user was blocked, kick them immediately
-    if data.blocked is True:
+    # If user was blocked or disabled, kick them immediately
+    if data.blocked is True or data.enable is False:
         await kick_users_api([username])
         
     return updated
@@ -78,6 +78,8 @@ async def get_user_config(username: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     
     settings_dict = await crud.get_all_settings()
+    custom_rules = await crud.get_routing_rules(enabled_only=True)
+    settings_dict["routing_rules"] = custom_rules
     uri = build_hy2_uri(user, settings_dict)
 
     # Generate QR Code image (PNG in base64)

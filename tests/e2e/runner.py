@@ -17,24 +17,44 @@ def build_suite(tier: int = 0, pattern: str = "test_*.py") -> unittest.TestSuite
     suite = unittest.TestSuite()
 
     tier_map = {
-        1: "tests.e2e.test_tier1_feature_coverage",
-        2: "tests.e2e.test_tier2_boundary_corner",
-        3: "tests.e2e.test_tier3_cross_feature",
-        4: "tests.e2e.test_tier4_real_world",
+        1: [
+            "tests.e2e.test_tier1_feature_coverage",
+            "tests.api.test_client_crud_quotas"
+        ],
+        2: [
+            "tests.e2e.test_tier2_boundary_corner",
+            "tests.api.test_custom_routing",
+            "tests.api.test_advanced_config_validation"
+        ],
+        3: [
+            "tests.e2e.test_tier3_cross_feature",
+            "tests.integration.test_ui_flows"
+        ],
+        4: [
+            "tests.e2e.test_tier4_real_world"
+        ],
     }
 
     if tier in tier_map:
-        module_name = tier_map[tier]
-        try:
-            mod_suite = loader.loadTestsFromName(module_name)
-            suite.addTests(mod_suite)
-        except Exception as e:
-            print(f"Error loading {module_name}: {e}", file=sys.stderr)
+        module_names = tier_map[tier]
+        for module_name in module_names:
+            try:
+                mod_suite = loader.loadTestsFromName(module_name)
+                suite.addTests(mod_suite)
+            except Exception as e:
+                print(f"Error loading {module_name}: {e}", file=sys.stderr)
     else:
-        # Load all tiers
-        e2e_dir = Path(__file__).resolve().parent
-        discovered = loader.discover(start_dir=str(e2e_dir), pattern=pattern)
-        suite.addTests(discovered)
+        # Load all tiers and sub-packages (api, integration, e2e)
+        tests_root = Path(__file__).resolve().parent.parent
+        for sub_name in ["api", "integration", "e2e"]:
+            sub_dir = tests_root / sub_name
+            if sub_dir.is_dir():
+                discovered = loader.discover(
+                    start_dir=str(sub_dir),
+                    pattern=pattern,
+                    top_level_dir=str(REPO_ROOT)
+                )
+                suite.addTests(discovered)
 
     return suite
 

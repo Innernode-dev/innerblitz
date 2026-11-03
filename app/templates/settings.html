@@ -324,6 +324,47 @@
                 </div>
             </div>
         </div>
+
+        <!-- Dynamic Routing Rules Management Table (CRUD) -->
+        <div class="space-y-4 pt-4 border-t border-slate-800">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-purple-400"></i>
+                        <span>Пользовательские правила маршрутизации ACL</span>
+                    </h4>
+                    <p class="text-xs text-slate-400 mt-0.5">
+                        Точечная маршрутизация для доменов, подсетей IP, GeoIP и Geosite с выбором шлюза (Direct, WARP, Block)
+                    </p>
+                </div>
+                <button onclick="openCreateRuleModal()" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition shadow-md shadow-purple-600/30 flex items-center gap-1.5 self-start sm:self-auto">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <span>Добавить правило</span>
+                </button>
+            </div>
+
+            <!-- Rules Table -->
+            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px]">
+                                <th class="py-3 px-4 w-12 text-center">#</th>
+                                <th class="py-3 px-4">Имя правила</th>
+                                <th class="py-3 px-4">Тип</th>
+                                <th class="py-3 px-4 min-w-[200px]">Значения сопоставления</th>
+                                <th class="py-3 px-4">Шлюз</th>
+                                <th class="py-3 px-4 text-center">Статус</th>
+                                <th class="py-3 px-4 text-right">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routingRulesTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                            <tr><td colspan="7" class="py-8 text-center text-slate-500">Загрузка правил маршрутизации...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- 1. Стелс-доступ и маскировка панели от РКН/сканеров -->
@@ -629,7 +670,7 @@
     </div>
 
     <!-- Sticky Bottom Save Bar -->
-    <div class="sticky bottom-4 z-40 bg-[#0c1220]/95 backdrop-blur-md border border-[#1e293b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div class="sticky bottom-20 lg:bottom-4 z-20 lg:z-40 bg-[#0c1220]/95 backdrop-blur-md border border-[#1e293b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-2.5 text-xs text-slate-300">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
             <span>Параметры порта панели, URL-пути и маскировки Decoy:</span>
@@ -756,6 +797,97 @@
                 </button>
             </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal: Add / Edit Custom Routing Rule -->
+<div id="ruleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h3 id="ruleModalTitle" class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="split" class="w-4 h-4 text-purple-400"></i>
+                <span>Добавить правило маршрутизации</span>
+            </h3>
+            <button onclick="closeRuleModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="ruleForm" onsubmit="handleRuleSubmit(event)" class="space-y-4">
+            <input type="hidden" id="modalRuleId">
+
+            <!-- Rule Name & Priority -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="col-span-2">
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Имя правила *</label>
+                    <input type="text" id="modalRuleName" required placeholder="Custom-Rule-1"
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Приоритет (#)</label>
+                    <input type="number" id="modalRulePriority" value="100" min="1" max="9999"
+                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono">
+                </div>
+            </div>
+
+            <!-- Type & Outbound Action -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Тип сопоставления *</label>
+                    <select id="modalRuleType" onchange="validateRuleRealTime()"
+                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
+                        <option value="domain">domain (Точный домен)</option>
+                        <option value="suffix">suffix (Суффикс / *.domain)</option>
+                        <option value="keyword">keyword (Ключевое слово)</option>
+                        <option value="ip_cidr">ip_cidr (IP / CIDR подсеть)</option>
+                        <option value="geoip">geoip (Код страны GeoIP)</option>
+                        <option value="geosite">geosite (Категория Geosite)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Шлюз выхода (Outbound) *</label>
+                    <select id="modalRuleAction" onchange="validateRuleRealTime()"
+                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
+                        <option value="direct">Direct (Прямой IP)</option>
+                        <option value="warp">WARP (Cloudflare WARP)</option>
+                        <option value="block">Block (Блокировать)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Match Values (textarea) -->
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">
+                    Значения для сопоставления * (через запятую или построчно)
+                </label>
+                <textarea id="modalRuleValues" rows="3" required oninput="validateRuleRealTime()" placeholder="example.com, api.openai.com&#10;192.168.1.0/24"
+                          class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono"></textarea>
+                <span class="text-[10px] text-slate-500">Примеры: example.com (domain), .org (suffix), google (keyword), 1.1.1.1/32 (ip_cidr), ru (geoip), category-ads-all (geosite)</span>
+            </div>
+
+            <!-- Live Validation Banner -->
+            <div id="ruleValidationBanner" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Description / Note -->
+            <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Примечание (Опционально)</label>
+                <input type="text" id="modalRuleDesc" placeholder="Пояснение к правилу..."
+                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
+            </div>
+
+            <!-- Modal Action Buttons -->
+            <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
+                <button type="button" onclick="closeRuleModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+                    Отмена
+                </button>
+                <button type="submit" id="btnSaveRule" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5">
+                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                    <span>Сохранить правило</span>
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -1412,8 +1544,293 @@
         }
     }
 
+    // ==================== DYNAMIC ROUTING RULES (3x-UI Style) ====================
+    let allRoutingRules = [];
+
+    async function loadRoutingRules() {
+        try {
+            const res = await fetch('/api/routing/rules');
+            if (res.ok) {
+                allRoutingRules = await res.json();
+                renderRoutingRulesTable(allRoutingRules);
+            }
+        } catch (e) {
+            console.warn('Error loading custom routing rules:', e);
+        }
+    }
+
+    function renderRoutingRulesTable(rules) {
+        const tbody = document.getElementById('routingRulesTableBody');
+        if (!tbody) return;
+
+        if (!rules || rules.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Пользовательских правил нет. Нажмите "Добавить правило" для создания!</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rules.map((r, idx) => {
+            let actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">DIRECT</span>';
+            if (r.action === 'warp') {
+                actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">WARP</span>';
+            } else if (r.action === 'block') {
+                actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">BLOCK</span>';
+            }
+
+            const values = r.rule_values || [];
+            const displayValues = values.slice(0, 3).map(v => 
+                `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700">${v}</span>`
+            ).join(' ');
+            const moreCount = values.length > 3 ? `<span class="text-[10px] text-slate-500">+${values.length - 3}</span>` : '';
+
+            const isUpDisabled = (idx === 0);
+            const isDownDisabled = (idx === rules.length - 1);
+
+            return `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="py-3 px-4 text-center font-mono text-slate-400 font-semibold">#${r.priority || (idx + 1) * 10}</td>
+                    <td class="py-3 px-4">
+                        <div class="font-bold text-white font-mono">${r.name}</div>
+                        ${r.description ? `<div class="text-[10px] text-slate-500 mt-0.5">${r.description}</div>` : ''}
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase">${r.rule_type}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <div class="flex flex-wrap items-center gap-1">${displayValues} ${moreCount}</div>
+                    </td>
+                    <td class="py-3 px-4">${actionBadge}</td>
+                    <td class="py-3 px-4 text-center">
+                        <label class="relative inline-flex items-center cursor-pointer" title="${r.enabled ? 'Активно (клик для выключения)' : 'Выключено (клик для включения)'}">
+                            <input type="checkbox" onchange="toggleRuleStatus(${r.id}, this.checked)" ${r.enabled ? 'checked' : ''} class="sr-only peer">
+                            <div class="w-7 h-3.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+                        </label>
+                    </td>
+                    <td class="py-3 px-4 text-right">
+                        <div class="flex items-center justify-end gap-1">
+                            <button onclick="moveRule(${idx}, -1)" ${isUpDisabled ? 'disabled class="opacity-20 cursor-not-allowed p-1"' : 'class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"'} title="Повысить приоритет (Вверх)">
+                                <i data-lucide="arrow-up" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="moveRule(${idx}, 1)" ${isDownDisabled ? 'disabled class="opacity-20 cursor-not-allowed p-1"' : 'class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"'} title="Понизить приоритет (Вниз)">
+                                <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="openEditRuleModal(${r.id})" class="p-1 rounded hover:bg-slate-800 text-blue-400 transition" title="Редактировать правило">
+                                <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                            <button onclick="deleteRule(${r.id})" class="p-1 rounded hover:bg-red-500/20 text-red-400 transition" title="Удалить правило">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        lucide.createIcons();
+    }
+
+    async function toggleRuleStatus(ruleId, checked) {
+        try {
+            const res = await fetch(`/api/routing/rules/${ruleId}/toggle`, { method: 'PUT' });
+            if (res.ok) {
+                showToast(`Статус правила #${ruleId} обновлен!`, 'success');
+                loadRoutingRules();
+            } else {
+                showToast('Ошибка переключения правила', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при переключении правила', 'error');
+        }
+    }
+
+    async function moveRule(idx, dir) {
+        const targetIdx = idx + dir;
+        if (targetIdx < 0 || targetIdx >= allRoutingRules.length) return;
+
+        const reordered = [...allRoutingRules];
+        const temp = reordered[idx];
+        reordered[idx] = reordered[targetIdx];
+        reordered[targetIdx] = temp;
+
+        const ruleIds = reordered.map(r => r.id);
+        try {
+            const res = await fetch('/api/routing/rules/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rule_ids: ruleIds })
+            });
+            if (res.ok) {
+                showToast('Порядок правил обновлен!', 'success');
+                loadRoutingRules();
+            } else {
+                showToast('Ошибка изменения порядка правил', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при изменении порядка', 'error');
+        }
+    }
+
+    function parseRuleValues(raw) {
+        if (!raw) return [];
+        return raw.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
+    }
+
+    async function validateRuleRealTime() {
+        const action = document.getElementById('modalRuleAction').value;
+        const ruleType = document.getElementById('modalRuleType').value;
+        const rawValues = document.getElementById('modalRuleValues').value;
+        const values = parseRuleValues(rawValues);
+        const banner = document.getElementById('ruleValidationBanner');
+
+        if (!values || values.length === 0) {
+            banner.classList.add('hidden');
+            return true;
+        }
+
+        try {
+            const res = await fetch('/api/routing/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: action, rule_type: ruleType, rule_values: values })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                banner.classList.remove('hidden');
+                if (data.valid || data.ok) {
+                    banner.className = 'text-xs p-2.5 rounded-xl border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-2';
+                    banner.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i><span>Синтаксис и значения правила корректны!</span>';
+                    lucide.createIcons();
+                    return true;
+                } else {
+                    banner.className = 'text-xs p-2.5 rounded-xl border bg-rose-500/10 text-rose-400 border-rose-500/20 flex items-center gap-2';
+                    banner.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4"></i><span>${data.message || 'Ошибка синтаксиса'}</span>`;
+                    lucide.createIcons();
+                    return false;
+                }
+            }
+        } catch (e) {
+            banner.classList.add('hidden');
+        }
+        return true;
+    }
+
+    function openCreateRuleModal() {
+        document.getElementById('modalRuleId').value = '';
+        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="split" class="w-4 h-4 text-purple-400"></i><span>Добавить правило маршрутизации</span>';
+        document.getElementById('modalRuleName').value = '';
+        document.getElementById('modalRulePriority').value = (allRoutingRules.length + 1) * 10;
+        document.getElementById('modalRuleType').value = 'domain';
+        document.getElementById('modalRuleAction').value = 'warp';
+        document.getElementById('modalRuleValues').value = '';
+        document.getElementById('modalRuleDesc').value = '';
+        document.getElementById('ruleValidationBanner').classList.add('hidden');
+        document.getElementById('ruleModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function openEditRuleModal(ruleId) {
+        const rule = allRoutingRules.find(r => r.id === ruleId);
+        if (!rule) return;
+
+        document.getElementById('modalRuleId').value = rule.id;
+        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-4 h-4 text-purple-400"></i><span>Редактировать правило маршрутизации</span>';
+        document.getElementById('modalRuleName').value = rule.name;
+        document.getElementById('modalRulePriority').value = rule.priority || 100;
+        document.getElementById('modalRuleType').value = rule.rule_type || 'domain';
+        document.getElementById('modalRuleAction').value = rule.action || 'direct';
+        document.getElementById('modalRuleValues').value = (rule.rule_values || []).join('\n');
+        document.getElementById('modalRuleDesc').value = rule.description || '';
+        document.getElementById('ruleValidationBanner').classList.add('hidden');
+        document.getElementById('ruleModal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeRuleModal() {
+        document.getElementById('ruleModal').classList.add('hidden');
+    }
+
+    async function handleRuleSubmit(e) {
+        e.preventDefault();
+        const ruleId = document.getElementById('modalRuleId').value;
+        const name = document.getElementById('modalRuleName').value.trim();
+        const priority = parseInt(document.getElementById('modalRulePriority').value) || 100;
+        const ruleType = document.getElementById('modalRuleType').value;
+        const action = document.getElementById('modalRuleAction').value;
+        const rawValues = document.getElementById('modalRuleValues').value;
+        const values = parseRuleValues(rawValues);
+        const desc = document.getElementById('modalRuleDesc').value.trim();
+
+        if (!name) return showToast('Введите имя правила', 'error');
+        if (values.length === 0) return showToast('Укажите хотя бы одно значение сопоставления', 'error');
+
+        // Pre-validate before submitting
+        const isValid = await validateRuleRealTime();
+        if (!isValid) return showToast('Проверьте ошибки синтаксиса в правиле!', 'error');
+
+        const payload = {
+            name: name,
+            priority: priority,
+            rule_type: ruleType,
+            action: action,
+            rule_values: values,
+            description: desc,
+            enabled: true
+        };
+
+        try {
+            if (ruleId) {
+                // Update
+                const res = await fetch(`/api/routing/rules/${ruleId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast(`Правило "${name}" успешно обновлено!`, 'success');
+                    closeRuleModal();
+                    loadRoutingRules();
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || 'Ошибка обновления правила', 'error');
+                }
+            } else {
+                // Create
+                const res = await fetch('/api/routing/rules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.ok) {
+                    showToast(`Правило "${name}" создано и применено!`, 'success');
+                    closeRuleModal();
+                    loadRoutingRules();
+                } else {
+                    const err = await res.json();
+                    showToast(err.detail || 'Ошибка создания правила', 'error');
+                }
+            }
+        } catch (e) {
+            showToast('Ошибка сети при сохранении правила', 'error');
+        }
+    }
+
+    async function deleteRule(ruleId) {
+        if (!confirm(`Удалить правило маршрутизации #${ruleId}? Конфигурация Hysteria 2 будет перекомпилирована!`)) return;
+        try {
+            const res = await fetch(`/api/routing/rules/${ruleId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast(`Правило #${ruleId} удалено!`, 'success');
+                loadRoutingRules();
+            } else {
+                showToast('Ошибка удаления правила', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при удалении', 'error');
+        }
+    }
+
     loadSettings();
     loadRoutingData();
+    loadRoutingRules();
     checkWarpStatus();
 </script>
 {% endblock %}

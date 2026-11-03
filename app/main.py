@@ -19,7 +19,9 @@ from app.core.hysteria import apply_and_save_config
 # Import routers
 from app.api.auth_routes import router as auth_router, get_current_admin
 from app.api.user_routes import router as user_router
+from app.api.client_routes import router as client_router, inbound_router
 from app.api.settings_routes import router as settings_router
+from app.api.routing_routes import router as routing_router
 from app.api.sub_routes import router as sub_router
 from app.api.system_routes import router as system_router
 from app.api.warp_routes import router as warp_router
@@ -168,7 +170,10 @@ from app.core.templates import render_template, templates
 # Include API and Subscription Routers
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(client_router)
+app.include_router(inbound_router)
 app.include_router(settings_router)
+app.include_router(routing_router)
 app.include_router(sub_router)
 app.include_router(system_router)
 app.include_router(warp_router)

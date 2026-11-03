@@ -34,9 +34,13 @@ class LimiterDaemon:
 
         # 1. Quota & expiration enforcement
         for u in users:
+            is_disabled = u.get("blocked", False) or not u.get("enable", True)
+            if is_disabled:
+                to_kick.append(u["username"])
+                continue
             if u.get("unlimited_user", False):
                 continue
-            if u.get("blocked", False) or u.get("is_expired", False) or u.get("is_limit_reached", False):
+            if u.get("is_expired", False) or u.get("is_limit_reached", False) or u.get("is_quota_exceeded", False):
                 to_kick.append(u["username"])
 
         # 2. Online IP limit enforcement

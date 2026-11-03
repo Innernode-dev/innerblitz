@@ -47,8 +47,10 @@ class TrafficCollector:
                         await crud.add_user_traffic(username, tx, rx)
 
         # Convert to KBps (assuming ~5 sec interval)
-        rate_up_kbps = round((total_tx / 1024) / 5, 2)
-        rate_down_kbps = round((total_rx / 1024) / 5, 2)
+        # Server rx (receive from client) = Client upload
+        # Server tx (transmit to client) = Client download
+        rate_up_kbps = round((total_rx / 1024) / 5, 2)
+        rate_down_kbps = round((total_tx / 1024) / 5, 2)
 
         # Record metric in DB for live chart
         await crud.record_traffic_metric(rate_up_kbps, rate_down_kbps, active_users)

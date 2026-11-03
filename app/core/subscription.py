@@ -1,7 +1,7 @@
 import base64
 import json
 import urllib.parse
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
     """Generate standard hy2:// URI compatible with all modern clients."""
@@ -44,10 +44,17 @@ def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
     tag = f"InnerBlitz-{username}"
     tag_encoded = urllib.parse.quote(tag)
 
-    return f"hy2://{username}:{password}@{server_host}:{port}?{query_str}#{tag_encoded}"
+    enc_user = urllib.parse.quote(str(username), safe="")
+    enc_pass = urllib.parse.quote(str(password), safe="")
 
-def build_clash_yaml(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
-    """Generate Clash Meta / Mihomo configuration for user with split routing."""
+    return f"hy2://{enc_user}:{enc_pass}@{server_host}:{port}?{query_str}#{tag_encoded}"
+
+def build_clash_yaml(
+    user: Dict[str, Any],
+    settings_dict: Dict[str, Any],
+    routing_rules: Optional[List[Dict[str, Any]]] = None
+) -> str:
+    """Generate Clash Meta / Mihomo configuration for user with split routing and custom rules."""
     server_host = settings_dict.get("server_domain") or settings_dict.get("server_ip") or "127.0.0.1"
     port = int(settings_dict.get("listen_port", 443))
     username = user.get("username", "user")
@@ -128,6 +135,44 @@ def build_clash_yaml(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str
             "GEOIP,RU,RU-Traffic"
         ])
 
+    # Export custom dynamic routing rules
+    resolved_rules = routing_rules if routing_rules is not None else (settings_dict.get("routing_rules") or settings_dict.get("custom_routing_rules") or [])
+    for c_rule in resolved_rules:
+        if not c_rule.get("enabled", True):
+            continue
+        c_action = str(c_rule.get("action", "direct")).strip().lower()
+        c_target = "DIRECT" if c_action == "direct" else "REJECT" if c_action == "block" else "PROXY"
+        c_type = str(c_rule.get("rule_type", "domain")).strip().lower()
+        raw_vals = c_rule.get("rule_values", [])
+        if isinstance(raw_vals, str):
+            try:
+                raw_vals = json.loads(raw_vals)
+            except Exception:
+                raw_vals = [raw_vals]
+
+        for rv in raw_vals:
+            val = str(rv).strip()
+            if not val:
+                continue
+            if c_type == "domain":
+                clean = val.removeprefix("domain:").strip()
+                rules.append(f"DOMAIN,{clean},{c_target}")
+            elif c_type == "suffix":
+                clean = val.removeprefix("suffix:").removeprefix("domain-suffix:").strip()
+                rules.append(f"DOMAIN-SUFFIX,{clean},{c_target}")
+            elif c_type == "keyword":
+                clean = val.strip("*").removeprefix("keyword:").removeprefix("domain-keyword:").strip()
+                rules.append(f"DOMAIN-KEYWORD,{clean},{c_target}")
+            elif c_type == "ip_cidr":
+                clean = val.removeprefix("cidr:").strip()
+                rules.append(f"IP-CIDR,{clean},{c_target},no-resolve")
+            elif c_type == "geoip":
+                clean = val.removeprefix("geoip:").strip().upper()
+                rules.append(f"GEOIP,{clean},{c_target}")
+            elif c_type == "geosite":
+                clean = val.removeprefix("geosite:").strip()
+                rules.append(f"GEOSITE,{clean},{c_target}")
+
     rules.extend([
         "GEOSITE,openai,Services",
         "GEOSITE,netflix,Services",
@@ -147,7 +192,11 @@ def build_clash_yaml(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str
     import yaml
     return yaml.dump(doc, sort_keys=False, allow_unicode=True)
 
-def build_singbox_json(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> Dict[str, Any]:
+def build_singbox_json(
+    user: Dict[str, Any],
+    settings_dict: Dict[str, Any],
+    routing_rules: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """Generate complete Sing-box v1.10+ client JSON profile with inbounds, dns, outbounds, and route."""
     server_host = settings_dict.get("server_domain") or settings_dict.get("server_ip") or "127.0.0.1"
     port = int(settings_dict.get("listen_port", 443))
@@ -207,6 +256,53 @@ def build_singbox_json(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> D
     else:  # direct
         route_rules.append({"geosite": ["ru"], "outbound": "direct"})
         route_rules.append({"geoip": ["ru"], "outbound": "direct"})
+
+    # Export custom dynamic routing rules to Sing-box v1.10+ route rules
+    resolved_rules = routing_rules if routing_rules is not None else (settings_dict.get("routing_rules") or settings_dict.get("custom_routing_rules") or [])
+    for c_rule in resolved_rules:
+        if not c_rule.get("enabled", True):
+            continue
+        c_action = str(c_rule.get("action", "direct")).strip().lower()
+        outbound_target = "direct" if c_action == "direct" else "block" if c_action == "block" else proxy_tag
+        c_type = str(c_rule.get("rule_type", "domain")).strip().lower()
+        raw_vals = c_rule.get("rule_values", [])
+        if isinstance(raw_vals, str):
+            try:
+                raw_vals = json.loads(raw_vals)
+            except Exception:
+                raw_vals = [raw_vals]
+
+        clean_vals = []
+        for rv in raw_vals:
+            val = str(rv).strip()
+            if not val:
+                continue
+            if c_type == "domain":
+                clean_vals.append(val.removeprefix("domain:").strip())
+            elif c_type == "suffix":
+                clean_vals.append(val.removeprefix("suffix:").removeprefix("domain-suffix:").strip())
+            elif c_type == "keyword":
+                clean_vals.append(val.strip("*").removeprefix("keyword:").removeprefix("domain-keyword:").strip())
+            elif c_type == "ip_cidr":
+                clean_vals.append(val.removeprefix("cidr:").strip())
+            elif c_type == "geoip":
+                clean_vals.append(val.removeprefix("geoip:").strip().lower())
+            elif c_type == "geosite":
+                clean_vals.append(val.removeprefix("geosite:").strip().lower())
+
+        if clean_vals:
+            if c_type == "domain":
+                route_rules.append({"domain": clean_vals, "outbound": outbound_target})
+            elif c_type == "suffix":
+                route_rules.append({"domain_suffix": clean_vals, "outbound": outbound_target})
+            elif c_type == "keyword":
+                route_rules.append({"domain_keyword": clean_vals, "outbound": outbound_target})
+            elif c_type == "ip_cidr":
+                route_rules.append({"ip_cidr": clean_vals, "outbound": outbound_target})
+            elif c_type == "geoip":
+                route_rules.append({"geoip": clean_vals, "outbound": outbound_target})
+            elif c_type == "geosite":
+                route_rules.append({"geosite": clean_vals, "outbound": outbound_target})
 
     return {
         "version": 1,

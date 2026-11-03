@@ -79,12 +79,54 @@ def _configure_port_hopping_nft(clean_range: str, target_port: int, enable: bool
     except Exception as e:
         return False, str(e)
 
+def validate_port_hopping_string(val: str) -> Tuple[bool, str]:
+    """
+    Validate port hopping syntax: single ports, dash ranges, colon ranges,
+    or comma-separated lists (e.g. '443', '20000-30000', '443,10000-20000').
+    """
+    if not val or not str(val).strip():
+        return False, "Port hopping string is empty"
+
+    parts = [p.strip() for p in str(val).split(",") if p.strip()]
+    if not parts:
+        return False, "No valid ports or ranges found"
+
+    for part in parts:
+        if "-" in part or ":" in part:
+            sep = "-" if "-" in part else ":"
+            subparts = part.split(sep)
+            if len(subparts) != 2:
+                return False, f"Invalid range syntax: '{part}'"
+            try:
+                start_p = int(subparts[0].strip())
+                end_p = int(subparts[1].strip())
+            except ValueError:
+                return False, f"Port numbers must be numeric: '{part}'"
+
+            if not (1 <= start_p <= 65535 and 1 <= end_p <= 65535):
+                return False, f"Port numbers out of valid range 1-65535: '{part}'"
+            if start_p > end_p:
+                return False, f"Inverted port range ({start_p} > {end_p}): '{part}'"
+        else:
+            try:
+                p = int(part)
+                if not (1 <= p <= 65535):
+                    return False, f"Port number out of valid range 1-65535: {p}"
+            except ValueError:
+                return False, f"Port number must be numeric: '{part}'"
+
+    return True, "Valid port hopping configuration"
+
 def configure_port_hopping(range_str: str, target_port: int, enable: bool = True) -> Tuple[bool, str]:
     """
     Setup or remove iptables/nftables NAT REDIRECT rule for UDP port hopping
     using the dedicated INNERBLITZ_HOPPING chain.
     range_str format: '20000:50000' or '20000-50000'
     """
+    is_val, val_msg = validate_port_hopping_string(range_str)
+    if not is_val:
+        return False, val_msg
+
     clean_range = "".join(range_str.split()).replace("-", ":")
     
     # Try iptables first

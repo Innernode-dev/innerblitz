@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from typing import List, Dict, Any, Optional
 import aiohttp
 import io
@@ -179,7 +179,7 @@ async def delete_client(id: str):
     return {"ok": True, "message": f"Client '{username}' deleted"}
 
 @router.get("/{id}/config")
-async def get_client_config(id: str):
+async def get_client_config(id: str, request: Request):
     """Generate hy2:// URI, Clash Meta YAML, Sing-box JSON, and QR code data URI."""
     existing = None
     if id.isdigit():
@@ -192,7 +192,8 @@ async def get_client_config(id: str):
     settings_dict = await crud.get_all_settings()
     custom_rules = await crud.get_routing_rules(enabled_only=True)
     settings_dict["routing_rules"] = custom_rules
-    uri = build_hy2_uri(existing, settings_dict)
+    req_host = request.url.hostname
+    uri = build_hy2_uri(existing, settings_dict, request_host=req_host)
 
     # Generate QR Code image (PNG in base64)
     qr = qrcode.QRCode(box_size=8, border=2)
@@ -210,8 +211,8 @@ async def get_client_config(id: str):
         "qr_base64": f"data:image/png;base64,{qr_b64}",
         "sub_token": sub_token,
         "sub_url": f"/sub/{sub_token}",
-        "clash_yaml": build_clash_yaml(existing, settings_dict),
-        "singbox_json": build_singbox_json(existing, settings_dict)
+        "clash_yaml": build_clash_yaml(existing, settings_dict, request_host=req_host),
+        "singbox_json": build_singbox_json(existing, settings_dict, request_host=req_host)
     }
 
 # ==================== INBOUND ROUTES (/api/inbounds) ====================

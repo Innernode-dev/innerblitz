@@ -109,9 +109,40 @@ async def get_settings():
     data.pop("admin_password_hash", None)
     data.pop("_current_tg_otp", None)
 
+    from app.core.network import get_server_public_ip, is_valid_public_ipv4
+    if not data.get("server_ip") or not is_valid_public_ipv4(data.get("server_ip")):
+        try:
+            detected_ip = await get_server_public_ip()
+            data["server_ip"] = detected_ip
+        except Exception:
+            pass
+
     from app.core.cert import get_cert_info
     data["panel_cert_info"] = get_cert_info()
     return data
+
+@router.post("/detect-ip")
+async def detect_server_ip_endpoint():
+    """Explicitly re-detect the public IPv4 address of this server and update DB."""
+    from app.core.network import detect_public_ip
+    ip = await detect_public_ip(timeout=3.5)
+    if not ip:
+        raise HTTPException(status_code=500, detail="Не удалось определить внешний IP адрес сервера")
+    await crud.set_setting("server_ip", ip)
+
+    ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
+    if ssl_mode == "self_signed_ip":
+        try:
+            from app.core.cert import generate_panel_cert, generate_self_signed_cert
+            sni = await crud.get_setting("sni", "")
+            generate_panel_cert(ip, valid_days=6)
+            _, _, pin = generate_self_signed_cert(ip, sni=sni)
+            if pin:
+                await crud.set_setting("cert_sha256", pin)
+        except Exception:
+            pass
+
+    return {"ok": True, "ip": ip, "message": f"Внешний IP сервера успешно определен: {ip}"}
 
 @router.post("")
 async def update_settings(payload: SettingsPayload):

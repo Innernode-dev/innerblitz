@@ -154,6 +154,14 @@ async def get_dashboard_telemetry():
         "win_spy": (await crud.get_setting("routing_win_spy", "1")) in ("1", "true", True)
     }
 
+    from app.core.network import get_server_public_ip, is_valid_public_ipv4
+    server_public_ip = await crud.get_setting("server_ip", "")
+    if not server_public_ip or not is_valid_public_ipv4(server_public_ip):
+        try:
+            server_public_ip = await get_server_public_ip()
+        except Exception:
+            server_public_ip = server_public_ip or ""
+
     server_data = {
         "uptime": uptime_str,
         "cpu_pct": cpu_percent,
@@ -168,7 +176,8 @@ async def get_dashboard_telemetry():
         "disk_total_gb": disk_total,
         "version": hysteria_ver,
         "port": listen_port,
-        "egress_ip": await crud.get_setting("server_ip", ""),
+        "egress_ip": server_public_ip,
+        "ip": server_public_ip,
         "stealth_path": await crud.get_setting("panel_secret_path", "panel"),
         "hysteria_running": hysteria_running,
     }

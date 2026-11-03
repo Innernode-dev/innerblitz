@@ -159,96 +159,9 @@
             </div>
         </div>
 
-        <!-- Service Presets Grid -->
+        <!-- Quick Security Toggles -->
         <div class="space-y-3 pt-2 border-t border-slate-800">
-            <div class="flex items-center justify-between">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-200">Сервисные пресеты маршрутизации (1-Клик)</label>
-                    <span class="text-[11px] text-slate-400">Выбор шлюза выхода для конкретных приложений и белых списков</span>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                <!-- OpenAI -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="bot" class="w-4 h-4 text-emerald-400"></i>
-                        <span class="text-xs font-medium text-white">OpenAI / ChatGPT</span>
-                    </div>
-                    <select id="routeOpenai" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="warp">WARP</option>
-                        <option value="direct">Direct</option>
-                        <option value="block">Block</option>
-                    </select>
-                </div>
-
-                <!-- Discord -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="gamepad-2" class="w-4 h-4 text-indigo-400"></i>
-                        <span class="text-xs font-medium text-white">Discord</span>
-                    </div>
-                    <select id="routeDiscord" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="warp">WARP</option>
-                        <option value="direct">Direct</option>
-                        <option value="block">Block</option>
-                    </select>
-                </div>
-
-                <!-- YouTube -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="video" class="w-4 h-4 text-red-400"></i>
-                        <span class="text-xs font-medium text-white">YouTube</span>
-                    </div>
-                    <select id="routeYoutube" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="warp">WARP</option>
-                        <option value="direct">Direct</option>
-                        <option value="block">Block</option>
-                    </select>
-                </div>
-
-                <!-- Telegram -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
-                        <span class="text-xs font-medium text-white">Telegram</span>
-                    </div>
-                    <select id="routeTelegram" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="warp">WARP</option>
-                        <option value="direct">Direct</option>
-                        <option value="block">Block</option>
-                    </select>
-                </div>
-
-                <!-- Netflix -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="film" class="w-4 h-4 text-rose-400"></i>
-                        <span class="text-xs font-medium text-white">Netflix</span>
-                    </div>
-                    <select id="routeNetflix" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="warp">WARP</option>
-                        <option value="direct">Direct</option>
-                        <option value="block">Block</option>
-                    </select>
-                </div>
-
-                <!-- P2P / Torrents -->
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="download" class="w-4 h-4 text-amber-400"></i>
-                        <span class="text-xs font-medium text-white">P2P / Торренты</span>
-                    </div>
-                    <select id="routeP2p" class="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
-                        <option value="block">Блокировать</option>
-                        <option value="allow">Разрешить</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Ad Block & Win Spy Toggles -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
                     <div class="space-y-0.5">
                         <span class="text-xs font-bold text-white flex items-center gap-1.5">
@@ -343,6 +256,38 @@
                 </button>
             </div>
 
+            <!-- 1-Click Quick Template Chips for 3x-ui flexibility -->
+            <div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span class="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i>
+                    <span>Шаблоны правил:</span>
+                </span>
+                <button type="button" onclick="prefillRule('Bybit', 'suffix', 'bybit.com, bytick.com, bybit-global.com', 'direct', 'Криптобиржа Bybit')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>⚡ + Bybit</span>
+                </button>
+                <button type="button" onclick="prefillRule('Binance', 'suffix', 'binance.com, bnbstatic.com', 'direct', 'Криптобиржа Binance')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>⚡ + Binance</span>
+                </button>
+                <button type="button" onclick="prefillRule('Telegram', 'geosite', 'telegram', 'direct', 'Мессенджер Telegram')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>💬 + Telegram</span>
+                </button>
+                <button type="button" onclick="prefillRule('YouTube', 'geosite', 'youtube', 'warp', 'Видеохостинг YouTube через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-red-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>▶️ + YouTube</span>
+                </button>
+                <button type="button" onclick="prefillRule('OpenAI', 'geosite', 'openai', 'warp', 'ChatGPT & OpenAI API через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>🤖 + OpenAI</span>
+                </button>
+                <button type="button" onclick="prefillRule('Discord', 'geosite', 'discord', 'warp', 'Discord через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>🎮 + Discord</span>
+                </button>
+                <button type="button" onclick="prefillRule('AdBlock', 'geosite', 'category-ads-all', 'block', 'Блокировка рекламы и трекеров')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>🚫 + Реклама</span>
+                </button>
+                <button type="button" onclick="prefillRule('Block-P2P', 'geosite', 'bittorrent', 'block', 'Блокировка торрентов')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-orange-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <span>🛑 + Торренты</span>
+                </button>
+            </div>
+
             <!-- Rules Table -->
             <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
                 <div class="overflow-x-auto">
@@ -402,6 +347,35 @@
                 </button>
             </div>
             <input type="hidden" id="panelLiveUrlText">
+        </div>
+
+        <!-- Server Public IP and Domain -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Внешний IPv4 сервера (Public IP)</span>
+                    <button type="button" onclick="detectServerIp()" class="text-[11px] text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 transition">
+                        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                        <span>Автоопределение IP</span>
+                    </button>
+                </label>
+                <div class="flex items-center gap-2">
+                    <input type="text" id="cfgServerIp" placeholder="185.x.x.x" 
+                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 font-mono">
+                    <button type="button" onclick="detectServerIp()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                        <i data-lucide="crosshair" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <span>Определить</span>
+                    </button>
+                </div>
+                <span class="text-[11px] text-slate-500 mt-1 block">Используется во всех ссылках hy2://, профилях Sing-box/Clash и QR-кодах вместо 127.0.0.1.</span>
+            </div>
+
+            <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Домен сервера (Опционально)</label>
+                <input type="text" id="cfgServerDomain" placeholder="vpn.example.com" 
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 font-mono">
+                <span class="text-[11px] text-slate-500 mt-1 block">Если указан, клиенты будут подключаться через этот домен вместо IP адреса.</span>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -917,6 +891,12 @@
                 if (liveLink) liveLink.href = liveUrl;
                 document.getElementById('cfgPanelPort').value = port;
                 document.getElementById('cfgPanelSecretPath').value = path;
+                if (document.getElementById('cfgServerIp')) {
+                    document.getElementById('cfgServerIp').value = currentSettings.server_ip || '';
+                }
+                if (document.getElementById('cfgServerDomain')) {
+                    document.getElementById('cfgServerDomain').value = currentSettings.server_domain || '';
+                }
                 document.getElementById('cfgDecoyEnabled').checked = currentSettings.decoy_enabled == '1';
                 if (document.getElementById('cfgDecoyTheme')) {
                     document.getElementById('cfgDecoyTheme').value = currentSettings.decoy_theme || 'nginx';
@@ -996,12 +976,43 @@
         }
     }
 
+    async function detectServerIp() {
+        try {
+            showToast('Определение внешнего IP адреса...', 'info');
+            const res = await fetch('/api/settings/detect-ip', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.ip) {
+                if (document.getElementById('cfgServerIp')) {
+                    document.getElementById('cfgServerIp').value = data.ip;
+                }
+                showToast(`Внешний IP сервера определен: ${data.ip}`, 'success');
+                loadSettings();
+            } else {
+                showToast(data.detail || 'Не удалось определить внешний IP', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при определении IP', 'error');
+        }
+    }
+
+    function prefillRule(name, type, values, action, desc) {
+        openCreateRuleModal();
+        document.getElementById('modalRuleName').value = name;
+        document.getElementById('modalRuleType').value = type;
+        document.getElementById('modalRuleValues').value = values;
+        document.getElementById('modalRuleAction').value = action;
+        document.getElementById('modalRuleDesc').value = desc || '';
+        if (typeof validateRuleRealTime === 'function') validateRuleRealTime();
+    }
+
     async function savePanelAccessManual() {
         const port = document.getElementById('cfgPanelPort').value.trim();
         const rawPath = document.getElementById('cfgPanelSecretPath').value.trim();
         const path = rawPath.replace(/^\/+|\/+$/g, '');
         const decoy = document.getElementById('cfgDecoyEnabled').checked;
         const theme = document.getElementById('cfgDecoyTheme') ? document.getElementById('cfgDecoyTheme').value : 'nginx';
+        const serverIp = document.getElementById('cfgServerIp') ? document.getElementById('cfgServerIp').value.trim() : '';
+        const serverDomain = document.getElementById('cfgServerDomain') ? document.getElementById('cfgServerDomain').value.trim() : '';
 
         if (!port) return showToast('Укажите порт панели', 'error');
         if (!path) return showToast('Укажите секретный путь', 'error');
@@ -1010,13 +1021,20 @@
             const res = await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ panel_port: port, panel_secret_path: path, decoy_enabled: decoy, decoy_theme: theme })
+                body: JSON.stringify({
+                    panel_port: port,
+                    panel_secret_path: path,
+                    decoy_enabled: decoy,
+                    decoy_theme: theme,
+                    server_ip: serverIp,
+                    server_domain: serverDomain
+                })
             });
             if (res.ok) {
                 showToast('Параметры сохранены! Перенаправление на новый адрес...', 'success');
                 const sslMode = currentSettings.panel_ssl_mode || 'http';
                 const proto = (sslMode === 'self_signed_ip' || sslMode === 'domain') ? 'https' : 'http';
-                const host = (sslMode === 'domain' && currentSettings.server_domain) ? currentSettings.server_domain : (currentSettings.server_ip || window.location.hostname);
+                const host = (sslMode === 'domain' && (serverDomain || currentSettings.server_domain)) ? (serverDomain || currentSettings.server_domain) : (serverIp || currentSettings.server_ip || window.location.hostname);
                 setTimeout(() => { window.location.href = `${proto}://${host}:${port}/${path}`; }, 1600);
             } else {
                 showToast('Ошибка сохранения', 'error');
@@ -1363,20 +1381,14 @@
         const payload = {
             routing_global_outbound: globalOutbound,
             routing_ru: ruRouting,
-            routing_openai: document.getElementById('routeOpenai').value,
-            routing_discord: document.getElementById('routeDiscord').value,
-            routing_youtube: document.getElementById('routeYoutube').value,
-            routing_telegram: document.getElementById('routeTelegram').value,
-            routing_netflix: document.getElementById('routeNetflix').value,
-            routing_p2p: document.getElementById('routeP2p').value,
-            routing_ads: document.getElementById('routeAds').checked,
-            routing_win_spy: document.getElementById('routeWinSpy').checked,
+            routing_ads: document.getElementById('routeAds') ? document.getElementById('routeAds').checked : true,
+            routing_win_spy: document.getElementById('routeWinSpy') ? document.getElementById('routeWinSpy').checked : true,
             warp_enabled: (globalOutbound === 'warp'),
-            sniff_enable: document.getElementById('cfgSniffEnable').checked,
-            sniff_timeout: document.getElementById('cfgSniffTimeout').value.trim() || '2s',
-            sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite').value === 'true'),
-            port_hopping_enabled: document.getElementById('cfgPortHoppingEnable').checked,
-            port_hopping_range: document.getElementById('cfgPortHoppingRange').value.trim() || '20000:50000'
+            sniff_enable: document.getElementById('cfgSniffEnable') ? document.getElementById('cfgSniffEnable').checked : true,
+            sniff_timeout: (document.getElementById('cfgSniffTimeout') ? document.getElementById('cfgSniffTimeout').value.trim() : '') || '2s',
+            sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite') ? document.getElementById('cfgSniffRewrite').value === 'true' : false),
+            port_hopping_enabled: document.getElementById('cfgPortHoppingEnable') ? document.getElementById('cfgPortHoppingEnable').checked : true,
+            port_hopping_range: (document.getElementById('cfgPortHoppingRange') ? document.getElementById('cfgPortHoppingRange').value.trim() : '') || '20000:50000'
         };
 
         try {

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import List, Dict, Any
 import qrcode
 import io
@@ -71,7 +71,7 @@ async def reset_user(username: str):
     return {"ok": True, "message": f"User {username} traffic reset"}
 
 @router.get("/{username}/config")
-async def get_user_config(username: str):
+async def get_user_config(username: str, request: Request):
     """Generate configuration payloads, URIs, and QR code for user."""
     user = await crud.get_user_by_username(username)
     if not user:
@@ -80,7 +80,8 @@ async def get_user_config(username: str):
     settings_dict = await crud.get_all_settings()
     custom_rules = await crud.get_routing_rules(enabled_only=True)
     settings_dict["routing_rules"] = custom_rules
-    uri = build_hy2_uri(user, settings_dict)
+    req_host = request.url.hostname
+    uri = build_hy2_uri(user, settings_dict, request_host=req_host)
 
     # Generate QR Code image (PNG in base64)
     qr = qrcode.QRCode(box_size=8, border=2)
@@ -96,6 +97,6 @@ async def get_user_config(username: str):
         "uri": uri,
         "qr_base64": f"data:image/png;base64,{qr_b64}",
         "sub_token": user.get("sub_token", ""),
-        "clash_yaml": build_clash_yaml(user, settings_dict),
-        "singbox_json": build_singbox_json(user, settings_dict)
+        "clash_yaml": build_clash_yaml(user, settings_dict, request_host=req_host),
+        "singbox_json": build_singbox_json(user, settings_dict, request_host=req_host)
     }

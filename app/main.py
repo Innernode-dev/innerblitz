@@ -62,6 +62,13 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing InnerBlitz Database and Services...")
     await init_db()
     
+    # Auto-detect public server IP and persist to DB
+    try:
+        from app.core.network import sync_server_ip_on_startup
+        await sync_server_ip_on_startup()
+    except Exception as e:
+        logger.warning(f"Initial server IP detection notice: {e}")
+
     # Ensure Hysteria config exists on disk
     if not Path(settings.HYSTERIA_CONFIG_PATH).exists():
         await apply_and_save_config()
@@ -286,10 +293,15 @@ if __name__ == "__main__":
 
     async def get_launch_config():
         await init_db()
+        from app.core.network import sync_server_ip_on_startup, get_server_public_ip
+        try:
+            server_ip = await sync_server_ip_on_startup()
+        except Exception:
+            server_ip = await crud.get_setting("server_ip", "127.0.0.1")
+
         p = await crud.get_setting("panel_port", "")
         port = int(p) if p and p.isdigit() else settings.PANEL_PORT
         ssl_mode = await crud.get_setting("panel_ssl_mode", "http")
-        server_ip = await crud.get_setting("server_ip", "127.0.0.1")
         
         cert_file = await crud.get_setting("panel_cert_path", settings.PANEL_CERT_PATH)
         key_file = await crud.get_setting("panel_key_path", settings.PANEL_KEY_PATH)

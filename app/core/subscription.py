@@ -2,10 +2,43 @@ import base64
 import json
 import urllib.parse
 from typing import Dict, Any, List, Optional
+from app.core.network import is_valid_public_ipv4, get_cached_public_ip
 
-def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
+def _resolve_server_host(settings_dict: Dict[str, Any], request_host: Optional[str] = None) -> str:
+    """
+    Resolve public server host for client links, subscriptions, and profiles:
+    1. server_domain if configured and not local
+    2. server_ip if a valid public IPv4 address
+    3. request_host if provided and not local/loopback
+    4. Memory-cached auto-detected public IP
+    5. Fallback to server_ip or 127.0.0.1
+    """
+    domain = (settings_dict.get("server_domain") or "").strip()
+    if domain and domain.lower() not in ("127.0.0.1", "localhost", "0.0.0.0", "none", "null"):
+        return domain
+
+    ip = (settings_dict.get("server_ip") or "").strip()
+    if ip and is_valid_public_ipv4(ip):
+        return ip
+
+    if request_host:
+        r_host = request_host.strip().lower()
+        if r_host not in ("127.0.0.1", "localhost", "0.0.0.0") and not r_host.endswith(".local"):
+            return r_host
+
+    cached_ip = get_cached_public_ip()
+    if cached_ip and is_valid_public_ipv4(cached_ip):
+        return cached_ip
+
+    return ip or "127.0.0.1"
+
+def build_hy2_uri(
+    user: Dict[str, Any],
+    settings_dict: Dict[str, Any],
+    request_host: Optional[str] = None
+) -> str:
     """Generate standard hy2:// URI compatible with all modern clients."""
-    server_host = settings_dict.get("server_domain") or settings_dict.get("server_ip") or "127.0.0.1"
+    server_host = _resolve_server_host(settings_dict, request_host)
     port = settings_dict.get("listen_port", 443)
     username = user.get("username", "user")
     password = user.get("password", "")
@@ -52,10 +85,11 @@ def build_hy2_uri(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
 def build_clash_yaml(
     user: Dict[str, Any],
     settings_dict: Dict[str, Any],
-    routing_rules: Optional[List[Dict[str, Any]]] = None
+    routing_rules: Optional[List[Dict[str, Any]]] = None,
+    request_host: Optional[str] = None
 ) -> str:
     """Generate Clash Meta / Mihomo configuration for user with split routing and custom rules."""
-    server_host = settings_dict.get("server_domain") or settings_dict.get("server_ip") or "127.0.0.1"
+    server_host = _resolve_server_host(settings_dict, request_host)
     port = int(settings_dict.get("listen_port", 443))
     username = user.get("username", "user")
     password = user.get("password", "")
@@ -174,8 +208,6 @@ def build_clash_yaml(
                 rules.append(f"GEOSITE,{clean},{c_target}")
 
     rules.extend([
-        "GEOSITE,openai,Services",
-        "GEOSITE,netflix,Services",
         "MATCH,PROXY"
     ])
 
@@ -195,10 +227,11 @@ def build_clash_yaml(
 def build_singbox_json(
     user: Dict[str, Any],
     settings_dict: Dict[str, Any],
-    routing_rules: Optional[List[Dict[str, Any]]] = None
+    routing_rules: Optional[List[Dict[str, Any]]] = None,
+    request_host: Optional[str] = None
 ) -> Dict[str, Any]:
     """Generate complete Sing-box v1.10+ client JSON profile with inbounds, dns, outbounds, and route."""
-    server_host = settings_dict.get("server_domain") or settings_dict.get("server_ip") or "127.0.0.1"
+    server_host = _resolve_server_host(settings_dict, request_host)
     port = int(settings_dict.get("listen_port", 443))
     username = user.get("username", "user")
     password = user.get("password", "")
@@ -364,7 +397,11 @@ def build_singbox_json(
         }
     }
 
-def build_base64_sub(user: Dict[str, Any], settings_dict: Dict[str, Any]) -> str:
+def build_base64_sub(
+    user: Dict[str, Any],
+    settings_dict: Dict[str, Any],
+    request_host: Optional[str] = None
+) -> str:
     """Return Base64-encoded subscription string containing hy2:// link."""
-    uri = build_hy2_uri(user, settings_dict)
+    uri = build_hy2_uri(user, settings_dict, request_host=request_host)
     return base64.b64encode(uri.encode("utf-8")).decode("utf-8")

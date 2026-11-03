@@ -38,14 +38,15 @@ def _get_sub_userinfo_header(user: dict) -> str:
     return f"upload={upload}; download={download}; total={total}; expire={expire_ts}"
 
 @router.get("/sub/{token}")
-async def get_raw_subscription(token: str):
+async def get_raw_subscription(token: str, request: Request):
     """Universal Base64 subscription endpoint for v2rayN, Shadowrocket, NekoBox, Hiddify."""
     user = await crud.get_user_by_token(token)
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Subscription not found")
 
     settings_dict = await crud.get_all_settings()
-    sub_content = build_base64_sub(user, settings_dict)
+    req_host = request.url.hostname
+    sub_content = build_base64_sub(user, settings_dict, request_host=req_host)
 
     headers = {
         "Subscription-Userinfo": _get_sub_userinfo_header(user),
@@ -54,7 +55,7 @@ async def get_raw_subscription(token: str):
     return PlainTextResponse(sub_content, headers=headers)
 
 @router.get("/sub/{token}/clash")
-async def get_clash_subscription(token: str):
+async def get_clash_subscription(token: str, request: Request):
     """Clash Meta / Mihomo configuration subscription."""
     user = await crud.get_user_by_token(token)
     if not user:
@@ -63,7 +64,8 @@ async def get_clash_subscription(token: str):
     settings_dict = await crud.get_all_settings()
     custom_rules = await crud.get_routing_rules(enabled_only=True)
     settings_dict["routing_rules"] = custom_rules
-    clash_content = build_clash_yaml(user, settings_dict)
+    req_host = request.url.hostname
+    clash_content = build_clash_yaml(user, settings_dict, request_host=req_host)
 
     headers = {
         "Subscription-Userinfo": _get_sub_userinfo_header(user),
@@ -72,7 +74,7 @@ async def get_clash_subscription(token: str):
     return PlainTextResponse(clash_content, media_type="text/yaml", headers=headers)
 
 @router.get("/sub/{token}/singbox")
-async def get_singbox_subscription(token: str, response: Response):
+async def get_singbox_subscription(token: str, response: Response, request: Request):
     """Sing-box configuration subscription."""
     user = await crud.get_user_by_token(token)
     if not user:
@@ -81,7 +83,8 @@ async def get_singbox_subscription(token: str, response: Response):
     settings_dict = await crud.get_all_settings()
     custom_rules = await crud.get_routing_rules(enabled_only=True)
     settings_dict["routing_rules"] = custom_rules
-    singbox_data = build_singbox_json(user, settings_dict)
+    req_host = request.url.hostname
+    singbox_data = build_singbox_json(user, settings_dict, request_host=req_host)
 
     response.headers["Subscription-Userinfo"] = _get_sub_userinfo_header(user)
     return singbox_data
@@ -94,7 +97,8 @@ async def client_portal_page(request: Request, token: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Portal not found or expired")
 
     settings_dict = await crud.get_all_settings()
-    hy2_uri = build_hy2_uri(user, settings_dict)
+    req_host = request.url.hostname
+    hy2_uri = build_hy2_uri(user, settings_dict, request_host=req_host)
 
     # Generate QR Code image (PNG in base64)
     qr = qrcode.QRCode(box_size=6, border=2)

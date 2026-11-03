@@ -174,17 +174,22 @@ def compile_acl_rules(
     if p2p_mode == "block":
         reject_rules.append("reject(geosite:bittorrent)")
 
-    # 3. Service presets
+    # 3. Optional service presets (only applied if explicitly passed by caller/test, otherwise clean slate for custom rules)
     services = [
-        ("routing_openai", "geosite:openai", "warp"),
-        ("routing_discord", "geosite:discord", "warp"),
-        ("routing_youtube", "geosite:youtube", "warp"),
-        ("routing_telegram", "geosite:telegram", "direct"),
-        ("routing_netflix", "geosite:netflix", "warp"),
+        ("routing_openai", "geosite:openai"),
+        ("routing_discord", "geosite:discord"),
+        ("routing_youtube", "geosite:youtube"),
+        ("routing_telegram", "geosite:telegram"),
+        ("routing_netflix", "geosite:netflix"),
     ]
 
-    for key, geosite, default_target in services:
-        mode = str(presets.get(key, default_target) or default_target).strip().lower()
+    for key, geosite in services:
+        if key not in presets:
+            continue
+        raw_val = presets.get(key)
+        if not raw_val or str(raw_val).lower() in ("off", "none", "", "disabled"):
+            continue
+        mode = str(raw_val).strip().lower()
         if mode == "block":
             reject_rules.append(f"reject({geosite})")
         elif mode == "warp" and warp_is_active:

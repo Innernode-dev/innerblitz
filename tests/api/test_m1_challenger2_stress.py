@@ -407,7 +407,7 @@ class TestChallenger2SubscriptionProfiles(OpaqueE2ETestCase):
         self.assertEqual(qs.get("obfs-password"), ["obfs_secret_token"])
         self.assertEqual(qs.get("sni"), ["custom.sni.com"])
         self.assertEqual(qs.get("pinSHA256"), ["ab12cd34ef56"])
-        self.assertNotIn("insecure", qs)
+        self.assertEqual(qs.get("insecure"), ["1"])
 
     def test_clash_meta_yaml_validity(self):
         """Verify Clash Meta configuration is syntactically valid YAML with all fields."""

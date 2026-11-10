@@ -70,6 +70,12 @@ def build_hy2_uri(
     if tls_type == "self_signed_ip":
         params["insecure"] = "1"
         cert_sha256 = settings_dict.get("cert_sha256", "")
+        if not cert_sha256:
+            try:
+                from app.core.cert import get_certificate_sha256
+                cert_sha256 = get_certificate_sha256()
+            except Exception:
+                pass
         if cert_sha256:
             params["pinSHA256"] = cert_sha256
 

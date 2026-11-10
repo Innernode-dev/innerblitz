@@ -116,15 +116,17 @@ CLI_CMD="${PYTHON_BIN} ${INSTALL_DIR}/cli.py"
 cd "${INSTALL_DIR}" 2>/dev/null || true
 
 SYS_INFO=$($CLI_CMD get-system-info 2>/dev/null || true)
-CUR_PORT=$(echo "$SYS_INFO" | grep '^panel_port=' | cut -d'=' -f2 || echo "8080")
-CUR_PATH=$(echo "$SYS_INFO" | grep '^panel_secret_path=' | cut -d'=' -f2 || echo "panel")
-CUR_DECOY=$(echo "$SYS_INFO" | grep '^decoy_enabled=' | cut -d'=' -f2 || echo "1")
-CUR_THEME=$(echo "$SYS_INFO" | grep '^decoy_theme=' | cut -d'=' -f2 || echo "nginx")
-CUR_USER=$(echo "$SYS_INFO" | grep '^admin_username=' | cut -d'=' -f2 || echo "admin")
-CUR_SSL=$(echo "$SYS_INFO" | grep '^panel_ssl_mode=' | cut -d'=' -f2 || echo "http")
+CUR_PORT=$(echo "$SYS_INFO" | grep -i '^PANEL_PORT=' | cut -d'=' -f2- | tr -d '[:space:]')
+CUR_PATH=$(echo "$SYS_INFO" | grep -i '^PANEL_SECRET_PATH=' | cut -d'=' -f2- | tr -d '[:space:]')
+CUR_DECOY=$(echo "$SYS_INFO" | grep -i '^DECOY_ENABLED=' | cut -d'=' -f2- | tr -d '[:space:]')
+CUR_THEME=$(echo "$SYS_INFO" | grep -i '^DECOY_THEME=' | cut -d'=' -f2- | tr -d '[:space:]')
+CUR_USER=$(echo "$SYS_INFO" | grep -i '^ADMIN_USERNAME=' | cut -d'=' -f2- | tr -d '[:space:]')
+CUR_SSL=$(echo "$SYS_INFO" | grep -i '^PANEL_SSL_MODE=' | cut -d'=' -f2- | tr -d '[:space:]')
+HY_PORT=$(echo "$SYS_INFO" | grep -i '^LISTEN_PORT=' | cut -d'=' -f2- | tr -d '[:space:]')
 CUR_PORT=${CUR_PORT:-"8080"}
 CUR_PATH=${CUR_PATH:-"panel"}
 CUR_SSL=${CUR_SSL:-"http"}
+HY_PORT=${HY_PORT:-443}
 
 # Check if using legacy insecure port 8080 or default path
 if [ "$CUR_PORT" == "8080" ] || [ "$CUR_PATH" == "panel" ] || [ -z "$CUR_PATH" ]; then
@@ -175,8 +177,6 @@ if command -v ip6tables &>/dev/null; then
     ip6tables -P OUTPUT ACCEPT 2>/dev/null || true
 fi
 open_firewall_port "$CUR_PORT" "tcp"
-HY_PORT=$(echo "$SYS_INFO" | grep '^listen_port=' | cut -d'=' -f2 || echo "443")
-HY_PORT=${HY_PORT:-443}
 open_firewall_port "$HY_PORT" "udp"
 
 

@@ -256,38 +256,6 @@
                 </button>
             </div>
 
-            <!-- 1-Click Quick Template Chips for 3x-ui flexibility -->
-            <div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-slate-900/60 border border-slate-800">
-                <span class="text-[11px] text-slate-400 font-semibold flex items-center gap-1">
-                    <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i>
-                    <span>Шаблоны правил:</span>
-                </span>
-                <button type="button" onclick="prefillRule('Bybit', 'suffix', 'bybit.com, bytick.com, bybit-global.com', 'direct', 'Криптобиржа Bybit')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>⚡ + Bybit</span>
-                </button>
-                <button type="button" onclick="prefillRule('Binance', 'suffix', 'binance.com, bnbstatic.com', 'direct', 'Криптобиржа Binance')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>⚡ + Binance</span>
-                </button>
-                <button type="button" onclick="prefillRule('Telegram', 'geosite', 'telegram', 'direct', 'Мессенджер Telegram')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>💬 + Telegram</span>
-                </button>
-                <button type="button" onclick="prefillRule('YouTube', 'geosite', 'youtube', 'warp', 'Видеохостинг YouTube через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-red-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>▶️ + YouTube</span>
-                </button>
-                <button type="button" onclick="prefillRule('OpenAI', 'geosite', 'openai', 'warp', 'ChatGPT & OpenAI API через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>🤖 + OpenAI</span>
-                </button>
-                <button type="button" onclick="prefillRule('Discord', 'geosite', 'discord', 'warp', 'Discord через WARP')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>🎮 + Discord</span>
-                </button>
-                <button type="button" onclick="prefillRule('AdBlock', 'geosite', 'category-ads-all', 'block', 'Блокировка рекламы и трекеров')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-rose-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>🚫 + Реклама</span>
-                </button>
-                <button type="button" onclick="prefillRule('Block-P2P', 'geosite', 'bittorrent', 'block', 'Блокировка торрентов')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-orange-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
-                    <span>🛑 + Торренты</span>
-                </button>
-            </div>
-
             <!-- Rules Table -->
             <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
                 <div class="overflow-x-auto">
@@ -640,6 +608,8 @@
             </div>
             <button onclick="triggerOptimizeBBR()" class="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2">
                 <i data-lucide="zap" class="w-4 h-4"></i>
+                <span>Применить BBR</span>
+            </button>
         </div>
     </div>
 
@@ -993,16 +963,6 @@
         } catch (e) {
             showToast('Ошибка сети при определении IP', 'error');
         }
-    }
-
-    function prefillRule(name, type, values, action, desc) {
-        openCreateRuleModal();
-        document.getElementById('modalRuleName').value = name;
-        document.getElementById('modalRuleType').value = type;
-        document.getElementById('modalRuleValues').value = values;
-        document.getElementById('modalRuleAction').value = action;
-        document.getElementById('modalRuleDesc').value = desc || '';
-        if (typeof validateRuleRealTime === 'function') validateRuleRealTime();
     }
 
     async function savePanelAccessManual() {
@@ -1479,8 +1439,8 @@
                 const term = document.getElementById('warpLogTerminal');
                 const badge = document.getElementById('warpInstallStatusBadge');
 
-                badge.textContent = data.status.toUpperCase();
-                if (data.status === 'running') {
+                badge.textContent = (data.status || '').toUpperCase();
+                if (data.status === 'running' || data.status === 'installing') {
                     badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono animate-pulse';
                 } else if (data.status === 'success') {
                     badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono';
@@ -1488,14 +1448,15 @@
                     badge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono';
                 }
 
-                if (data.lines && data.lines.length > 0) {
+                const lines = data.logs || data.lines || [];
+                if (lines.length > 0) {
                     if (warpLogOffset === 0) term.innerHTML = '';
-                    data.lines.forEach(l => {
+                    lines.forEach(l => {
                         const div = document.createElement('div');
                         div.textContent = l;
                         term.appendChild(div);
                     });
-                    warpLogOffset = data.next_offset;
+                    warpLogOffset = data.next_offset !== undefined ? data.next_offset : (warpLogOffset + lines.length);
                     term.scrollTop = term.scrollHeight;
                 }
 

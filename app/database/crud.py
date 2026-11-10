@@ -646,13 +646,76 @@ async def get_all_settings() -> Dict[str, str]:
     finally:
         await db.close()
 
+INBOUND_SYNC_KEYS = {
+    "listen_port", "port_hopping_enabled", "port_hopping_range",
+    "tls_type", "sni", "cert_sha256", "obfs_type", "obfs_password",
+    "masquerade_type", "masquerade_target", "up_mbps", "down_mbps",
+    "ignore_client_bandwidth", "sniff_enable", "sniff_enabled",
+    "sniff_timeout", "sniff_rewrite_domain"
+}
+
+async def _sync_default_inbound_from_settings(db):
+    """Keep inbounds(id=1) strictly synchronized with settings table."""
+    try:
+        cursor = await db.execute("SELECT key, value FROM settings;")
+        rows = await cursor.fetchall()
+        s = {r["key"]: r["value"] for r in rows}
+
+        listen_port = int(s.get("listen_port", 443)) if str(s.get("listen_port", "443")).isdigit() else 443
+        hop_on = 1 if str(s.get("port_hopping_enabled", "1")).lower() in ("1", "true") else 0
+        hop_range = s.get("port_hopping_range", "20000:50000")
+        tls_type = s.get("tls_type", "self_signed_ip")
+        sni = s.get("sni", "bing.com")
+        cert_sha256 = s.get("cert_sha256", "")
+        obfs_type = s.get("obfs_type", "salamander")
+        obfs_password = s.get("obfs_password", "")
+        masq_type = s.get("masquerade_type", "proxy")
+        masq_target = s.get("masquerade_target", "https://bing.com")
+        up_mbps = int(s.get("up_mbps", 200)) if str(s.get("up_mbps", "200")).isdigit() else 200
+        down_mbps = int(s.get("down_mbps", 200)) if str(s.get("down_mbps", "200")).isdigit() else 200
+        ignore_bw = 1 if str(s.get("ignore_client_bandwidth", "0")).lower() in ("1", "true") else 0
+        sniff_raw = s.get("sniff_enable", s.get("sniff_enabled", "1"))
+        sniff_on = 1 if str(sniff_raw).lower() in ("1", "true") else 0
+        sniff_timeout = s.get("sniff_timeout", "2s")
+        sniff_rewrite = 1 if str(s.get("sniff_rewrite_domain", "0")).lower() in ("1", "true") else 0
+
+        await db.execute("""
+            UPDATE inbounds SET
+                listen_port = ?,
+                port_hopping_enabled = ?,
+                port_hopping_range = ?,
+                tls_type = ?,
+                sni = ?,
+                cert_sha256 = ?,
+                obfs_type = ?,
+                obfs_password = ?,
+                masquerade_type = ?,
+                masquerade_target = ?,
+                up_mbps = ?,
+                down_mbps = ?,
+                ignore_client_bandwidth = ?,
+                sniff_enabled = ?,
+                sniff_timeout = ?,
+                sniff_rewrite_domain = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1;
+        """, (
+            listen_port, hop_on, hop_range, tls_type, sni, cert_sha256,
+            obfs_type, obfs_password, masq_type, masq_target,
+            up_mbps, down_mbps, ignore_bw, sniff_on, sniff_timeout, sniff_rewrite
+        ))
+    except Exception as e:
+        logger.warning(f"Failed to sync default inbound from settings: {e}")
+
 async def set_setting(key: str, value: str):
     db = await get_db_connection()
     try:
         await db.execute("""
             INSERT INTO settings (key, value) VALUES (?, ?)
             ON CONFLICT(key) DO UPDATE SET value = excluded.value;
-        """, (key, value))
+        """, (key, str(value)))
+        if key in INBOUND_SYNC_KEYS:
+            await _sync_default_inbound_from_settings(db)
         await db.commit()
     finally:
         await db.close()
@@ -660,11 +723,16 @@ async def set_setting(key: str, value: str):
 async def set_settings(data: Dict[str, str]):
     db = await get_db_connection()
     try:
+        needs_sync = False
         for k, v in data.items():
+            if k in INBOUND_SYNC_KEYS:
+                needs_sync = True
             await db.execute("""
                 INSERT INTO settings (key, value) VALUES (?, ?)
                 ON CONFLICT(key) DO UPDATE SET value = excluded.value;
             """, (k, str(v)))
+        if needs_sync:
+            await _sync_default_inbound_from_settings(db)
         await db.commit()
     finally:
         await db.close()

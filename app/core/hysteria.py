@@ -174,19 +174,19 @@ def compile_acl_rules(
     if p2p_mode == "block":
         reject_rules.append("reject(geosite:bittorrent)")
 
-    # 3. Optional service presets (only applied if explicitly passed by caller/test, otherwise clean slate for custom rules)
+    # 3. Service presets (OpenAI, Discord, YouTube, Telegram, Netflix)
     services = [
-        ("routing_openai", "geosite:openai"),
-        ("routing_discord", "geosite:discord"),
-        ("routing_youtube", "geosite:youtube"),
-        ("routing_telegram", "geosite:telegram"),
-        ("routing_netflix", "geosite:netflix"),
+        ("routing_openai", "geosite:openai", "warp"),
+        ("routing_discord", "geosite:discord", "warp"),
+        ("routing_youtube", "geosite:youtube", "warp"),
+        ("routing_telegram", "geosite:telegram", "direct"),
+        ("routing_netflix", "geosite:netflix", "warp"),
     ]
 
-    for key, geosite in services:
-        if key not in presets:
-            continue
+    for key, geosite, default_val in services:
         raw_val = presets.get(key)
+        if raw_val is None:
+            raw_val = default_val
         if not raw_val or str(raw_val).lower() in ("off", "none", "", "disabled"):
             continue
         mode = str(raw_val).strip().lower()

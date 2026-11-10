@@ -3,12 +3,14 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta
 import logging
+import secrets
 
 from app.config import settings
 from app.database import crud
 from app.database.models import LoginRequest
 from app.core.security import verify_password, verify_totp, generate_session_id
 from app.core.auth import authenticate_client
+from app.bot.bot import tg_bot
 
 logger = logging.getLogger("innerblitz.api.auth")
 router = APIRouter()
@@ -22,11 +24,15 @@ class HysteriaAuthRequest(BaseModel):
     tx: Optional[int] = 0
 
 @router.post("/auth")
-async def hysteria_http_auth(req: HysteriaAuthRequest):
+async def hysteria_http_auth(req: HysteriaAuthRequest, request: Request):
     """
     Hysteria 2 HTTP Auth Hook endpoint.
     Called on every client connection by Hysteria 2 core.
+    Restricted to loopback caller to prevent external user enumeration and brute force.
     """
+    client_ip = request.client.host if request.client else ""
+    if client_ip not in ("127.0.0.1", "::1", "testclient"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
     is_ok, user_id, msg = await authenticate_client(req.auth or "", req.addr or "")
     if is_ok:
         return {"ok": True, "id": user_id}
@@ -56,6 +62,11 @@ async def login(req: LoginRequest, request: Request, response: Response):
 
     # Rate limiting check
     now = datetime.now()
+    if len(_failed_attempts) > 1000:
+        for ip, (att, blk) in list(_failed_attempts.items()):
+            if blk and now >= blk:
+                del _failed_attempts[ip]
+
     if client_ip in _failed_attempts:
         attempts, blocked_until = _failed_attempts[client_ip]
         if blocked_until and now < blocked_until:
@@ -86,13 +97,20 @@ async def login(req: LoginRequest, request: Request, response: Response):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
 
     if tg_2fa_enabled:
-        # Check active Telegram OTP code from settings/cache
-        expected_tg_code = await crud.get_setting("_current_tg_otp", "")
         if not req.tg_code:
-            # Need Telegram code
-            return {"require_2fa": True, "type": "telegram", "message": "Enter the verification code sent to your Telegram"}
-        if req.tg_code != expected_tg_code:
+            # Generate 6-digit OTP code and send via Telegram Bot
+            otp_code = f"{secrets.randbelow(900000) + 100000}"
+            await crud.set_setting("_current_tg_otp", otp_code)
+            sent = await tg_bot.send_2fa_otp(otp_code)
+            msg = "Enter the verification code sent to your Telegram" if sent else "Failed to send Telegram code. Check bot configuration."
+            return {"require_2fa": True, "type": "telegram", "message": msg}
+
+        expected_tg_code = await crud.get_setting("_current_tg_otp", "")
+        if not expected_tg_code or not secrets.compare_digest(req.tg_code.strip(), expected_tg_code.strip()):
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram verification code")
+
+        # Invalidate OTP on successful use
+        await crud.set_setting("_current_tg_otp", "")
 
     # Clear failed attempts on success
     if client_ip in _failed_attempts:

@@ -535,11 +535,23 @@
         }
     }
 
+    function toLocalDatetimeInputValue(dateInput) {
+        if (!dateInput) return '';
+        const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+        if (isNaN(d.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        const year = d.getFullYear();
+        const month = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const hours = pad(d.getHours());
+        const minutes = pad(d.getMinutes());
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+
     function addExpiryDays(days) {
         const d = new Date();
         d.setDate(d.getDate() + days);
-        const iso = d.toISOString().slice(0, 16);
-        document.getElementById('modalExpiryDate').value = iso;
+        document.getElementById('modalExpiryDate').value = toLocalDatetimeInputValue(d);
         document.getElementById('modalDays').value = days;
     }
 
@@ -581,8 +593,7 @@
         document.getElementById('modalTrafficUnlimited').checked = (totalGb === 0);
 
         if (u.expiry_time && u.expiry_time > 0) {
-            const dt = new Date(u.expiry_time);
-            document.getElementById('modalExpiryDate').value = dt.toISOString().slice(0, 16);
+            document.getElementById('modalExpiryDate').value = toLocalDatetimeInputValue(u.expiry_time);
         } else if (u.expiration_days && u.expiration_days > 0) {
             addExpiryDays(u.expiration_days);
         } else {

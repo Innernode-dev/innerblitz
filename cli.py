@@ -3,9 +3,11 @@ import sys
 import secrets
 import shutil
 import tarfile
+import tempfile
 import subprocess
 import asyncio
 import click
+import shlex
 from pathlib import Path
 from datetime import datetime, date
 
@@ -355,22 +357,26 @@ def get_system_info_cli():
         users = await crud.get_all_users()
         active_u = len([u for u in users if not u.get("blocked") and not u.get("is_expired")])
         
-        click.echo(f"LISTEN_PORT={s.get('listen_port', '443')}")
-        click.echo(f"PORT_HOPPING_ENABLED={s.get('port_hopping_enabled', '1')}")
-        click.echo(f"PORT_HOPPING_RANGE={s.get('port_hopping_range', '20000:50000')}")
-        click.echo(f"PANEL_PORT={s.get('panel_port', '8080')}")
-        click.echo(f"PANEL_SECRET_PATH={s.get('panel_secret_path', 'panel')}")
-        click.echo(f"PANEL_SSL_MODE={s.get('panel_ssl_mode', 'http')}")
-        click.echo(f"SERVER_DOMAIN={s.get('server_domain', '')}")
-        click.echo(f"DECOY_ENABLED={s.get('decoy_enabled', '1')}")
-        click.echo(f"DECOY_THEME={s.get('decoy_theme', 'nginx')}")
-        click.echo(f"SNI={s.get('sni', 'bing.com')}")
-        click.echo(f"CERT_SHA256={s.get('cert_sha256', '')}")
-        click.echo(f"ADMIN_USERNAME={s.get('admin_username', 'admin')}")
-        click.echo(f"TLS_TYPE={s.get('tls_type', 'self_signed_ip')}")
-        click.echo(f"OBFS_TYPE={s.get('obfs_type', 'salamander')}")
-        click.echo(f"TOTAL_USERS={len(users)}")
-        click.echo(f"ACTIVE_USERS={active_u}")
+        info_fields = [
+            ("LISTEN_PORT", s.get('listen_port', '443')),
+            ("PORT_HOPPING_ENABLED", s.get('port_hopping_enabled', '1')),
+            ("PORT_HOPPING_RANGE", s.get('port_hopping_range', '20000:50000')),
+            ("PANEL_PORT", s.get('panel_port', '8080')),
+            ("PANEL_SECRET_PATH", s.get('panel_secret_path', 'panel')),
+            ("PANEL_SSL_MODE", s.get('panel_ssl_mode', 'http')),
+            ("SERVER_DOMAIN", s.get('server_domain', '')),
+            ("DECOY_ENABLED", s.get('decoy_enabled', '1')),
+            ("DECOY_THEME", s.get('decoy_theme', 'nginx')),
+            ("SNI", s.get('sni', 'bing.com')),
+            ("CERT_SHA256", s.get('cert_sha256', '')),
+            ("ADMIN_USERNAME", s.get('admin_username', 'admin')),
+            ("TLS_TYPE", s.get('tls_type', 'self_signed_ip')),
+            ("OBFS_TYPE", s.get('obfs_type', 'salamander')),
+            ("TOTAL_USERS", len(users)),
+            ("ACTIVE_USERS", active_u),
+        ]
+        for key, val in info_fields:
+            click.echo(f"{key}={shlex.quote(str(val))}")
     run_async(_info())
 
 @cli.command("reset-ports")
@@ -579,15 +585,27 @@ def backup_system(out):
     try:
         data_dir = Path(settings.DATA_DIR)
         backup_dir = Path("/etc/hysteria/backups")
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_file = Path(out) if out else backup_dir / f"innerblitz_backup_{timestamp}.tar.gz"
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            default_target = backup_dir / f"innerblitz_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tar.gz"
+        except Exception:
+            default_target = Path(tempfile.gettempdir()) / f"innerblitz_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.tar.gz"
+        target_file = Path(out) if out else default_target
+
+        backup_targets = [
+            "innerblitz.db", "innerblitz.db-wal", "innerblitz.db-shm",
+            "server.crt", "server.key", "panel.crt", "panel.key", "ca.crt"
+        ]
 
         with tarfile.open(target_file, "w:gz") as tar:
             if data_dir.exists():
-                tar.add(data_dir, arcname="data")
-            if Path(settings.HYSTERIA_CONFIG_PATH).exists():
-                tar.add(settings.HYSTERIA_CONFIG_PATH, arcname="config.yaml")
+                for fname in backup_targets:
+                    fpath = data_dir / fname
+                    if fpath.exists():
+                        tar.add(fpath, arcname=fname)
+            cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+            if cfg_path.exists():
+                tar.add(cfg_path, arcname="config.yaml")
 
         click.echo(click.style(f"✔ Backup created successfully: {target_file}", fg="green", bold=True))
     except Exception as e:
@@ -606,8 +624,25 @@ def restore_system(backup_file):
         run_systemctl("stop", "innerblitz.service")
         run_systemctl("stop", "hysteria-server.service")
 
+        dest_dir = Path(settings.DATA_DIR).resolve()
+        dest_dir.mkdir(parents=True, exist_ok=True)
         with tarfile.open(b_path, "r:gz") as tar:
-            tar.extractall(path="/etc/hysteria")
+            for member in tar.getmembers():
+                name = member.name.replace("\\", "/")
+                clean_name = name[5:] if name.startswith("data/") else name
+                if not clean_name or clean_name in (".", "/"):
+                    continue
+                target_path = (dest_dir / clean_name).resolve()
+                if not str(target_path).startswith(str(dest_dir)):
+                    raise ValueError(f"Insecure path traversal detected in archive: {member.name}")
+                if member.isdir():
+                    target_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    f_in = tar.extractfile(member)
+                    if f_in:
+                        with open(target_path, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
 
         run_systemctl("start", "innerblitz.service")
         run_systemctl("start", "hysteria-server.service")

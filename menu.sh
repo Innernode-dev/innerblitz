@@ -50,7 +50,31 @@ load_system_info() {
     local raw_info
     raw_info=$($CLI_CMD get-system-info 2>/dev/null)
     if [ -n "$raw_info" ]; then
-        eval "$raw_info"
+        while IFS='=' read -r key val; do
+            [ -z "$key" ] && continue
+            val="${val%\"}"
+            val="${val#\"}"
+            val="${val%\'}"
+            val="${val#\'}"
+            case "$key" in
+                LISTEN_PORT) LISTEN_PORT="$val" ;;
+                PORT_HOPPING_ENABLED) PORT_HOPPING_ENABLED="$val" ;;
+                PORT_HOPPING_RANGE) PORT_HOPPING_RANGE="$val" ;;
+                PANEL_PORT) PANEL_PORT="$val" ;;
+                PANEL_SECRET_PATH) PANEL_SECRET_PATH="$val" ;;
+                PANEL_SSL_MODE) PANEL_SSL_MODE="$val" ;;
+                SERVER_DOMAIN) SERVER_DOMAIN="$val" ;;
+                DECOY_ENABLED) DECOY_ENABLED="$val" ;;
+                DECOY_THEME) DECOY_THEME="$val" ;;
+                SNI) SNI="$val" ;;
+                CERT_SHA256) CERT_SHA256="$val" ;;
+                ADMIN_USERNAME) ADMIN_USERNAME="$val" ;;
+                TLS_TYPE) TLS_TYPE="$val" ;;
+                OBFS_TYPE) OBFS_TYPE="$val" ;;
+                TOTAL_USERS) TOTAL_USERS="$val" ;;
+                ACTIVE_USERS) ACTIVE_USERS="$val" ;;
+            esac
+        done <<< "$raw_info"
     fi
 }
 
@@ -785,6 +809,16 @@ show_hysteria_status() {
     local p_ssl="${PANEL_SSL_MODE}"
     local p_domain="${SERVER_DOMAIN}"
 
+    local hop_status_str="${C_RED}ВЫКЛЮЧЕН${C_RESET}"
+    if [ "$h_on" == "1" ]; then
+        hop_status_str="${C_GREEN}ВКЛЮЧЕН (${h_range})${C_RESET}"
+    fi
+
+    local decoy_status_str="${C_RED}ВЫКЛЮЧЕНА${C_RESET}"
+    if [ "$p_decoy" == "1" ]; then
+        decoy_status_str="${C_GREEN}АКТИВНА (${p_theme})${C_RESET}"
+    fi
+
     echo -e " ${C_BOLD}--- Ядро Hysteria 2 ---${C_RESET}"
     echo -e " Служба (systemd):        $hys_active (PID: ${hys_pid}, Память: ${hys_mem})"
     echo -e " Версия бинарника:        ${C_WHITE}${hys_ver}${C_RESET}"
@@ -797,8 +831,6 @@ show_hysteria_status() {
         echo -e " Отпечаток pinSHA256:     ${C_YELLOW}${hys_pin:0:28}...${C_RESET}"
     fi
     echo -e " Salamander Obfs:         ${C_WHITE}${obfs_t}${C_RESET}"
-    local p_ssl=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('panel_ssl_mode', 'http')))" 2>/dev/null || echo "http")
-    local p_domain=$($PYTHON_BIN -c "import asyncio; from app.database.connection import init_db; from app.database import crud; asyncio.run(init_db()); print(asyncio.run(crud.get_setting('server_domain', '')))" 2>/dev/null || echo "")
     local p_proto="http"
     local p_host=$cur_ip
     if [ "$p_ssl" == "self_signed_ip" ] || [ "$p_ssl" == "domain" ] || [ "$p_ssl" == "https" ]; then

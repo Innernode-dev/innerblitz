@@ -7,28 +7,29 @@ from app.core.network import is_valid_public_ipv4, get_cached_public_ip
 def _resolve_server_host(settings_dict: Dict[str, Any], request_host: Optional[str] = None) -> str:
     """
     Resolve public server host for client links, subscriptions, and profiles:
-    1. server_domain if configured and not local
-    2. server_ip if a valid public IPv4 address
+    1. server_domain if configured and not local/null
+    2. server_ip if configured and not local/null (supports IPv4, IPv6, or domain in server_ip)
     3. request_host if provided and not local/loopback
-    4. Memory-cached auto-detected public IP
-    5. Fallback to server_ip or 127.0.0.1
+    4. Memory-cached auto-detected public IP (if server_ip and server_domain not provided)
+    5. Fallback to 127.0.0.1
     """
     domain = (settings_dict.get("server_domain") or "").strip()
-    if domain and domain.lower() not in ("127.0.0.1", "localhost", "0.0.0.0", "none", "null"):
+    if domain and domain.lower() not in ("127.0.0.1", "localhost", "0.0.0.0", "::1", "none", "null"):
         return domain
 
     ip = (settings_dict.get("server_ip") or "").strip()
-    if ip and is_valid_public_ipv4(ip):
+    if ip and ip.lower() not in ("127.0.0.1", "localhost", "0.0.0.0", "::1", "none", "null"):
         return ip
 
     if request_host:
         r_host = request_host.strip().lower()
-        if r_host not in ("127.0.0.1", "localhost", "0.0.0.0") and not r_host.endswith(".local"):
+        if r_host not in ("127.0.0.1", "localhost", "0.0.0.0", "::1") and not r_host.endswith(".local"):
             return r_host
 
-    cached_ip = get_cached_public_ip()
-    if cached_ip and is_valid_public_ipv4(cached_ip):
-        return cached_ip
+    if "server_ip" not in settings_dict and "server_domain" not in settings_dict:
+        cached_ip = get_cached_public_ip()
+        if cached_ip and is_valid_public_ipv4(cached_ip):
+            return cached_ip
 
     return ip or "127.0.0.1"
 

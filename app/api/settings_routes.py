@@ -2,6 +2,7 @@ import os
 import tarfile
 import tempfile
 import logging
+import shutil
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import FileResponse
@@ -437,6 +438,12 @@ async def change_admin_username(payload: ChangeUsernamePayload):
     new_user = payload.new_username.strip()
     if not new_user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username cannot be empty")
+    import re
+    if not re.match(r"^[a-zA-Z0-9_\-\.]{3,32}$", new_user):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username must be 3-32 characters (letters, numbers, dash, underscore, dot)"
+        )
     await crud.set_setting("admin_username", new_user)
     return {"ok": True, "message": f"Admin username changed to '{new_user}'"}
 
@@ -617,14 +624,26 @@ async def download_backup_endpoint():
         data_dir = Path(settings.DATA_DIR)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_dir = Path("/etc/hysteria/backups")
-        backup_dir.mkdir(parents=True, exist_ok=True)
-        target_file = backup_dir / f"innerblitz_backup_{timestamp}.tar.gz"
+        try:
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            target_file = backup_dir / f"innerblitz_backup_{timestamp}.tar.gz"
+        except Exception:
+            target_file = Path(tempfile.gettempdir()) / f"innerblitz_backup_{timestamp}.tar.gz"
+
+        backup_targets = [
+            "innerblitz.db", "innerblitz.db-wal", "innerblitz.db-shm",
+            "server.crt", "server.key", "panel.crt", "panel.key", "ca.crt"
+        ]
 
         with tarfile.open(target_file, "w:gz") as tar:
             if data_dir.exists():
-                tar.add(data_dir, arcname="data")
-            if Path(settings.HYSTERIA_CONFIG_PATH).exists():
-                tar.add(settings.HYSTERIA_CONFIG_PATH, arcname="config.yaml")
+                for fname in backup_targets:
+                    fpath = data_dir / fname
+                    if fpath.exists():
+                        tar.add(fpath, arcname=fname)
+            cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+            if cfg_path.exists():
+                tar.add(cfg_path, arcname="config.yaml")
 
         return FileResponse(
             path=str(target_file),
@@ -648,8 +667,25 @@ async def upload_backup_endpoint(file: UploadFile = File(...)):
     try:
         run_systemctl("stop", "innerblitz.service")
         run_systemctl("stop", "hysteria-server.service")
+        dest_dir = Path(settings.DATA_DIR).resolve()
+        dest_dir.mkdir(parents=True, exist_ok=True)
         with tarfile.open(tmp_path, "r:gz") as tar:
-            tar.extractall(path="/etc/hysteria")
+            for member in tar.getmembers():
+                name = member.name.replace("\\", "/")
+                clean_name = name[5:] if name.startswith("data/") else name
+                if not clean_name or clean_name in (".", "/"):
+                    continue
+                target_path = (dest_dir / clean_name).resolve()
+                if not str(target_path).startswith(str(dest_dir)):
+                    raise HTTPException(status_code=400, detail=f"Insecure path traversal detected in archive: {member.name}")
+                if member.isdir():
+                    target_path.mkdir(parents=True, exist_ok=True)
+                else:
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    f_in = tar.extractfile(member)
+                    if f_in:
+                        with open(target_path, "wb") as f_out:
+                            shutil.copyfileobj(f_in, f_out)
         run_systemctl("start", "innerblitz.service")
         run_systemctl("start", "hysteria-server.service")
         return {"ok": True, "message": "System successfully restored from backup archive!"}
@@ -678,6 +714,8 @@ class RoutingPayload(BaseModel):
     sniff_enable: Optional[Any] = None
     sniff_timeout: Optional[str] = None
     sniff_rewrite_domain: Optional[Any] = None
+    port_hopping_enabled: Optional[Any] = None
+    port_hopping_range: Optional[str] = None
 
 routing_router = APIRouter(prefix="/api/routing", tags=["Routing"], dependencies=[Depends(get_current_admin)])
 
@@ -686,6 +724,8 @@ async def get_routing_settings():
     """Retrieve all current routing policies and rules."""
     all_settings = await crud.get_all_settings()
     warp_on = str(all_settings.get("warp_enabled", "0")).lower() in ("1", "true")
+    hop_on = str(all_settings.get("port_hopping_enabled", "1")).lower() in ("1", "true")
+    hop_range = all_settings.get("port_hopping_range", "20000:50000")
 
     return {
         "ok": True,
@@ -705,6 +745,8 @@ async def get_routing_settings():
         "sniff_enable": str(all_settings.get("sniff_enable", "1")).lower() in ("1", "true"),
         "sniff_timeout": all_settings.get("sniff_timeout", "2s"),
         "sniff_rewrite_domain": str(all_settings.get("sniff_rewrite_domain", "0")).lower() in ("1", "true"),
+        "port_hopping_enabled": hop_on,
+        "port_hopping_range": hop_range,
     }
 
 @routing_router.post("")
@@ -762,8 +804,23 @@ async def update_routing_settings(payload: RoutingPayload):
     if "sniff_rewrite_domain" in data and data["sniff_rewrite_domain"] is not None:
         updates["sniff_rewrite_domain"] = "1" if str(data["sniff_rewrite_domain"]).lower() in ("1", "true") else "0"
 
+    if "port_hopping_enabled" in data and data["port_hopping_enabled"] is not None:
+        updates["port_hopping_enabled"] = "1" if str(data["port_hopping_enabled"]).lower() in ("1", "true") else "0"
+
+    if "port_hopping_range" in data and data["port_hopping_range"] is not None:
+        updates["port_hopping_range"] = str(data["port_hopping_range"]).strip()
+
     if updates:
         await crud.set_settings(updates)
+
+    if "port_hopping_enabled" in updates or "port_hopping_range" in updates:
+        try:
+            hop_flag = (updates.get("port_hopping_enabled") or await crud.get_setting("port_hopping_enabled", "1")) == "1"
+            hop_rng = updates.get("port_hopping_range") or await crud.get_setting("port_hopping_range", "20000:50000")
+            target_port = int(await crud.get_setting("listen_port", "443"))
+            configure_port_hopping(hop_rng, target_port, enable=hop_flag)
+        except Exception as e:
+            logger.warning(f"Failed to configure port hopping firewall during routing update: {e}")
 
     apply_res = await apply_and_save_config()
     if not apply_res:

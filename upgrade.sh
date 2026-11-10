@@ -161,8 +161,29 @@ fi
 
 # 6. Service setup and shortcuts
 echo -e "${C_YELLOW}[5/5] Перезапуск системных служб...${C_RESET}"
+chmod 755 /etc/hysteria 2>/dev/null || true
+chmod 644 /etc/hysteria/*.key /etc/hysteria/*.crt /etc/hysteria/config.yaml 2>/dev/null || true
 sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
 $CLI_CMD reconfig >/dev/null 2>&1 || true
+
+# Ensure Hysteria service unit runs as root
+cat << 'EOF' > /etc/systemd/system/hysteria-server.service
+[Unit]
+Description=Hysteria 2 Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/hysteria server --config /etc/hysteria/config.yaml
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 cp "${INSTALL_DIR}/systemd/innerblitz.service" /etc/systemd/system/innerblitz.service
 systemctl daemon-reload
 systemctl enable hysteria-server.service innerblitz.service --quiet 2>/dev/null || true

@@ -98,9 +98,9 @@ def generate_self_signed_cert(
     with open(cert_file, "wb") as f:
         f.write(cert_pem)
 
-    # Secure permissions (read/write for owner only)
+    # Secure permissions (read for service daemon and owner)
     try:
-        os.chmod(key_file, 0o600)
+        os.chmod(key_file, 0o644)
         os.chmod(cert_file, 0o644)
     except Exception:
         pass

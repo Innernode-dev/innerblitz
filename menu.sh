@@ -859,6 +859,8 @@ show_hysteria_status() {
     case "$s_act" in
         [Rr])
             echo -e "${C_YELLOW}Синхронизация конфигурации и перезапуск Hysteria 2...${C_RESET}"
+            chmod 755 /etc/hysteria 2>/dev/null || true
+            chmod 644 /etc/hysteria/*.key /etc/hysteria/*.crt /etc/hysteria/config.yaml 2>/dev/null || true
             sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
             $CLI_CMD reconfig 2>/dev/null || systemctl restart hysteria-server.service
             sleep 1.5

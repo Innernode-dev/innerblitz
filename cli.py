@@ -408,6 +408,14 @@ def reconfig_hysteria_cli():
     """Regenerate Hysteria 2 config.yaml from database settings and restart core."""
     async def _rec():
         await init_db()
+        # Ensure files in /etc/hysteria have readable permissions
+        for fname in ["server.key", "server.crt", "config.yaml"]:
+            fpath = settings.DATA_DIR / fname
+            if fpath.exists():
+                try:
+                    os.chmod(fpath, 0o644)
+                except Exception:
+                    pass
         ok = await apply_and_save_config()
         if ok:
             r_ok, out = restart_hysteria()

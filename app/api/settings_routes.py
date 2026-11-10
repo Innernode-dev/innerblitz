@@ -744,7 +744,7 @@ async def get_routing_settings():
         "warp_mode": all_settings.get("warp_mode", "none"),
         "sniff_enable": str(all_settings.get("sniff_enable", "1")).lower() in ("1", "true"),
         "sniff_timeout": all_settings.get("sniff_timeout", "2s"),
-        "sniff_rewrite_domain": str(all_settings.get("sniff_rewrite_domain", "0")).lower() in ("1", "true"),
+        "sniff_rewrite_domain": str(all_settings.get("sniff_rewrite_domain", "1")).lower() in ("1", "true"),
         "port_hopping_enabled": hop_on,
         "port_hopping_range": hop_range,
     }

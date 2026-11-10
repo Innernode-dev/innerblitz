@@ -194,6 +194,10 @@ def build_clash_yaml(
                 rules.append(f"DOMAIN,{clean},{c_target}")
             elif c_type == "suffix":
                 clean = val.removeprefix("suffix:").removeprefix("domain-suffix:").strip()
+                if clean.startswith("*."):
+                    clean = clean[2:]
+                elif clean.startswith("."):
+                    clean = clean[1:]
                 rules.append(f"DOMAIN-SUFFIX,{clean},{c_target}")
             elif c_type == "keyword":
                 clean = val.strip("*").removeprefix("keyword:").removeprefix("domain-keyword:").strip()
@@ -314,7 +318,12 @@ def build_singbox_json(
             if c_type == "domain":
                 clean_vals.append(val.removeprefix("domain:").strip())
             elif c_type == "suffix":
-                clean_vals.append(val.removeprefix("suffix:").removeprefix("domain-suffix:").strip())
+                clean = val.removeprefix("suffix:").removeprefix("domain-suffix:").strip()
+                if clean.startswith("*."):
+                    clean = clean[2:]
+                elif clean.startswith("."):
+                    clean = clean[1:]
+                clean_vals.append(clean)
             elif c_type == "keyword":
                 clean_vals.append(val.strip("*").removeprefix("keyword:").removeprefix("domain-keyword:").strip())
             elif c_type == "ip_cidr":
@@ -349,14 +358,15 @@ def build_singbox_json(
                 "auto_route": True,
                 "strict_route": True,
                 "sniff": True,
-                "sniff_override_destination": False
+                "sniff_override_destination": True
             },
             {
                 "type": "mixed",
                 "tag": "mixed-in",
                 "listen": "127.0.0.1",
                 "listen_port": 2080,
-                "sniff": True
+                "sniff": True,
+                "sniff_override_destination": True
             }
         ],
         "dns": {

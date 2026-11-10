@@ -88,7 +88,7 @@ class InboundModel(BaseModel):
     ignore_client_bandwidth: bool = False
     sniff_enabled: bool = True
     sniff_timeout: str = "2s"
-    sniff_rewrite_domain: bool = False
+    sniff_rewrite_domain: bool = True
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
@@ -111,7 +111,7 @@ class InboundCreate(BaseModel):
     ignore_client_bandwidth: bool = False
     sniff_enabled: bool = True
     sniff_timeout: str = "2s"
-    sniff_rewrite_domain: bool = False
+    sniff_rewrite_domain: bool = True
 
 class InboundUpdate(BaseModel):
     tag: Optional[str] = None

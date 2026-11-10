@@ -858,8 +858,9 @@ show_hysteria_status() {
     read -rp "Выберите действие [r/l/0] (Enter = назад): " s_act
     case "$s_act" in
         [Rr])
-            systemctl restart hysteria-server.service
-            echo -e "${C_GREEN}✔ Hysteria 2 успешно перезапущена!${C_RESET}"
+            echo -e "${C_YELLOW}Синхронизация конфигурации и перезапуск Hysteria 2...${C_RESET}"
+            sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
+            $CLI_CMD reconfig 2>/dev/null || systemctl restart hysteria-server.service
             sleep 1.5
             show_hysteria_status
             ;;

@@ -677,7 +677,7 @@ async def _sync_default_inbound_from_settings(db):
         sniff_raw = s.get("sniff_enable", s.get("sniff_enabled", "1"))
         sniff_on = 1 if str(sniff_raw).lower() in ("1", "true") else 0
         sniff_timeout = s.get("sniff_timeout", "2s")
-        sniff_rewrite = 1 if str(s.get("sniff_rewrite_domain", "0")).lower() in ("1", "true") else 0
+        sniff_rewrite = 1 if str(s.get("sniff_rewrite_domain", "1")).lower() in ("1", "true") else 0
 
         await db.execute("""
             UPDATE inbounds SET

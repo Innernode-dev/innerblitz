@@ -170,9 +170,9 @@ def compile_acl_rules(
     if str(win_spy_val).lower() in ("1", "true"):
         reject_rules.append("reject(geosite:win-spy)")
 
-    p2p_mode = str(presets.get("routing_p2p", "block") or "block").strip().lower()
-    if p2p_mode == "block":
-        reject_rules.append("reject(geosite:bittorrent)")
+    # P2P / BitTorrent is not a GeoSite domain list in standard geosite.dat.
+    # Emitting reject(geosite:bittorrent) crashes Hysteria 2 with FATAL "GeoSite name bittorrent not found".
+    # Torrent/P2P filtering is handled via custom domain/IP ACL rules.
 
     # 3. Service presets (OpenAI, Discord, YouTube, Telegram, Netflix)
     services = [
@@ -231,30 +231,46 @@ def compile_acl_rules(
             if not val:
                 continue
 
+            matchers: List[str] = []
             if rule_type == "domain":
-                matcher = val if val.startswith("domain:") else f"domain:{val}"
+                clean = val.removeprefix("domain:").strip()
+                if clean.startswith("*."):
+                    clean = clean[2:]
+                matchers = [clean, f"suffix:{clean}", f"domain:{clean}"]
             elif rule_type == "suffix":
-                matcher = val if (val.startswith("suffix:") or val.startswith("domain-suffix:")) else f"suffix:{val}"
+                clean = val.removeprefix("suffix:").removeprefix("domain-suffix:").strip()
+                if clean.startswith("*."):
+                    clean = clean[2:]
+                elif clean.startswith("."):
+                    clean = clean[1:]
+                matchers = [f"suffix:{clean}", f"*.{clean}"]
             elif rule_type == "keyword":
-                matcher = val if (val.startswith("*") and val.endswith("*")) else f"*{val}*"
+                clean = val.strip("*").removeprefix("keyword:").removeprefix("domain-keyword:").strip()
+                matchers = [f"*{clean}*"]
             elif rule_type == "ip_cidr":
-                matcher = val
+                clean = val.removeprefix("cidr:").strip()
+                matchers = [clean]
             elif rule_type == "geoip":
-                matcher = val if val.startswith("geoip:") else f"geoip:{val}"
+                clean = val.removeprefix("geoip:").strip().lower()
+                matchers = [f"geoip:{clean}"]
             elif rule_type == "geosite":
-                matcher = val if val.startswith("geosite:") else f"geosite:{val}"
+                clean = val.removeprefix("geosite:").strip().lower()
+                if clean in ("bittorrent", "torrent", "p2p"):
+                    continue
+                matchers = [f"geosite:{clean}"]
             else:
-                matcher = val
+                matchers = [val]
 
-            if action == "block":
-                custom_rules_acl.append(f"reject({matcher})")
-            elif action == "warp":
-                if warp_is_active:
-                    custom_rules_acl.append(f"outbound(warp, {matcher})")
-                else:
+            for matcher in matchers:
+                if action == "block":
+                    custom_rules_acl.append(f"reject({matcher})")
+                elif action == "warp":
+                    if warp_is_active:
+                        custom_rules_acl.append(f"outbound(warp, {matcher})")
+                    else:
+                        custom_rules_acl.append(f"direct({matcher})")
+                else:  # direct
                     custom_rules_acl.append(f"direct({matcher})")
-            else:  # direct
-                custom_rules_acl.append(f"direct({matcher})")
 
     # 6. Global outbound fallback rule
     fallback_rule = None
@@ -358,14 +374,16 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
         else config_data.get("rewriteDomain")
     )
     if rewrite_domain_raw is None:
-        rewrite_domain = False
+        rewrite_domain = True
     else:
         rewrite_domain = str(rewrite_domain_raw).lower() in ("1", "true")
 
     sniff_block = f"""sniff:
   enable: {"true" if sniff_enable else "false"}
   timeout: {sniff_timeout}
-  rewriteDomain: {"true" if rewrite_domain else "false"}"""
+  rewriteDomain: {"true" if rewrite_domain else "false"}
+  tcpPorts: all
+  udpPorts: all"""
 
     # Outbounds & Routing Policy
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()

@@ -95,7 +95,12 @@ class TestRoutingRulePriorityTieBreaking(OpaqueE2ETestCase):
         expected_lines = []
         for r in created_rules:
             action_tag = "reject" if r["action"] == "block" else "direct"
-            expected_lines.append(f"{action_tag}(domain:{r['rule_values'][0]})")
+            val = r['rule_values'][0]
+            expected_lines.extend([
+                f"{action_tag}({val})",
+                f"{action_tag}(suffix:{val})",
+                f"{action_tag}(domain:{val})",
+            ])
         self.assertEqual(acl_collision_lines, expected_lines)
 
     def test_negative_zero_and_extreme_priorities(self):

@@ -100,7 +100,7 @@ async def init_db():
                 ignore_client_bandwidth INTEGER NOT NULL DEFAULT 0,
                 sniff_enabled INTEGER NOT NULL DEFAULT 1,
                 sniff_timeout TEXT NOT NULL DEFAULT '2s',
-                sniff_rewrite_domain INTEGER NOT NULL DEFAULT 0,
+                sniff_rewrite_domain INTEGER NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
@@ -227,6 +227,9 @@ async def init_db():
             ("routing_p2p", "block"),
             ("routing_ads", "1"),
             ("routing_win_spy", "1"),
+            ("sniff_enable", "1"),
+            ("sniff_timeout", "2s"),
+            ("sniff_rewrite_domain", "1"),
         ]
         for k, v in critical_defaults:
             await db.execute("""
@@ -264,7 +267,7 @@ async def init_db():
                 ) VALUES (
                     1, 'Hysteria-Main', 'hysteria2', '0.0.0.0', ?, ?, ?,
                     ?, ?, ?, ?, ?, ?, ?,
-                    ?, ?, ?, 1, '2s', 0
+                    ?, ?, ?, 1, '2s', 1
                 );
             """, (
                 listen_port, port_hopping_enabled, port_hopping_range,

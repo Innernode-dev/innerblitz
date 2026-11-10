@@ -213,8 +213,8 @@
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Rewrite Domain</label>
                             <select id="cfgSniffRewrite" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                                <option value="true" selected>Включено (Рекомендуется)</option>
                                 <option value="false">Выключено</option>
-                                <option value="true">Включено</option>
                             </select>
                         </div>
                     </div>
@@ -1324,7 +1324,7 @@
 
                 document.getElementById('cfgSniffEnable').checked = rules.sniff_enable !== '0' && rules.sniff_enable !== false;
                 document.getElementById('cfgSniffTimeout').value = rules.sniff_timeout || '2s';
-                document.getElementById('cfgSniffRewrite').value = (rules.sniff_rewrite_domain == '1' || rules.sniff_rewrite_domain === true) ? 'true' : 'false';
+                document.getElementById('cfgSniffRewrite').value = (rules.sniff_rewrite_domain === undefined || rules.sniff_rewrite_domain === null || rules.sniff_rewrite_domain == '1' || rules.sniff_rewrite_domain === true) ? 'true' : 'false';
 
                 document.getElementById('cfgPortHoppingEnable').checked = rules.port_hopping_enabled == '1' || rules.port_hopping_enabled === true;
                 document.getElementById('cfgPortHoppingRange').value = rules.port_hopping_range || '20000:50000';

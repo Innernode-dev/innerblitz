@@ -164,9 +164,11 @@ def _validate_single_value(rule_type: str, val: str) -> Tuple[bool, str]:
         return True, "Valid domain"
 
     elif rule_type == "geosite":
-        clean = val.replace("geosite:", "").strip()
+        clean = val.replace("geosite:", "").strip().lower()
         if not clean or " " in clean:
             return False, f"Invalid geosite: '{val}'"
+        if clean in ("bittorrent", "torrent", "p2p"):
+            return False, f"Категории GeoSite '{clean}' не существует в базе geosite.dat (BitTorrent — это протокол, а не список доменов)."
         return True, "Valid geosite"
 
     elif rule_type == "keyword":

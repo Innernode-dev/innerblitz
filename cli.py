@@ -403,6 +403,22 @@ def reset_ports(port, flush_hopping):
             click.echo(click.style(f"✖ Failed to restart Hysteria: {out}", fg="red"))
     run_async(_reset_p())
 
+@cli.command("reconfig")
+def reconfig_hysteria_cli():
+    """Regenerate Hysteria 2 config.yaml from database settings and restart core."""
+    async def _rec():
+        await init_db()
+        ok = await apply_and_save_config()
+        if ok:
+            r_ok, out = restart_hysteria()
+            if r_ok:
+                click.echo(click.style("✔ Hysteria 2 config regenerated and core restarted.", fg="green", bold=True))
+            else:
+                click.echo(click.style(f"✖ Hysteria core restart failed: {out}", fg="red"))
+        else:
+            click.echo(click.style("✖ Failed to generate valid Hysteria config.", fg="red"))
+    run_async(_rec())
+
 @cli.command("disable-2fa")
 def disable_2fa():
     """Emergency disable 2FA (TOTP and Telegram) to regain panel access."""

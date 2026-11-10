@@ -161,6 +161,8 @@ fi
 
 # 6. Service setup and shortcuts
 echo -e "${C_YELLOW}[5/5] Перезапуск системных служб...${C_RESET}"
+sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
+$CLI_CMD reconfig >/dev/null 2>&1 || true
 cp "${INSTALL_DIR}/systemd/innerblitz.service" /etc/systemd/system/innerblitz.service
 systemctl daemon-reload
 systemctl enable hysteria-server.service innerblitz.service --quiet 2>/dev/null || true

@@ -38,8 +38,8 @@
     </div>
 
     <!-- Clients Table Container (3x-UI Responsive Table) -->
-    <div class="glass-card rounded-2xl overflow-hidden border border-[#1e293b]">
-        <div class="overflow-x-auto">
+    <div class="glass-card rounded-2xl border border-[#1e293b]">
+        <div class="overflow-x-auto min-h-[380px] pb-28">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
                     <tr class="bg-slate-900/80 border-b border-slate-800 text-slate-400 text-xs uppercase font-medium">
@@ -492,6 +492,20 @@
         if (drop.classList.contains('hidden')) {
             drop.classList.remove('hidden');
             activeDropdownMenu = drop;
+
+            // Smart positioning: flip upward if close to bottom of screen
+            const rect = drop.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight - 20) {
+                drop.style.bottom = '100%';
+                drop.style.top = 'auto';
+                drop.style.marginBottom = '6px';
+                drop.style.marginTop = '0px';
+            } else {
+                drop.style.bottom = 'auto';
+                drop.style.top = '100%';
+                drop.style.marginTop = '4px';
+                drop.style.marginBottom = '0px';
+            }
         } else {
             drop.classList.add('hidden');
             activeDropdownMenu = null;

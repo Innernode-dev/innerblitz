@@ -196,10 +196,10 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         self.assertNotIn("reject(geosite:win-spy)", y_off)
 
     def test_p2p_bittorrent_blocking(self):
-        """P2P block generates reject(geosite:bittorrent); allow omits it."""
+        """Verify invalid geosite:bittorrent is omitted to prevent Hysteria 2 crash."""
         cfg_block = {"listen_port": 443, "routing_p2p": "block"}
         y_block = build_hysteria_yaml(cfg_block)
-        self.assertIn("reject(geosite:bittorrent)", y_block)
+        self.assertNotIn("reject(geosite:bittorrent)", y_block)
 
         cfg_allow = {"listen_port": 443, "routing_p2p": "allow"}
         y_allow = build_hysteria_yaml(cfg_allow)

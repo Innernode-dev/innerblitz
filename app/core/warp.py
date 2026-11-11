@@ -446,7 +446,8 @@ async def sync_warp_settings_from_detection(warp_info: dict) -> bool:
 
     updates = {
         "warp_mode": warp_info["mode"],
-        "warp_detected": "1"
+        "warp_detected": "1",
+        "warp_enabled": "1"
     }
     if warp_info.get("socks5_addr"):
         port = warp_info["socks5_addr"].split(":")[-1]

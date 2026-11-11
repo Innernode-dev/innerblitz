@@ -408,6 +408,14 @@ def reconfig_hysteria_cli():
     """Regenerate Hysteria 2 config.yaml from database settings and restart core."""
     async def _rec():
         await init_db()
+        # Check if WARP is active and ensure warp_enabled is set
+        try:
+            from app.core import warp
+            w_res = await warp.detect_warp(force_refresh=True)
+            if w_res.get("active"):
+                await crud.set_setting("warp_enabled", "1")
+        except Exception:
+            pass
         # Ensure files in /etc/hysteria have readable permissions
         for fname in ["server.key", "server.crt", "config.yaml"]:
             fpath = settings.DATA_DIR / fname

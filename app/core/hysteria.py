@@ -144,11 +144,23 @@ def compile_acl_rules(
 
     global_out = str(global_outbound or presets.get("routing_global_outbound", "direct") or "direct").strip().lower()
 
+    # Check if any custom rule or service preset requires WARP outbound
+    any_rule_needs_warp = any(
+        (isinstance(r, dict) and str(r.get("action", "")).strip().lower() == "warp")
+        for r in (rules or [])
+    ) or any(
+        str(presets.get(k, "")).strip().lower() == "warp"
+        for k in ["routing_openai", "routing_discord", "routing_youtube", "routing_netflix", "routing_ru"]
+    ) or (global_out == "warp")
+
     warp_enabled_raw = presets.get("warp_enabled")
     if warp_enabled_raw is not None:
         warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
     else:
         warp_is_active = (global_out == "warp")
+
+    if any_rule_needs_warp:
+        warp_is_active = True
 
     reject_rules: List[str] = []
     routing_rules: List[str] = []
@@ -389,11 +401,23 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()
     warp_port = config_data.get("warp_port", "40000")
 
+    custom_rules = config_data.get("custom_routing_rules") or config_data.get("routing_rules") or []
+    any_rule_needs_warp = any(
+        (isinstance(r, dict) and str(r.get("action", "")).strip().lower() == "warp")
+        for r in custom_rules
+    ) or any(
+        str(config_data.get(k, "")).strip().lower() == "warp"
+        for k in ["routing_openai", "routing_discord", "routing_youtube", "routing_netflix", "routing_ru"]
+    ) or (global_outbound == "warp")
+
     warp_enabled_raw = config_data.get("warp_enabled")
     if warp_enabled_raw is not None:
         warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
     else:
         warp_is_active = (global_outbound == "warp")
+
+    if any_rule_needs_warp:
+        warp_is_active = True
 
     outbounds_block = ""
     if warp_is_active:

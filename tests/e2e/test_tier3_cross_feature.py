@@ -26,7 +26,7 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertIn("outbounds", data)
-        self.assertIn("outbound(warp, geosite:openai)", yaml_str)
+        self.assertIn("warp(geosite:openai)", yaml_str)
 
     def test_p1_02_warp_enabled_and_ru_warp(self):
         """WARP active, RU traffic routed through WARP."""
@@ -42,7 +42,7 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
         cfg = {"listen_port": 443, "warp_enabled": True, "warp_port": "40000", "ru_routing": "block"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("reject(geosite:category-ads-all)", yaml_str)
-        self.assertIn("outbound(warp, geosite:openai)", yaml_str)
+        self.assertIn("warp(geosite:openai)", yaml_str)
 
     def test_p1_04_warp_disabled_and_ru_routing(self):
         """WARP disabled: outbounds block omitted entirely regardless of RU setting."""
@@ -50,7 +50,7 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertNotIn("outbounds", data)
-        self.assertNotIn("outbound(warp", yaml_str)
+        self.assertNotIn("warp(", yaml_str)
 
     def test_p1_05_client_subscription_consistency_with_warp_policy(self):
         """Client profiles (Sing-box & Clash) parse cleanly under WARP + RU combination."""

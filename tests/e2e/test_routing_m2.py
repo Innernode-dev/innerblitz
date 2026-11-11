@@ -164,10 +164,10 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         yaml_str = build_hysteria_yaml(cfg)
         parsed = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertNotIn("outbounds", parsed)
-        self.assertNotIn("outbound(warp", yaml_str)
+        self.assertNotIn("warp(", yaml_str)
 
     def test_global_outbound_warp_generation(self):
-        """When global outbound is warp, outbounds are generated and fallback is outbound(warp, all)."""
+        """When global outbound is warp, outbounds are generated and fallback is warp(all)."""
         cfg = {
             "listen_port": 443,
             "routing_global_outbound": "warp",
@@ -179,7 +179,7 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         names = [o["name"] for o in parsed["outbounds"]]
         self.assertIn("direct", names)
         self.assertIn("warp", names)
-        self.assertIn("outbound(warp, all)", yaml_str)
+        self.assertIn("warp(all)", yaml_str)
 
     def test_ads_and_win_spy_toggles(self):
         """Ads and Win-Spy toggles control presence of reject rules."""
@@ -216,8 +216,8 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         # 2. WARP mode
         cfg_warp = {"listen_port": 443, "warp_enabled": True, "routing_ru": "warp"}
         y_warp = build_hysteria_yaml(cfg_warp)
-        self.assertIn("outbound(warp, geosite:ru)", y_warp)
-        self.assertIn("outbound(warp, geoip:ru)", y_warp)
+        self.assertIn("warp(geosite:ru)", y_warp)
+        self.assertIn("warp(geoip:ru)", y_warp)
 
         # 3. Direct mode with global warp
         cfg_direct = {"listen_port": 443, "routing_global_outbound": "warp", "routing_ru": "direct"}
@@ -242,11 +242,11 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
             "routing_netflix": "warp"
         }
         y = build_hysteria_yaml(cfg)
-        self.assertIn("outbound(warp, geosite:openai)", y)
+        self.assertIn("warp(geosite:openai)", y)
         self.assertIn("reject(geosite:discord)", y)
-        self.assertIn("outbound(warp, geosite:youtube)", y)
+        self.assertIn("warp(geosite:youtube)", y)
         self.assertIn("reject(geosite:telegram)", y)
-        self.assertIn("outbound(warp, geosite:netflix)", y)
+        self.assertIn("warp(geosite:netflix)", y)
 
     def test_rfc1918_private_ip_protections_always_present(self):
         """Private subnets are always rejected in ACL inline."""
@@ -262,7 +262,7 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         y = build_hysteria_yaml(cfg)
         lines = y.splitlines()
         reject_idx = next(i for i, l in enumerate(lines) if "reject(" in l)
-        outbound_idx = next(i for i, l in enumerate(lines) if "outbound(warp" in l)
+        outbound_idx = next(i for i, l in enumerate(lines) if "warp(" in l)
         self.assertLess(reject_idx, outbound_idx, "All reject rules must appear before warp outbounds")
 
     def test_acl_rules_deduplication(self):
@@ -380,7 +380,7 @@ class TestM2_RoutingAPIRoutes(OpaqueE2ETestCase):
         # Verify config.yaml reflection
         cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
         cfg_yaml = cfg_path.read_text(encoding="utf-8")
-        self.assertIn("outbound(warp, geosite:ru)", cfg_yaml)
+        self.assertIn("warp(geosite:ru)", cfg_yaml)
         self.assertNotIn("reject(geosite:bittorrent)", cfg_yaml)
         self.assertNotIn("reject(geosite:category-ads-all)", cfg_yaml)
 

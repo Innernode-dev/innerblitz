@@ -173,8 +173,8 @@ class TestRoutingRulePriorityTieBreaking(OpaqueE2ETestCase):
         acl = compile_acl_rules(db_rules, global_outbound="direct", presets=presets)
 
         # Rule 1 (ID r1['id']) has lower id so warp rule comes first
-        warp_line = "outbound(warp, domain:conflict.example.com)"
-        direct_line = "direct(domain:conflict.example.com)"
+        warp_line = "warp(conflict.example.com)"
+        direct_line = "direct(conflict.example.com)"
         self.assertIn(warp_line, acl)
         self.assertIn(direct_line, acl)
         self.assertLess(acl.index(warp_line), acl.index(direct_line))
@@ -516,7 +516,7 @@ class TestPrivateSubnetPrecedenceBypassProtection(OpaqueE2ETestCase):
 
         # User rules (if present) must appear AFTER all mandatory private subnet rejections
         for line in acl:
-            if "direct(10.0.0.0/8)" in line or "outbound(warp, 172.16.0.0/12)" in line:
+            if "direct(10.0.0.0/8)" in line or "warp(172.16.0.0/12)" in line:
                 user_rule_idx = acl.index(line)
                 self.assertGreater(
                     user_rule_idx,

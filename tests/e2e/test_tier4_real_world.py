@@ -150,8 +150,8 @@ class TestScenario03_WARPEgressAndRoutingPolicySwitch(OpaqueE2ETestCase):
         yaml_warp = build_hysteria_yaml(cfg_updated)
         data = self.verify_valid_hysteria_yaml(yaml_warp)
         self.assertIn("outbounds", data)
-        self.assertIn("outbound(warp, geosite:openai)", yaml_warp)
-        self.assertIn("outbound(warp, geosite:netflix)", yaml_warp)
+        self.assertIn("warp(geosite:openai)", yaml_warp)
+        self.assertIn("warp(geosite:netflix)", yaml_warp)
 
         # 4. Generate Sing-box client profile for client under new policy
         user = self.create_test_user("sync_user", "sync_pass")

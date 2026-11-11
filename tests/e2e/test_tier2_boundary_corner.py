@@ -313,7 +313,7 @@ class TestTier2Feature08_ServicePresetRules(OpaqueE2ETestCase):
         yaml_str = build_hysteria_yaml(cfg)
         lines = yaml_str.splitlines()
         reject_idx = next(i for i, l in enumerate(lines) if "reject(" in l)
-        outbound_idx = next(i for i, l in enumerate(lines) if "outbound(warp" in l)
+        outbound_idx = next(i for i, l in enumerate(lines) if "warp(" in l)
         self.assertLess(reject_idx, outbound_idx, "Ad/Spy reject rules must precede warp outbound rules")
 
     def test_f8_b02_special_characters_in_acl_domain(self):

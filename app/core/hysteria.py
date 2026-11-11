@@ -144,23 +144,11 @@ def compile_acl_rules(
 
     global_out = str(global_outbound or presets.get("routing_global_outbound", "direct") or "direct").strip().lower()
 
-    # Check if any custom rule or service preset requires WARP outbound
-    any_rule_needs_warp = any(
-        (isinstance(r, dict) and str(r.get("action", "")).strip().lower() == "warp")
-        for r in (rules or [])
-    ) or any(
-        str(presets.get(k, "")).strip().lower() == "warp"
-        for k in ["routing_openai", "routing_discord", "routing_youtube", "routing_netflix", "routing_ru"]
-    ) or (global_out == "warp")
-
     warp_enabled_raw = presets.get("warp_enabled")
     if warp_enabled_raw is not None:
         warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
     else:
         warp_is_active = (global_out == "warp")
-
-    if any_rule_needs_warp:
-        warp_is_active = True
 
     reject_rules: List[str] = []
     routing_rules: List[str] = []
@@ -205,7 +193,7 @@ def compile_acl_rules(
         if mode == "block":
             reject_rules.append(f"reject({geosite})")
         elif mode == "warp" and warp_is_active:
-            routing_rules.append(f"outbound(warp, {geosite})")
+            routing_rules.append(f"warp({geosite})")
         elif mode == "direct" and warp_is_active and global_out == "warp":
             routing_rules.append(f"direct({geosite})")
 
@@ -218,8 +206,8 @@ def compile_acl_rules(
         reject_rules.append("reject(geosite:ru)")
         reject_rules.append("reject(geoip:ru)")
     elif ru_mode == "warp" and warp_is_active:
-        routing_rules.append("outbound(warp, geosite:ru)")
-        routing_rules.append("outbound(warp, geoip:ru)")
+        routing_rules.append("warp(geosite:ru)")
+        routing_rules.append("warp(geoip:ru)")
     elif ru_mode == "direct" and warp_is_active and global_out == "warp":
         routing_rules.append("direct(geosite:ru)")
         routing_rules.append("direct(geoip:ru)")
@@ -278,7 +266,7 @@ def compile_acl_rules(
                     custom_rules_acl.append(f"reject({matcher})")
                 elif action == "warp":
                     if warp_is_active:
-                        custom_rules_acl.append(f"outbound(warp, {matcher})")
+                        custom_rules_acl.append(f"warp({matcher})")
                     else:
                         custom_rules_acl.append(f"direct({matcher})")
                 else:  # direct
@@ -287,7 +275,7 @@ def compile_acl_rules(
     # 6. Global outbound fallback rule
     fallback_rule = None
     if global_out == "warp" and warp_is_active:
-        fallback_rule = "outbound(warp, all)"
+        fallback_rule = "warp(all)"
     elif warp_is_active:
         fallback_rule = "direct(all)"
 
@@ -401,23 +389,11 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()
     warp_port = config_data.get("warp_port", "40000")
 
-    custom_rules = config_data.get("custom_routing_rules") or config_data.get("routing_rules") or []
-    any_rule_needs_warp = any(
-        (isinstance(r, dict) and str(r.get("action", "")).strip().lower() == "warp")
-        for r in custom_rules
-    ) or any(
-        str(config_data.get(k, "")).strip().lower() == "warp"
-        for k in ["routing_openai", "routing_discord", "routing_youtube", "routing_netflix", "routing_ru"]
-    ) or (global_outbound == "warp")
-
     warp_enabled_raw = config_data.get("warp_enabled")
     if warp_enabled_raw is not None:
         warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
     else:
         warp_is_active = (global_outbound == "warp")
-
-    if any_rule_needs_warp:
-        warp_is_active = True
 
     outbounds_block = ""
     if warp_is_active:

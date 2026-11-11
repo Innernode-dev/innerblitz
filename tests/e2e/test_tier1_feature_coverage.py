@@ -150,7 +150,7 @@ class TestFeature02_ExistingWARPReuse(OpaqueE2ETestCase):
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertNotIn("outbounds", data)
-        self.assertNotIn("outbound(warp", yaml_str)
+        self.assertNotIn("warp(", yaml_str)
 
 
 class TestFeature03_OneClickWARPInstaller(OpaqueE2ETestCase):
@@ -321,8 +321,8 @@ class TestFeature06_GlobalOutboundSwitch(OpaqueE2ETestCase):
         """Verify ACL inline section adjusts based on global outbound state."""
         yaml_no_warp = build_hysteria_yaml({"warp_enabled": False})
         yaml_with_warp = build_hysteria_yaml({"warp_enabled": True})
-        self.assertNotIn("outbound(warp", yaml_no_warp)
-        self.assertIn("outbound(warp", yaml_with_warp)
+        self.assertNotIn("warp(", yaml_no_warp)
+        self.assertIn("warp(", yaml_with_warp)
 
     def test_f6_05_client_hy2_uri_unaffected_by_server_outbound_switch(self):
         """Verify client hy2 connection URI remains valid regardless of server outbound switch."""
@@ -345,8 +345,8 @@ class TestFeature07_RUTrafficRuleEngine(OpaqueE2ETestCase):
         self.verify_valid_hysteria_yaml(yaml_str)
 
     def test_f7_02_ru_traffic_warp_mode(self):
-        """Verify WARP mode wraps RU sites or applies outbound(warp) appropriately."""
-        contract_acl = "outbound(warp, geosite:ru)\noutbound(warp, geoip:ru)"
+        """Verify WARP mode wraps RU sites or applies warp() appropriately."""
+        contract_acl = "warp(geosite:ru)\nwarp(geoip:ru)"
         self.assertIn("geosite:ru", contract_acl)
         self.assertIn("geoip:ru", contract_acl)
 
@@ -384,13 +384,13 @@ class TestFeature08_ServicePresetRules(OpaqueE2ETestCase):
         """Verify geosite:openai is routed through WARP when WARP is active."""
         cfg = {"listen_port": 443, "warp_enabled": True}
         yaml_str = build_hysteria_yaml(cfg)
-        self.assertIn("outbound(warp, geosite:openai)", yaml_str)
+        self.assertIn("warp(geosite:openai)", yaml_str)
 
     def test_f8_02_netflix_preset_in_warp_acl(self):
         """Verify geosite:netflix is routed through WARP when WARP is active."""
         cfg = {"listen_port": 443, "warp_enabled": True}
         yaml_str = build_hysteria_yaml(cfg)
-        self.assertIn("outbound(warp, geosite:netflix)", yaml_str)
+        self.assertIn("warp(geosite:netflix)", yaml_str)
 
     def test_f8_03_ad_blocking_preset(self):
         """Verify category-ads-all is rejected in Hysteria ACL."""

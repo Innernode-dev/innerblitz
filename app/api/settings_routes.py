@@ -31,7 +31,8 @@ from app.core.hysteria import (
 )
 from app.core.firewall import (
     configure_port_hopping, flush_port_hopping, 
-    open_firewall_port, close_firewall_port, ensure_firewall_permissive
+    open_firewall_port, close_firewall_port, ensure_firewall_permissive,
+    validate_port_hopping_string
 )
 
 router = APIRouter(prefix="/api/settings", dependencies=[Depends(get_current_admin)])
@@ -158,6 +159,13 @@ async def update_settings(payload: SettingsPayload):
             updates[k] = str(v)
 
     if updates:
+        if "port_hopping_range" in updates:
+            hop_candidate = updates["port_hopping_range"].strip()
+            ok_hop, msg_hop = validate_port_hopping_string(hop_candidate)
+            if not ok_hop:
+                raise HTTPException(status_code=400, detail=f"Invalid port_hopping_range: {msg_hop}")
+            updates["port_hopping_range"] = hop_candidate
+
         warp_routing_keys = (
             "routing_global_outbound", "routing_ru", "ru_routing",
             "routing_openai", "routing_discord", "routing_youtube",
@@ -765,14 +773,14 @@ async def get_routing_settings():
         "ok": True,
         "routing_global_outbound": all_settings.get("routing_global_outbound", "direct"),
         "routing_ru": all_settings.get("routing_ru", "direct"),
-        "routing_openai": all_settings.get("routing_openai", "warp"),
-        "routing_discord": all_settings.get("routing_discord", "warp"),
-        "routing_youtube": all_settings.get("routing_youtube", "warp"),
-        "routing_telegram": all_settings.get("routing_telegram", "direct"),
-        "routing_netflix": all_settings.get("routing_netflix", "warp"),
-        "routing_p2p": all_settings.get("routing_p2p", "block"),
-        "routing_ads": all_settings.get("routing_ads", "1"),
-        "routing_win_spy": all_settings.get("routing_win_spy", "1"),
+        "routing_openai": all_settings.get("routing_openai", "off"),
+        "routing_discord": all_settings.get("routing_discord", "off"),
+        "routing_youtube": all_settings.get("routing_youtube", "off"),
+        "routing_telegram": all_settings.get("routing_telegram", "off"),
+        "routing_netflix": all_settings.get("routing_netflix", "off"),
+        "routing_p2p": all_settings.get("routing_p2p", "allow"),
+        "routing_ads": all_settings.get("routing_ads", "0"),
+        "routing_win_spy": all_settings.get("routing_win_spy", "0"),
         "warp_enabled": warp_on,
         "warp_detected": all_settings.get("warp_detected", "0") == "1",
         "warp_mode": all_settings.get("warp_mode", "none"),
@@ -848,7 +856,11 @@ async def update_routing_settings(payload: RoutingPayload):
         updates["port_hopping_enabled"] = "1" if str(data["port_hopping_enabled"]).lower() in ("1", "true") else "0"
 
     if "port_hopping_range" in data and data["port_hopping_range"] is not None:
-        updates["port_hopping_range"] = str(data["port_hopping_range"]).strip()
+        hop_candidate = str(data["port_hopping_range"]).strip()
+        ok_hop, msg_hop = validate_port_hopping_string(hop_candidate)
+        if not ok_hop:
+            raise HTTPException(status_code=400, detail=f"Invalid port_hopping_range: {msg_hop}")
+        updates["port_hopping_range"] = hop_candidate
 
     if updates:
         await crud.set_settings(updates)

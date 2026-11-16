@@ -446,6 +446,7 @@
 {% block extra_scripts %}
 <script>
     let nodeSettings = {};
+    let initialNodeWarpEnabled = false;
 
     async function loadNodeData() {
         try {
@@ -473,7 +474,8 @@
                 document.getElementById('nodeObfsPassword').value = nodeSettings.obfs_password || '';
                 document.getElementById('nodeMasqueradeTarget').value = nodeSettings.masquerade_target || 'https://' + currentSni;
                 
-                document.getElementById('nodeWarpEnabled').checked = nodeSettings.warp_enabled == '1' || nodeSettings.warp_enabled === true;
+                initialNodeWarpEnabled = nodeSettings.warp_enabled == '1' || nodeSettings.warp_enabled === true;
+                document.getElementById('nodeWarpEnabled').checked = initialNodeWarpEnabled;
                 document.getElementById('nodeSniffEnabled').checked = nodeSettings.sniff_enable !== '0' && nodeSettings.sniff_enable !== false;
                 document.getElementById('nodeUpMbps').value = nodeSettings.up_mbps || '200';
                 document.getElementById('nodeDownMbps').value = nodeSettings.down_mbps || '200';
@@ -561,11 +563,15 @@
                 sni: sniVal,
                 obfs_password: document.getElementById('nodeObfsPassword').value.trim(),
                 masquerade_target: document.getElementById('nodeMasqueradeTarget').value.trim() || ('https://' + sniVal),
-                warp_enabled: document.getElementById('nodeWarpEnabled').checked,
                 sniff_enable: document.getElementById('nodeSniffEnabled').checked,
                 up_mbps: document.getElementById('nodeUpMbps').value.trim(),
                 down_mbps: document.getElementById('nodeDownMbps').value.trim()
             };
+
+            const currentWarpEnabled = document.getElementById('nodeWarpEnabled').checked;
+            if (currentWarpEnabled !== initialNodeWarpEnabled) {
+                payload.warp_enabled = currentWarpEnabled;
+            }
 
             showToast('Применение конфигурации и перевыпуск TLS...', 'info');
             const res = await fetch('/api/settings', {

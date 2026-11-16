@@ -109,8 +109,9 @@ async def check_socks5_alive(
 def ensure_wireguard_policy_routing(iface: str = "warp") -> bool:
     """
     Ensure WireGuard WARP interface has an isolated routing table (51820),
-    oif policy rule, NAT masquerade, and TCP MSS clamping so Hysteria 2
-    `bindDevice` outbound works without routing conflicts or PMTU blackholes.
+    source-IP & oif policy rules, loose rp_filter, NAT masquerade, and TCP MSS
+    clamping so Hysteria 2 `bindDevice` outbound routes and receives return
+    packets reliably without asymmetric RPF drops or PMTU blackholes.
     """
     if os.name != "posix" or not iface or not re.match(r"^[a-zA-Z0-9_.\-]{1,15}$", iface):
         return False
@@ -130,11 +131,35 @@ def ensure_wireguard_policy_routing(iface: str = "warp") -> bool:
             [ip_bin, "-4", "rule", "show"],
             capture_output=True, text=True, timeout=3
         )
+        rules_txt = rules_res.stdout if rules_res.returncode == 0 else ""
+
+        # Bind source-IP rule (required by Linux kernel RPF on asymmetric WireGuard responses)
+        addr_res = subprocess.run(
+            [ip_bin, "-4", "-o", "addr", "show", "dev", iface],
+            capture_output=True, text=True, timeout=3
+        )
+        if addr_res.returncode == 0:
+            m = re.search(r"\binet\s+(\d+\.\d+\.\d+\.\d+)/", addr_res.stdout)
+            if m:
+                wg_ip = m.group(1)
+                if f"from {wg_ip} lookup 51820" not in rules_txt and f"from {wg_ip}/32 lookup 51820" not in rules_txt:
+                    subprocess.run(
+                        [ip_bin, "-4", "rule", "add", "from", f"{wg_ip}/32", "lookup", "51820", "prio", "30000"],
+                        capture_output=True, text=True, timeout=3
+                    )
+
         expected_rule = f"oif {iface} lookup 51820"
-        if rules_res.returncode == 0 and expected_rule not in rules_res.stdout:
+        if expected_rule not in rules_txt:
             subprocess.run(
                 [ip_bin, "-4", "rule", "add", "oif", iface, "lookup", "51820", "prio", "30001"],
                 capture_output=True, text=True, timeout=3
+            )
+
+        sysctl_bin = shutil.which("sysctl")
+        if sysctl_bin:
+            subprocess.run(
+                [sysctl_bin, "-w", "net.ipv4.conf.all.rp_filter=2", f"net.ipv4.conf.{iface}.rp_filter=2"],
+                capture_output=True, timeout=3
             )
 
         ipt_bin = shutil.which("iptables")
@@ -161,6 +186,24 @@ def ensure_wireguard_policy_routing(iface: str = "warp") -> bool:
     except Exception as e:
         logger.debug(f"WireGuard policy routing setup notice for {iface}: {e}")
         return False
+
+
+async def resolve_live_warp_transport(configured_port: int = 40000) -> Dict[str, Any]:
+    """
+    Fast local probe (without remote trace HTTP latency) to identify whether
+    WireGuard interface or local SOCKS5 proxy is currently active so config.yaml
+    always binds the actually running WARP transport.
+    """
+    wg_iface = check_wireguard_interface()
+    if wg_iface:
+        ensure_wireguard_policy_routing(wg_iface)
+        return {"active": True, "mode": WarpMode.WIREGUARD.value, "interface": wg_iface, "port": str(configured_port)}
+
+    socks_ok, _ = await check_socks5_alive("127.0.0.1", configured_port, timeout=0.6)
+    if socks_ok:
+        return {"active": True, "mode": WarpMode.SOCKS5.value, "interface": "", "port": str(configured_port)}
+
+    return {"active": False, "mode": WarpMode.NONE.value, "interface": "", "port": str(configured_port)}
 
 
 def check_wireguard_interface(candidate_names: Optional[List[str]] = None) -> Optional[str]:
@@ -812,7 +855,7 @@ def repair_warp_service() -> Dict[str, Any]:
     ok, restart_out = run_systemctl("restart", service)
     actions_taken.append(f"Restarted {service}: success={ok}")
 
-    # Step 3: Check warp-cli status if official client
+    # Step 3: Check warp-cli status & enforce proxy mode if official client
     if service == "warp-svc.service":
         warp_cli = shutil.which("warp-cli")
         if warp_cli:
@@ -823,16 +866,14 @@ def repair_warp_service() -> Dict[str, Any]:
                     text=True,
                     timeout=5
                 )
-                if "Disconnected" in status_res.stdout:
-                    subprocess.run([warp_cli, "--accept-tos", "connect"], capture_output=True, timeout=5)
-                    actions_taken.append("Reconnected warp-cli")
-                elif "Registration Missing" in status_res.stdout:
-                    subprocess.run(
-                        [warp_cli, "--accept-tos", "registration", "new"],
-                        capture_output=True,
-                        timeout=5
-                    )
+                if "Registration Missing" in status_res.stdout:
+                    subprocess.run([warp_cli, "--accept-tos", "registration", "new"], capture_output=True, timeout=5)
                     actions_taken.append("Registered new warp-cli account")
+                # Enforce proxy mode on port 40000 so host SSH/panel remain direct and Hysteria outbound works
+                subprocess.run([warp_cli, "--accept-tos", "mode", "proxy"], capture_output=True, timeout=5)
+                subprocess.run([warp_cli, "--accept-tos", "proxy", "port", "40000"], capture_output=True, timeout=5)
+                subprocess.run([warp_cli, "--accept-tos", "connect"], capture_output=True, timeout=5)
+                actions_taken.append("Ensured warp-cli proxy mode on 127.0.0.1:40000 and connected")
             except Exception as e:
                 actions_taken.append(f"warp-cli status check notice: {e}")
     elif service == "wg-quick@warp.service":

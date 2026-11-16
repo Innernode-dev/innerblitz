@@ -320,7 +320,7 @@ class TestFeature06_GlobalOutboundSwitch(OpaqueE2ETestCase):
     def test_f6_04_yaml_acl_reflects_warp_state(self):
         """Verify ACL inline section adjusts based on global outbound state."""
         yaml_no_warp = build_hysteria_yaml({"warp_enabled": False})
-        yaml_with_warp = build_hysteria_yaml({"warp_enabled": True})
+        yaml_with_warp = build_hysteria_yaml({"warp_enabled": True, "routing_global_outbound": "warp"})
         self.assertNotIn("warp(", yaml_no_warp)
         self.assertIn("warp(", yaml_with_warp)
 
@@ -381,26 +381,26 @@ class TestFeature08_ServicePresetRules(OpaqueE2ETestCase):
     """F8: Service Preset Rules (OpenAI, Discord, YouTube, Telegram, Netflix, Ads, Spy)."""
 
     def test_f8_01_openai_preset_in_warp_acl(self):
-        """Verify geosite:openai is routed through WARP when WARP is active."""
-        cfg = {"listen_port": 443, "warp_enabled": True}
+        """Verify geosite:openai is routed through WARP when explicitly configured."""
+        cfg = {"listen_port": 443, "warp_enabled": True, "routing_openai": "warp"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("warp(geosite:openai)", yaml_str)
 
     def test_f8_02_netflix_preset_in_warp_acl(self):
-        """Verify geosite:netflix is routed through WARP when WARP is active."""
-        cfg = {"listen_port": 443, "warp_enabled": True}
+        """Verify geosite:netflix is routed through WARP when explicitly configured."""
+        cfg = {"listen_port": 443, "warp_enabled": True, "routing_netflix": "warp"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("warp(geosite:netflix)", yaml_str)
 
     def test_f8_03_ad_blocking_preset(self):
-        """Verify category-ads-all is rejected in Hysteria ACL."""
-        cfg = {"listen_port": 443}
+        """Verify category-ads-all is rejected in Hysteria ACL when explicitly enabled."""
+        cfg = {"listen_port": 443, "routing_ads": "1"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("reject(geosite:category-ads-all)", yaml_str)
 
     def test_f8_04_windows_spyware_blocking_preset(self):
-        """Verify win-spy is rejected in Hysteria ACL."""
-        cfg = {"listen_port": 443}
+        """Verify win-spy is rejected in Hysteria ACL when explicitly enabled."""
+        cfg = {"listen_port": 443, "routing_win_spy": "1"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("reject(geosite:win-spy)", yaml_str)
 

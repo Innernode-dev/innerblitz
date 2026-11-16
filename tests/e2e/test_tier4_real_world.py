@@ -137,9 +137,11 @@ class TestScenario03_WARPEgressAndRoutingPolicySwitch(OpaqueE2ETestCase):
         yaml_initial = build_hysteria_yaml(cfg_initial)
         self.assertNotIn("outbounds", yaml_initial)
 
-        # 2. Admin enables WARP in Settings
+        # 2. Admin enables WARP in Settings with explicit service routes
         resp = self.client.post("/api/settings", json={
             "warp_enabled": True,
+            "routing_openai": "warp",
+            "routing_netflix": "warp",
             "server_ip": "198.51.100.1",
             "listen_port": 443
         })

@@ -14,7 +14,7 @@ from app.database import crud
 from app.core.traffic import traffic_collector
 from app.core.limiter import limiter_daemon
 from app.bot.bot import tg_bot
-from app.core.hysteria import apply_and_save_config
+from app.core.hysteria import apply_and_save_config, restart_hysteria
 
 # Import routers
 from app.api.auth_routes import router as auth_router, get_current_admin
@@ -135,6 +135,11 @@ async def lifespan(app: FastAPI):
                     "Adopting existing connection."
                 )
                 await sync_warp_settings_from_detection(warp_info)
+                apply_res = await apply_and_save_config()
+                if apply_res:
+                    restart_hysteria()
+                else:
+                    logger.warning(f"[WARP Startup] Failed to apply synced WARP config: {apply_res.message}")
         except Exception as e:
             logger.warning(f"[WARP Startup Detection] Notice: {e}")
 

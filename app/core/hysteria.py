@@ -309,6 +309,8 @@ def compile_acl_rules(
     global_out = str(global_outbound or presets.get("routing_global_outbound", "direct") or "direct").strip().lower()
     warp_is_active = _resolve_warp_active(presets, rules=rules, global_outbound=global_out)
     warp_mode = str(presets.get("warp_mode", "socks5") or "socks5").strip().lower()
+    if warp_mode not in ("wireguard", "socks5"):
+        warp_mode = "socks5"
 
     reject_rules: List[str] = []
     routing_rules: List[str] = []
@@ -321,26 +323,22 @@ def compile_acl_rules(
     reject_rules.append("reject(127.0.0.0/8)")
     reject_rules.append("reject(fc00::/7)")
 
-    # 2. Threat / Ad rejections
-    ads_val = presets.get("routing_ads", "1")
+    # 2. Optional Threat / Ad rejections (opt-in only, disabled by default)
+    ads_val = presets.get("routing_ads", "0")
     if str(ads_val).lower() in ("1", "true"):
         reject_rules.append("reject(geosite:category-ads-all)")
 
-    win_spy_val = presets.get("routing_win_spy", "1")
+    win_spy_val = presets.get("routing_win_spy", "0")
     if str(win_spy_val).lower() in ("1", "true"):
         reject_rules.append("reject(geosite:win-spy)")
 
-    # P2P / BitTorrent is not a GeoSite domain list in standard geosite.dat.
-    # Emitting reject(geosite:bittorrent) crashes Hysteria 2 with FATAL "GeoSite name bittorrent not found".
-    # Torrent/P2P filtering is handled via custom domain/IP ACL rules.
-
-    # 3. Service presets (OpenAI, Discord, YouTube, Telegram, Netflix)
+    # 3. Optional Service presets (opt-in only, never auto-injected)
     services = [
-        ("routing_openai", "geosite:openai", "warp"),
-        ("routing_discord", "geosite:discord", "warp"),
-        ("routing_youtube", "geosite:youtube", "warp"),
-        ("routing_telegram", "geosite:telegram", "direct"),
-        ("routing_netflix", "geosite:netflix", "warp"),
+        ("routing_openai", "geosite:openai", "off"),
+        ("routing_discord", "geosite:discord", "off"),
+        ("routing_youtube", "geosite:youtube", "off"),
+        ("routing_telegram", "geosite:telegram", "off"),
+        ("routing_netflix", "geosite:netflix", "off"),
     ]
 
     for key, geosite, default_val in services:
@@ -454,6 +452,8 @@ def compile_acl_rules(
                     custom_rules_acl.append(f"reject({matcher})")
                 elif action == "warp":
                     if warp_is_active:
+                        if warp_mode != "wireguard" and "," not in matcher:
+                            custom_rules_acl.append(f"reject({matcher}, udp/443)")
                         custom_rules_acl.append(f"warp({matcher})")
                     else:
                         custom_rules_acl.append(f"direct({matcher})")
@@ -461,11 +461,13 @@ def compile_acl_rules(
                     custom_rules_acl.append(f"direct({matcher})")
 
     # 6. Global outbound fallback rule
-    fallback_rule = None
+    fallback_rules: List[str] = []
     if global_out == "warp" and warp_is_active:
-        fallback_rule = "warp(all)"
+        if warp_mode != "wireguard":
+            fallback_rules.append("reject(all, udp/443)")
+        fallback_rules.append("warp(all)")
     elif warp_is_active:
-        fallback_rule = "direct(all)"
+        fallback_rules.append("direct(all)")
 
     # Deduplicate rules while strictly preserving insertion order and filtering unknown GeoSite/GeoIP tags when .dat files exist
     config_dir = Path(settings.HYSTERIA_CONFIG_PATH).parent
@@ -474,7 +476,7 @@ def compile_acl_rules(
 
     all_acl: List[str] = []
     seen = set()
-    for rule in reject_rules + custom_rules_acl + routing_rules:
+    for rule in reject_rules + custom_rules_acl + routing_rules + fallback_rules:
         if rule in seen:
             continue
         paren_open = rule.find("(")
@@ -490,9 +492,6 @@ def compile_acl_rules(
                 continue
         seen.add(rule)
         all_acl.append(rule)
-
-    if fallback_rule and fallback_rule not in seen:
-        all_acl.append(fallback_rule)
 
     return all_acl
 
@@ -594,6 +593,8 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()
     warp_port = config_data.get("warp_port", "40000")
     warp_mode = str(config_data.get("warp_mode", "socks5") or "socks5").strip().lower()
+    if warp_mode not in ("wireguard", "socks5"):
+        warp_mode = "socks5"
     warp_iface = str(config_data.get("warp_interface", "warp") or "warp").strip()
 
     warp_is_active = _resolve_warp_active(config_data, rules=custom_rules, global_outbound=global_outbound)
@@ -694,11 +695,33 @@ async def apply_and_save_config(custom_yaml: Optional[str] = None) -> ConfigAppl
             yaml_text = custom_yaml
         else:
             current_settings = await crud.get_all_settings()
+            custom_rules: List[Dict[str, Any]] = []
             try:
                 custom_rules = await crud.get_routing_rules(enabled_only=True)
                 current_settings["custom_routing_rules"] = custom_rules
             except Exception as re:
                 logger.warning(f"Could not load custom routing rules for config: {re}")
+
+            # Ensure config.yaml binds the actually running WARP transport on Linux
+            if os.name == "posix" and _resolve_warp_active(current_settings, rules=custom_rules):
+                try:
+                    from app.core.warp import resolve_live_warp_transport
+                    port_raw = str(current_settings.get("warp_port", "40000"))
+                    warp_port_int = int(port_raw) if port_raw.isdigit() else 40000
+                    live = await resolve_live_warp_transport(warp_port_int)
+                    if live.get("active"):
+                        db_sync = {}
+                        if live["mode"] != current_settings.get("warp_mode"):
+                            current_settings["warp_mode"] = live["mode"]
+                            db_sync["warp_mode"] = live["mode"]
+                        if live.get("interface") and live["interface"] != current_settings.get("warp_interface"):
+                            current_settings["warp_interface"] = live["interface"]
+                            db_sync["warp_interface"] = live["interface"]
+                        if db_sync:
+                            await crud.set_settings(db_sync)
+                except Exception as we:
+                    logger.debug(f"Live WARP transport sync notice: {we}")
+
             yaml_text = build_hysteria_yaml(current_settings)
 
         # 1. Pre-validation before writing

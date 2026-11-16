@@ -34,19 +34,19 @@ class TestM2_DatabaseRoutingDefaults(OpaqueE2ETestCase):
     """M2.1: Database schema and default keys for visual routing."""
 
     def test_routing_default_keys_present_after_init(self):
-        """Verify init_db initializes all 10 visual routing keys with expected defaults."""
+        """Verify init_db initializes all 10 visual routing keys with clean zero-preset defaults."""
         all_s = self.run_async(crud.get_all_settings())
         expected_keys = {
             "routing_global_outbound": "direct",
             "routing_ru": "direct",
-            "routing_openai": "warp",
-            "routing_discord": "warp",
-            "routing_youtube": "warp",
-            "routing_telegram": "direct",
-            "routing_netflix": "warp",
-            "routing_p2p": "block",
-            "routing_ads": "1",
-            "routing_win_spy": "1",
+            "routing_openai": "off",
+            "routing_discord": "off",
+            "routing_youtube": "off",
+            "routing_telegram": "off",
+            "routing_netflix": "off",
+            "routing_p2p": "allow",
+            "routing_ads": "0",
+            "routing_win_spy": "0",
         }
         for k, v in expected_keys.items():
             self.assertIn(k, all_s, f"Key '{k}' missing from settings table")
@@ -318,6 +318,59 @@ acl:
         self.assertEqual(sniff["timeout"], "5s")
         self.assertTrue(sniff["rewriteDomain"])
 
+    def test_clean_default_build_hysteria_yaml_has_zero_hidden_presets(self):
+        """Global WARP config contains zero unrequested service/ad presets and guards QUIC udp/443 on socks5."""
+        cfg = {
+            "listen_port": 443,
+            "warp_enabled": True,
+            "warp_mode": "socks5",
+            "routing_global_outbound": "warp",
+        }
+        y = build_hysteria_yaml(cfg)
+        data = self.verify_valid_hysteria_yaml(y)
+        acl = data["acl"]["inline"]
+        for forbidden in (
+            "geosite:openai",
+            "geosite:discord",
+            "geosite:youtube",
+            "geosite:netflix",
+            "geosite:category-ads-all",
+            "geosite:win-spy",
+        ):
+            self.assertFalse(any(forbidden in r for r in acl), f"Unrequested preset '{forbidden}' leaked into ACL")
+
+        self.assertIn("reject(all, udp/443)", acl)
+        self.assertIn("warp(all)", acl)
+        self.assertLess(acl.index("reject(all, udp/443)"), acl.index("warp(all)"))
+
+        # WireGuard mode handles UDP natively so reject(all, udp/443) is omitted
+        cfg_wg = {
+            "listen_port": 443,
+            "warp_enabled": True,
+            "warp_mode": "wireguard",
+            "warp_interface": "warp",
+            "routing_global_outbound": "warp",
+        }
+        y_wg = build_hysteria_yaml(cfg_wg)
+        data_wg = self.verify_valid_hysteria_yaml(y_wg)
+        self.assertNotIn("reject(all, udp/443)", data_wg["acl"]["inline"])
+        self.assertIn("warp(all)", data_wg["acl"]["inline"])
+
+    def test_custom_warp_rule_udp443_guard_in_socks5_mode(self):
+        """Custom WARP domain rule emits reject(..., udp/443) guard right before warp(...) on socks5."""
+        from app.core.hysteria import compile_acl_rules
+        acl = compile_acl_rules(
+            [{"id": 20, "action": "warp", "rule_type": "domain", "rule_values": ["2ip.io"], "enabled": True}],
+            global_outbound="direct",
+            presets={"warp_mode": "socks5"},
+        )
+        self.assertIn("reject(2ip.io, udp/443)", acl)
+        self.assertIn("warp(2ip.io)", acl)
+        self.assertLess(acl.index("reject(2ip.io, udp/443)"), acl.index("warp(2ip.io)"))
+        self.assertIn("reject(suffix:2ip.io, udp/443)", acl)
+        self.assertIn("warp(suffix:2ip.io)", acl)
+        self.assertLess(acl.index("reject(suffix:2ip.io, udp/443)"), acl.index("warp(suffix:2ip.io)"))
+
 
 class TestM2_AtomicApplyAndRollback(OpaqueE2ETestCase):
     """M2.4: Safe apply_and_save_config with backup and rollback."""
@@ -375,10 +428,10 @@ class TestM2_RoutingAPIRoutes(OpaqueE2ETestCase):
         self.assertTrue(data.get("ok"))
         self.assertEqual(data["routing_global_outbound"], "direct")
         self.assertEqual(data["routing_ru"], "direct")
-        self.assertEqual(data["routing_openai"], "warp")
-        self.assertEqual(data["routing_p2p"], "block")
-        self.assertEqual(data["routing_ads"], "1")
-        self.assertEqual(data["routing_win_spy"], "1")
+        self.assertEqual(data["routing_openai"], "off")
+        self.assertEqual(data["routing_p2p"], "allow")
+        self.assertEqual(data["routing_ads"], "0")
+        self.assertEqual(data["routing_win_spy"], "0")
         self.assertIn("warp_enabled", data)
 
     def test_post_routing_valid_updates(self):
@@ -467,3 +520,14 @@ class TestM2_RoutingAPIRoutes(OpaqueE2ETestCase):
         data = resp.json()
         self.assertFalse(data.get("ok"))
         self.assertIn("validation failed", data.get("message", "").lower())
+
+    def test_post_routing_and_settings_reject_invalid_port_hopping_range(self):
+        """Invalid port_hopping_range (e.g. 50000:90000 > 65535) is rejected with 400."""
+        self.login_admin()
+        r1 = self.client.post("/api/routing", json={"port_hopping_range": "50000:90000"})
+        self.assertEqual(r1.status_code, 400)
+        self.assertIn("port_hopping_range", r1.json().get("detail", ""))
+
+        r2 = self.client.post("/api/settings", json={"port_hopping_range": "50000:90000"})
+        self.assertEqual(r2.status_code, 400)
+        self.assertIn("port_hopping_range", r2.json().get("detail", ""))

@@ -309,7 +309,7 @@ class TestTier2Feature08_ServicePresetRules(OpaqueE2ETestCase):
 
     def test_f8_b01_multiple_service_presets_ordering(self):
         """Boundary: Rejection rules must precede routing rules in ACL."""
-        cfg = {"listen_port": 443, "warp_enabled": True}
+        cfg = {"listen_port": 443, "warp_enabled": True, "routing_openai": "warp", "routing_ads": "1"}
         yaml_str = build_hysteria_yaml(cfg)
         lines = yaml_str.splitlines()
         reject_idx = next(i for i, l in enumerate(lines) if "reject(" in l)

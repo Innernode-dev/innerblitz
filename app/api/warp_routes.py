@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth_routes import get_current_admin
 from app.core import warp
+from app.core.hysteria import apply_and_save_config, restart_hysteria
 from app.database import crud
 
 router = APIRouter(prefix="/api/warp", tags=["WARP"], dependencies=[Depends(get_current_admin)])
@@ -228,4 +229,14 @@ async def restart_warp_endpoint():
 async def repair_warp_endpoint():
     """Run automated self-healing diagnostic and recovery sequence."""
     diag = warp.repair_warp_service()
+    if diag.get("success"):
+        try:
+            warp_info = await warp.detect_warp(force_refresh=True)
+            await warp.sync_warp_settings_from_detection(warp_info)
+            apply_res = await apply_and_save_config()
+            if apply_res:
+                restart_hysteria()
+            diag["config_applied"] = bool(apply_res)
+        except Exception as e:
+            diag["config_sync_warning"] = str(e)
     return diag

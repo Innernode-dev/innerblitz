@@ -22,7 +22,7 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
 
     def test_p1_01_warp_enabled_and_ru_direct(self):
         """WARP active, RU traffic routed Direct: OpenAI via WARP, private subnets blocked."""
-        cfg = {"listen_port": 443, "warp_enabled": True, "warp_port": "40000", "ru_routing": "direct"}
+        cfg = {"listen_port": 443, "warp_enabled": True, "warp_port": "40000", "ru_routing": "direct", "routing_openai": "warp"}
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertIn("outbounds", data)
@@ -39,7 +39,7 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
 
     def test_p1_03_warp_enabled_and_ru_blocked(self):
         """WARP active, RU traffic blocked: reject rules exist in ACL inline."""
-        cfg = {"listen_port": 443, "warp_enabled": True, "warp_port": "40000", "ru_routing": "block"}
+        cfg = {"listen_port": 443, "warp_enabled": True, "warp_port": "40000", "ru_routing": "block", "routing_openai": "warp", "routing_ads": "1"}
         yaml_str = build_hysteria_yaml(cfg)
         self.assertIn("reject(geosite:category-ads-all)", yaml_str)
         self.assertIn("warp(geosite:openai)", yaml_str)

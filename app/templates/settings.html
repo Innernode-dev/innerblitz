@@ -35,7 +35,7 @@
             <label class="block text-xs font-bold text-slate-300">Основной шлюз выхода в интернет (Global Outbound)</label>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label id="outboundDirectCard" class="p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
-                    <input type="radio" name="global_outbound" id="outboundDirect" value="direct" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('direct')">
+                    <input type="radio" name="global_outbound" id="outboundDirect" value="direct" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('direct', true)">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-bold text-white">Прямой IP сервера (Direct)</span>
@@ -46,7 +46,7 @@
                 </label>
 
                 <label id="outboundWarpCard" class="p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
-                    <input type="radio" name="global_outbound" id="outboundWarp" value="warp" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('warp')">
+                    <input type="radio" name="global_outbound" id="outboundWarp" value="warp" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('warp', true)">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-bold text-white">Cloudflare WARP (IP Cloudflare)</span>
@@ -77,6 +77,10 @@
                         <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>Статус</span>
                     </button>
+                    <button onclick="runWarpDiagnostics()" id="btnWarpDiag" title="Сравнить прямой IP сервера и выходной IP через WARP" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-semibold transition border border-cyan-500/25 flex items-center gap-1.5">
+                        <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                        <span>Direct vs WARP IP</span>
+                    </button>
                     <button onclick="repairWarp()" title="Переподключить WARP и починить маршрутизацию" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition border border-amber-500/25 flex items-center gap-1.5">
                         <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
                         <span>Починить WARP</span>
@@ -101,6 +105,19 @@
                 <div class="p-3 rounded-xl bg-[#0b111e] border border-[#1c263b]">
                     <span class="text-slate-400 block text-[11px]">Тип подключения</span>
                     <span class="font-mono text-slate-200 mt-0.5 block truncate" id="warpDiagMode">—</span>
+                </div>
+            </div>
+
+            <!-- Direct IP vs WARP IP Comparison Strip -->
+            <div id="warpDiffStrip" class="hidden p-3 rounded-xl bg-[#0b111e] border border-[#1c263b] flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-slate-400">Direct IP: <strong id="warpDiffDirectIp" class="font-mono tabular-nums text-slate-200">—</strong></span>
+                    <span class="text-slate-600">→</span>
+                    <span class="text-slate-400">WARP IP: <strong id="warpDiffWarpIp" class="font-mono tabular-nums text-amber-300">—</strong></span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="warpDiffMeta" class="font-mono tabular-nums text-[11px] text-slate-400"></span>
+                    <span id="warpDiffBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">—</span>
                 </div>
             </div>
 
@@ -134,7 +151,7 @@
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <label id="ruDirectLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="direct" id="ruModeDirect" class="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-700">
+                    <input type="radio" name="routing_ru" value="direct" id="ruModeDirect" onchange="handleRuRoutingChange('direct', true)" class="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
@@ -145,7 +162,7 @@
                 </label>
 
                 <label id="ruWarpLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="warp" id="ruModeWarp" class="w-4 h-4 text-amber-500 focus:ring-amber-500 bg-slate-950 border-slate-700">
+                    <input type="radio" name="routing_ru" value="warp" id="ruModeWarp" onchange="handleRuRoutingChange('warp', true)" class="w-4 h-4 text-amber-500 focus:ring-amber-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -156,7 +173,7 @@
                 </label>
 
                 <label id="ruBlockLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="block" id="ruModeBlock" class="w-4 h-4 text-rose-500 focus:ring-rose-500 bg-slate-950 border-slate-700">
+                    <input type="radio" name="routing_ru" value="block" id="ruModeBlock" onchange="handleRuRoutingChange('block', true)" class="w-4 h-4 text-rose-500 focus:ring-rose-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-rose-400"></span>
@@ -232,28 +249,6 @@
                     <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                     <span>Добавить правило</span>
                 </button>
-            </div>
-
-            <!-- 1-Click Quick Rule Templates -->
-            <div class="p-3 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-2">
-                <div class="text-[11px] font-semibold text-slate-400">Быстрые шаблоны в 1 клик:</div>
-                <div class="flex flex-wrap gap-2">
-                    <button type="button" onclick="applyQuickRuleTemplate('banks_ru')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-[11px] font-semibold transition">
-                        Банки РФ и Госуслуги (Direct)
-                    </button>
-                    <button type="button" onclick="applyQuickRuleTemplate('ai_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
-                        AI и нейросети (WARP)
-                    </button>
-                    <button type="button" onclick="applyQuickRuleTemplate('crypto_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
-                        Криптобиржи (WARP)
-                    </button>
-                    <button type="button" onclick="applyQuickRuleTemplate('media_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
-                        Медиа и стриминг (WARP)
-                    </button>
-                    <button type="button" onclick="applyQuickRuleTemplate('ipcheck_warp')" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 text-[11px] font-semibold transition">
-                        Проверка IP (WARP)
-                    </button>
-                </div>
             </div>
 
             <!-- Rules Table -->
@@ -1255,7 +1250,7 @@
     let warpLogPollInterval = null;
     let warpLogOffset = 0;
 
-    function handleOutboundChange(mode) {
+    function handleOutboundChange(mode, fromUser = false) {
         const directCard = document.getElementById('outboundDirectCard');
         const warpCard = document.getElementById('outboundWarpCard');
         if (!directCard || !warpCard) return;
@@ -1268,6 +1263,33 @@
             warpCard.className = 'p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
             document.getElementById('outboundDirect').checked = true;
         }
+        if (fromUser) {
+            saveRoutingRules(true);
+        }
+    }
+
+    function handleRuRoutingChange(mode, fromUser = false) {
+        const directLbl = document.getElementById('ruDirectLabel');
+        const warpLbl = document.getElementById('ruWarpLabel');
+        const blockLbl = document.getElementById('ruBlockLabel');
+        const baseCls = 'p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700';
+        if (directLbl) directLbl.className = baseCls;
+        if (warpLbl) warpLbl.className = baseCls;
+        if (blockLbl) blockLbl.className = baseCls;
+
+        if (mode === 'warp') {
+            if (warpLbl) warpLbl.className = 'p-3.5 rounded-xl border-2 border-amber-400 bg-amber-500/10 cursor-pointer transition flex items-center gap-3';
+            document.getElementById('ruModeWarp').checked = true;
+        } else if (mode === 'block') {
+            if (blockLbl) blockLbl.className = 'p-3.5 rounded-xl border-2 border-rose-400 bg-rose-500/10 cursor-pointer transition flex items-center gap-3';
+            document.getElementById('ruModeBlock').checked = true;
+        } else {
+            if (directLbl) directLbl.className = 'p-3.5 rounded-xl border-2 border-emerald-400 bg-emerald-500/10 cursor-pointer transition flex items-center gap-3';
+            document.getElementById('ruModeDirect').checked = true;
+        }
+        if (fromUser) {
+            saveRoutingRules(true);
+        }
     }
 
     async function loadRoutingData() {
@@ -1277,12 +1299,10 @@
                 const rules = await res.json();
 
                 const outMode = (rules.routing_global_outbound || 'direct').toLowerCase();
-                handleOutboundChange(outMode);
+                handleOutboundChange(outMode, false);
 
                 const ruMode = (rules.routing_ru || rules.ru_routing || 'direct').toLowerCase();
-                if (ruMode === 'warp') document.getElementById('ruModeWarp').checked = true;
-                else if (ruMode === 'block') document.getElementById('ruModeBlock').checked = true;
-                else document.getElementById('ruModeDirect').checked = true;
+                handleRuRoutingChange(ruMode, false);
 
                 document.getElementById('cfgSniffEnable').checked = rules.sniff_enable !== '0' && rules.sniff_enable !== false;
                 document.getElementById('cfgSniffTimeout').value = rules.sniff_timeout || '2s';
@@ -1296,7 +1316,7 @@
         }
     }
 
-    async function saveRoutingRules() {
+    async function saveRoutingRules(silent = false) {
         const globalOutbound = document.querySelector('input[name="global_outbound"]:checked') ? document.querySelector('input[name="global_outbound"]:checked').value : 'direct';
         const ruRouting = document.querySelector('input[name="routing_ru"]:checked') ? document.querySelector('input[name="routing_ru"]:checked').value : 'direct';
 
@@ -1319,7 +1339,9 @@
         };
 
         try {
-            showToast('Применение правил маршрутизации...', 'info');
+            if (!silent) {
+                showToast('Применение правил маршрутизации...', 'info');
+            }
             const res = await fetch('/api/routing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1377,6 +1399,62 @@
         } catch (e) {
             text.textContent = 'Ошибка проверки';
             console.warn('Warp check failed:', e);
+        }
+    }
+
+    async function runWarpDiagnostics() {
+        const strip = document.getElementById('warpDiffStrip');
+        const directEl = document.getElementById('warpDiffDirectIp');
+        const warpEl = document.getElementById('warpDiffWarpIp');
+        const metaEl = document.getElementById('warpDiffMeta');
+        const badgeEl = document.getElementById('warpDiffBadge');
+        const btn = document.getElementById('btnWarpDiag');
+        if (!strip || !directEl || !warpEl || !badgeEl) return;
+
+        strip.classList.remove('hidden');
+        badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700';
+        badgeEl.textContent = 'Замер...';
+        if (btn) btn.disabled = true;
+
+        try {
+            const res = await fetch('/api/warp/diagnostics');
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Diagnostics failed');
+            }
+            const summary = data.summary || {};
+            const directIp = summary.direct_ip || (data.direct && data.direct.ip) || '—';
+            const warpIp = summary.warp_ip || (data.warp && data.warp.ip) || '—';
+            const warpStat = summary.warp_status || 'off';
+
+            directEl.textContent = directIp;
+            warpEl.textContent = warpIp;
+
+            const parts = [`warp=${warpStat}`];
+            if (summary.colo) parts.push(summary.colo);
+            if (summary.latency_delta_ms !== null && summary.latency_delta_ms !== undefined) {
+                const sign = summary.latency_delta_ms >= 0 ? '+' : '';
+                parts.push(`Δ ${sign}${summary.latency_delta_ms} ms`);
+            }
+            if (metaEl) metaEl.textContent = parts.join(' · ');
+
+            if (summary.ip_masked && warpIp !== '—') {
+                badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+                badgeEl.textContent = 'IP МАСКИРОВАН';
+            } else if (!data.warp_active || warpIp === '—') {
+                badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30';
+                badgeEl.textContent = 'WARP НЕ ОТВЕЧАЕТ';
+            } else {
+                badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30';
+                badgeEl.textContent = 'IP НЕ СМЕНИЛСЯ';
+            }
+        } catch (e) {
+            badgeEl.className = 'px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30';
+            badgeEl.textContent = 'ОШИБКА ЗАМЕРА';
+            if (metaEl) metaEl.textContent = '';
+            console.warn('WARP diagnostics failed:', e);
+        } finally {
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -1502,78 +1580,8 @@
         }
     }
 
-    // ==================== DYNAMIC ROUTING RULES & QUICK TEMPLATES ====================
+    // ==================== DYNAMIC ROUTING RULES ====================
     let allRoutingRules = [];
-
-    const QUICK_RULE_TEMPLATES = {
-        banks_ru: {
-            name: 'RU-Banks-Gosuslugi',
-            action: 'direct',
-            rule_type: 'suffix',
-            priority: 10,
-            rule_values: ['sberbank.ru', 'tbank.ru', 'gosuslugi.ru', 'vtb.ru', 'nalog.ru', 'mos.ru', 'ozon.ru', 'wb.ru'],
-            description: 'Российские банки, маркетплейсы и госсервисы напрямую'
-        },
-        ai_warp: {
-            name: 'AI-Services-WARP',
-            action: 'warp',
-            rule_type: 'suffix',
-            priority: 20,
-            rule_values: ['openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'gemini.google.com'],
-            description: 'OpenAI, Claude и Gemini через Cloudflare WARP'
-        },
-        crypto_warp: {
-            name: 'Crypto-Exchanges-WARP',
-            action: 'warp',
-            rule_type: 'suffix',
-            priority: 30,
-            rule_values: ['bybit.com', 'binance.com', 'okx.com', 'coinbase.com'],
-            description: 'Криптобиржи через чистый IP WARP'
-        },
-        media_warp: {
-            name: 'Media-Streaming-WARP',
-            action: 'warp',
-            rule_type: 'suffix',
-            priority: 40,
-            rule_values: ['youtube.com', 'googlevideo.com', 'ytimg.com', 'netflix.com', 'spotify.com', 'discord.com', 'discord.gg'],
-            description: 'YouTube, Netflix, Spotify и Discord через WARP'
-        },
-        ipcheck_warp: {
-            name: 'IP-Check-WARP',
-            action: 'warp',
-            rule_type: 'suffix',
-            priority: 50,
-            rule_values: ['2ip.ru', 'whoer.net', 'ipleak.net'],
-            description: 'Сервисы проверки IP через WARP'
-        }
-    };
-
-    async function applyQuickRuleTemplate(templateKey) {
-        const tpl = QUICK_RULE_TEMPLATES[templateKey];
-        if (!tpl) return;
-        const alreadyExists = allRoutingRules.some(r => r.name === tpl.name);
-        if (alreadyExists) {
-            showToast(`Правило "${tpl.name}" уже добавлено в список.`, 'info');
-            return;
-        }
-        try {
-            const res = await fetch('/api/routing/rules', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...tpl, enabled: true })
-            });
-            if (res.ok) {
-                showToast(`Шаблон "${tpl.name}" добавлен и применен!`, 'success');
-                await loadRoutingRules();
-                loadRoutingData();
-            } else {
-                const err = await res.json();
-                showToast(err.detail || 'Ошибка добавления шаблона', 'error');
-            }
-        } catch (e) {
-            showToast('Ошибка сети при добавлении шаблона', 'error');
-        }
-    }
 
     async function loadRoutingRules() {
         try {
@@ -1592,7 +1600,7 @@
         if (!tbody) return;
 
         if (!rules || rules.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Пользовательских правил нет. Нажмите "Добавить правило" или выберите шаблон выше.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Пользовательских правил нет. Нажмите «Добавить правило», чтобы создать правило маршрутизации.</td></tr>`;
             return;
         }
 

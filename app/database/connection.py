@@ -193,14 +193,15 @@ async def init_db():
                 ("custom_firewall_ports", "[]"),
                 ("routing_global_outbound", "direct"),
                 ("routing_ru", "direct"),
-                ("routing_openai", "warp"),
-                ("routing_discord", "warp"),
-                ("routing_youtube", "warp"),
-                ("routing_telegram", "direct"),
-                ("routing_netflix", "warp"),
-                ("routing_p2p", "block"),
-                ("routing_ads", "1"),
-                ("routing_win_spy", "1"),
+                ("routing_openai", "off"),
+                ("routing_discord", "off"),
+                ("routing_youtube", "off"),
+                ("routing_telegram", "off"),
+                ("routing_netflix", "off"),
+                ("routing_p2p", "allow"),
+                ("routing_ads", "0"),
+                ("routing_win_spy", "0"),
+                ("presets_cleared_v3", "1"),
             ]
             await db.executemany("INSERT INTO settings (key, value) VALUES (?, ?);", default_settings)
             logger.info("Default settings and admin account created.")
@@ -219,14 +220,14 @@ async def init_db():
             ("masquerade_target", "https://bing.com"),
             ("routing_global_outbound", "direct"),
             ("routing_ru", "direct"),
-            ("routing_openai", "warp"),
-            ("routing_discord", "warp"),
-            ("routing_youtube", "warp"),
-            ("routing_telegram", "direct"),
-            ("routing_netflix", "warp"),
-            ("routing_p2p", "block"),
-            ("routing_ads", "1"),
-            ("routing_win_spy", "1"),
+            ("routing_openai", "off"),
+            ("routing_discord", "off"),
+            ("routing_youtube", "off"),
+            ("routing_telegram", "off"),
+            ("routing_netflix", "off"),
+            ("routing_p2p", "allow"),
+            ("routing_ads", "0"),
+            ("routing_win_spy", "0"),
             ("sniff_enable", "1"),
             ("sniff_timeout", "2s"),
             ("sniff_rewrite_domain", "1"),
@@ -236,6 +237,27 @@ async def init_db():
                 INSERT INTO settings (key, value) VALUES (?, ?)
                 ON CONFLICT(key) DO NOTHING;
             """, (k, v))
+
+        # One-time migration on upgraded installations: remove legacy hidden service/ads/spy presets
+        mig_cur = await db.execute("SELECT value FROM settings WHERE key = 'presets_cleared_v3';")
+        mig_row = await mig_cur.fetchone()
+        if not mig_row or mig_row["value"] != "1":
+            cleanup_values = [
+                ("routing_openai", "off"),
+                ("routing_discord", "off"),
+                ("routing_youtube", "off"),
+                ("routing_telegram", "off"),
+                ("routing_netflix", "off"),
+                ("routing_p2p", "allow"),
+                ("routing_ads", "0"),
+                ("routing_win_spy", "0"),
+                ("presets_cleared_v3", "1"),
+            ]
+            for k, v in cleanup_values:
+                await db.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value;",
+                    (k, v),
+                )
 
         # Seed default inbound if table is empty
         cursor = await db.execute("SELECT COUNT(*) as count FROM inbounds;")

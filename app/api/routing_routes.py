@@ -13,7 +13,7 @@ from app.database.models import (
     ReorderRulesRequest,
     ValidateRuleRequest
 )
-from app.core.hysteria import apply_and_save_config, restart_hysteria
+from app.core.hysteria import apply_and_save_config, restart_hysteria, validate_geosite_tag_on_disk
 
 logger = logging.getLogger("innerblitz.routing_api")
 
@@ -179,6 +179,11 @@ def _validate_single_value(rule_type: str, val: str) -> Tuple[bool, str]:
             return False, f"Invalid geosite: '{val}'"
         if clean in ("bittorrent", "torrent", "p2p"):
             return False, f"Категории GeoSite '{clean}' не существует в базе geosite.dat (BitTorrent — это протокол, а не список доменов)."
+        if clean.split("@", 1)[0] == "ru":
+            return False, "Тега 'geosite:ru' нет в geosite.dat. Используйте 'category-ru' или тип 'suffix' со значением 'ru'."
+        gs_ok, gs_err = validate_geosite_tag_on_disk(clean)
+        if not gs_ok:
+            return False, gs_err
         return True, "Valid geosite"
 
     elif rule_type == "keyword":

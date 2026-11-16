@@ -174,6 +174,24 @@ install_hysteria_core() {
         log_error "Не удалось установить Hysteria 2!"
         exit 1
     fi
+
+    # Pre-seed Loyalsoldier GeoIP / GeoSite databases for Hysteria 2 ACL (contains category-ru, openai, etc.)
+    mkdir -p "${INSTALL_DIR}"
+    for geo_file in "geosite.dat" "geoip.dat"; do
+        if [ ! -s "${INSTALL_DIR}/${geo_file}" ] || [ "$(wc -c < "${INSTALL_DIR}/${geo_file}" 2>/dev/null || echo 0)" -lt 100000 ]; then
+            log_info "Загрузка базы ${geo_file} (Loyalsoldier/v2ray-rules-dat)..."
+            curl -fsSL --connect-timeout 10 --retry 2 "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/${geo_file}" -o "${INSTALL_DIR}/${geo_file}.tmp" \
+                || curl -fsSL --connect-timeout 10 --retry 2 "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/${geo_file}" -o "${INSTALL_DIR}/${geo_file}.tmp" \
+                || true
+            if [ -s "${INSTALL_DIR}/${geo_file}.tmp" ] && [ "$(wc -c < "${INSTALL_DIR}/${geo_file}.tmp" 2>/dev/null || echo 0)" -ge 100000 ]; then
+                mv -f "${INSTALL_DIR}/${geo_file}.tmp" "${INSTALL_DIR}/${geo_file}"
+                chmod 644 "${INSTALL_DIR}/${geo_file}"
+            else
+                rm -f "${INSTALL_DIR}/${geo_file}.tmp"
+                log_warn "Не удалось предварительно скачать ${geo_file}; Hysteria 2 скачает при запуске."
+            fi
+        fi
+    done
 }
 
 deploy_codebase() {

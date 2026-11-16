@@ -206,29 +206,59 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         self.assertNotIn("reject(geosite:bittorrent)", y_allow)
 
     def test_ru_routing_3way_modes(self):
-        """RU routing direct, warp, and block modes."""
+        """RU routing direct, warp, and block modes (using valid geosite:category-ru, never invalid geosite:ru)."""
         # 1. Block mode
         cfg_block = {"listen_port": 443, "warp_enabled": True, "routing_ru": "block"}
         y_block = build_hysteria_yaml(cfg_block)
-        self.assertIn("reject(geosite:ru)", y_block)
+        self.assertIn("reject(geosite:category-ru)", y_block)
         self.assertIn("reject(geoip:ru)", y_block)
+        self.assertNotIn("geosite:ru)", y_block)
 
         # 2. WARP mode
         cfg_warp = {"listen_port": 443, "warp_enabled": True, "routing_ru": "warp"}
         y_warp = build_hysteria_yaml(cfg_warp)
-        self.assertIn("warp(geosite:ru)", y_warp)
+        self.assertIn("warp(geosite:category-ru)", y_warp)
         self.assertIn("warp(geoip:ru)", y_warp)
+        self.assertNotIn("geosite:ru)", y_warp)
+        self.assertNotIn("geosite:ru,", y_warp)
 
         # 3. Direct mode with global warp
         cfg_direct = {"listen_port": 443, "routing_global_outbound": "warp", "routing_ru": "direct"}
         y_direct = build_hysteria_yaml(cfg_direct)
-        self.assertIn("direct(geosite:ru)", y_direct)
+        self.assertIn("direct(geosite:category-ru)", y_direct)
         self.assertIn("direct(geoip:ru)", y_direct)
+        self.assertNotIn("geosite:ru)", y_direct)
 
         # 4. Unsupported fallback
         cfg_invalid = {"listen_port": 443, "routing_ru": "invalid_mode_xyz"}
         y_invalid = build_hysteria_yaml(cfg_invalid)
         self.verify_valid_hysteria_yaml(y_invalid)
+
+    def test_invalid_geosite_ru_rejected_and_normalized(self):
+        """validate_hysteria_config rejects geosite:ru and compile_acl_rules normalizes custom geosite:ru."""
+        from app.core.hysteria import compile_acl_rules
+        bad_cfg = """
+listen: :443
+tls:
+  cert: /etc/hysteria/server.crt
+  key: /etc/hysteria/server.key
+auth:
+  type: http
+  http:
+    url: http://127.0.0.1:28262/auth
+acl:
+  inline:
+    - warp(geosite:ru)
+"""
+        ok, err = validate_hysteria_config(bad_cfg)
+        self.assertFalse(ok)
+        self.assertIn("category-ru", err)
+
+        acl = compile_acl_rules([
+            {"id": 1, "action": "direct", "rule_type": "geosite", "rule_values": ["ru"], "enabled": True}
+        ], global_outbound="direct")
+        self.assertIn("direct(geosite:category-ru)", acl)
+        self.assertNotIn("direct(geosite:ru)", acl)
 
     def test_service_presets_routing(self):
         """Individual service presets (OpenAI, Discord, YouTube, Telegram, Netflix)."""
@@ -380,7 +410,8 @@ class TestM2_RoutingAPIRoutes(OpaqueE2ETestCase):
         # Verify config.yaml reflection
         cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
         cfg_yaml = cfg_path.read_text(encoding="utf-8")
-        self.assertIn("warp(geosite:ru)", cfg_yaml)
+        self.assertIn("warp(geosite:category-ru)", cfg_yaml)
+        self.assertNotIn("geosite:ru)", cfg_yaml)
         self.assertNotIn("reject(geosite:bittorrent)", cfg_yaml)
         self.assertNotIn("reject(geosite:category-ads-all)", cfg_yaml)
 

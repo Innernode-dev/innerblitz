@@ -2,17 +2,127 @@ import os
 import subprocess
 import logging
 import json
+import re
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional, List, Set
 from app.config import settings
 from app.database import crud
 
 import yaml
 import shutil
-from typing import Dict, Any, Tuple, Optional, List
 from app.core.firewall import validate_port_hopping_string
 
 logger = logging.getLogger("innerblitz.hysteria")
+
+# Tags confirmed absent from Loyalsoldier/v2ray-rules-dat & v2fly domain-list-community
+_INVALID_GEOSITE_TAGS = frozenset({"ru", "bittorrent", "torrent", "p2p"})
+_DAT_TAG_CACHE: Dict[str, Tuple[float, int, Set[str]]] = {}
+
+
+def _read_varint(buf: bytes, idx: int) -> Tuple[int, int]:
+    """Decode a base-128 protobuf varint safely within buffer bounds."""
+    val = 0
+    shift = 0
+    buf_len = len(buf)
+    while idx < buf_len:
+        b = buf[idx]
+        idx += 1
+        val |= (b & 0x7F) << shift
+        if not (b & 0x80):
+            return val, idx
+        shift += 7
+        if shift > 63:
+            raise ValueError("Malformed protobuf varint")
+    raise ValueError("Truncated protobuf varint")
+
+
+def _load_dat_tags(dat_path: Path) -> Optional[Set[str]]:
+    """
+    Extract available category/country codes from a V2Ray geosite.dat / geoip.dat
+    protobuf file without requiring third-party protobuf packages.
+    Returns None if file is absent or unreadable/corrupted.
+    """
+    try:
+        if not dat_path.is_file():
+            return None
+        stat = dat_path.stat()
+        if stat.st_size <= 0 or stat.st_size > 100 * 1024 * 1024:
+            return None
+        key = str(dat_path.resolve())
+        cached = _DAT_TAG_CACHE.get(key)
+        if cached and cached[0] == stat.st_mtime and cached[1] == stat.st_size:
+            return cached[2]
+
+        data = dat_path.read_bytes()
+        n = len(data)
+        i = 0
+        codes: Set[str] = set()
+        while i < n:
+            tag, i = _read_varint(data, i)
+            wire = tag & 7
+            if wire == 2:
+                length, i = _read_varint(data, i)
+                end = i + length
+                if end > n:
+                    return None
+                j = i
+                i = end
+                while j < end:
+                    sub_tag, j = _read_varint(data, j)
+                    field_num, sub_wire = sub_tag >> 3, sub_tag & 7
+                    if sub_wire == 2:
+                        sub_len, j = _read_varint(data, j)
+                        if j + sub_len > end:
+                            return None
+                        if field_num == 1:
+                            code = data[j : j + sub_len].decode("utf-8", "ignore").strip().lower()
+                            if code:
+                                codes.add(code)
+                        j += sub_len
+                    elif sub_wire == 0:
+                        _, j = _read_varint(data, j)
+                    else:
+                        break
+            elif wire == 0:
+                _, i = _read_varint(data, i)
+            else:
+                return None
+
+        if codes:
+            _DAT_TAG_CACHE[key] = (stat.st_mtime, stat.st_size, codes)
+            return codes
+        return None
+    except Exception as e:
+        logger.debug(f"Could not inspect dat tags in {dat_path}: {e}")
+        return None
+
+
+def _extract_geo_tag(matcher: str, prefix: str) -> Optional[str]:
+    """Extract normalized geo tag from matcher string (handling attributes like '@cn' and ', proto/port')."""
+    head = matcher.split(",", 1)[0].strip().lower()
+    if not head.startswith(prefix):
+        return None
+    raw_tag = head[len(prefix) :].strip()
+    return raw_tag.split("@", 1)[0].strip()
+
+
+def validate_geosite_tag_on_disk(tag_name: str, config_dir: Optional[Path] = None) -> Tuple[bool, str]:
+    """
+    Validate a GeoSite tag against known missing tags and, when geosite.dat is
+    present in the Hysteria config directory, against its actual category index.
+    """
+    clean_tag = tag_name.split("@", 1)[0].strip().lower()
+    if clean_tag in _INVALID_GEOSITE_TAGS:
+        if clean_tag == "ru":
+            return False, "GeoSite name 'ru' not found in geosite.dat; use 'geosite:category-ru' or 'suffix:ru'"
+        return False, f"GeoSite name '{clean_tag}' not found in standard geosite.dat"
+
+    base_dir = config_dir or Path(settings.HYSTERIA_CONFIG_PATH).parent
+    geosite_path = base_dir / "geosite.dat"
+    available_tags = _load_dat_tags(geosite_path)
+    if available_tags is not None and clean_tag not in available_tags:
+        return False, f"GeoSite name '{clean_tag}' not found in {geosite_path}"
+    return True, "OK"
 
 class ConfigApplyResult(tuple):
     """
@@ -107,18 +217,33 @@ def validate_hysteria_config(content: str) -> Tuple[bool, str]:
                 if not arg:
                     return False, f"Malformed ACL rule syntax: '{rule_str}'. Empty rule body."
 
-                # If rule is outbound(name, pattern)
+                # If rule is outbound(name, pattern[, proto/port])
+                matcher_expr = arg
                 if action_name == "outbound":
                     parts = [p.strip() for p in arg.split(",", 1)]
                     if len(parts) < 2:
                         return False, f"Invalid outbound ACL rule format: '{rule_str}'. Expected: outbound(name, pattern)"
                     target_ob = parts[0]
+                    matcher_expr = parts[1]
                     if known_outbounds and target_ob not in known_outbounds and target_ob not in ("direct", "warp"):
                         return False, f"ACL rule references unknown outbound '{target_ob}': '{rule_str}'"
                 elif action_name not in ("direct", "reject"):
                     # Custom outbound direct action, e.g. warp(...)
                     if known_outbounds and action_name not in known_outbounds and action_name != "warp":
                         return False, f"ACL rule references unknown action/outbound '{action_name}': '{rule_str}'"
+
+                config_dir = Path(settings.HYSTERIA_CONFIG_PATH).parent
+                gs_tag = _extract_geo_tag(matcher_expr, "geosite:")
+                if gs_tag is not None:
+                    gs_ok, gs_err = validate_geosite_tag_on_disk(gs_tag, config_dir=config_dir)
+                    if not gs_ok:
+                        return False, f"Invalid GeoSite in ACL rule '{rule_str}': {gs_err}"
+
+                gi_tag = _extract_geo_tag(matcher_expr, "geoip:")
+                if gi_tag is not None:
+                    geoip_tags = _load_dat_tags(config_dir / "geoip.dat")
+                    if geoip_tags is not None and gi_tag not in geoip_tags:
+                        return False, f"Invalid GeoIP in ACL rule '{rule_str}': GeoIP '{gi_tag}' not found in geoip.dat"
 
     return True, "Configuration is valid"
 
@@ -232,14 +357,15 @@ def compile_acl_rules(
         elif mode == "direct" and warp_is_active and global_out == "warp":
             routing_rules.append(f"direct({geosite})")
 
-    # 4. RU Traffic routing rules (geosite:ru, geoip:ru, .ru/.su/.рф suffixes)
+    # 4. RU Traffic routing rules (geosite:category-ru, geoip:ru, .ru/.su/.рф suffixes)
+    # Note: standard Loyalsoldier/v2fly geosite.dat provides 'category-ru' (never bare 'ru').
     ru_mode = str(presets.get("routing_ru") or presets.get("ru_routing", "direct") or "direct").strip().lower()
     if ru_mode not in ("direct", "warp", "block"):
         ru_mode = "direct"
 
     if ru_mode == "block":
         reject_rules.extend([
-            "reject(geosite:ru)",
+            "reject(geosite:category-ru)",
             "reject(geoip:ru)",
             "reject(suffix:ru)",
             "reject(suffix:su)",
@@ -249,13 +375,13 @@ def compile_acl_rules(
         # Reject HTTP/3 QUIC (UDP/443) for WARP SOCKS5 so browsers fall back to TCP/HTTPS immediately
         if warp_mode != "wireguard":
             reject_rules.extend([
-                "reject(geosite:ru, udp/443)",
+                "reject(geosite:category-ru, udp/443)",
                 "reject(suffix:ru, udp/443)",
                 "reject(suffix:su, udp/443)",
                 "reject(suffix:xn--p1ai, udp/443)",
             ])
         routing_rules.extend([
-            "warp(geosite:ru)",
+            "warp(geosite:category-ru)",
             "warp(geoip:ru)",
             "warp(suffix:ru)",
             "warp(suffix:su)",
@@ -263,7 +389,7 @@ def compile_acl_rules(
         ])
     elif ru_mode == "direct" and warp_is_active:
         routing_rules.extend([
-            "direct(geosite:ru)",
+            "direct(geosite:category-ru)",
             "direct(geoip:ru)",
             "direct(suffix:ru)",
             "direct(suffix:su)",
@@ -314,8 +440,11 @@ def compile_acl_rules(
                 matchers = [f"geoip:{clean}"]
             elif rule_type == "geosite":
                 clean = val.removeprefix("geosite:").strip().lower()
-                if clean in ("bittorrent", "torrent", "p2p"):
+                base_tag = clean.split("@", 1)[0].strip()
+                if base_tag in ("bittorrent", "torrent", "p2p"):
                     continue
+                if base_tag == "ru":
+                    clean = "category-ru" + (f"@{clean.split('@', 1)[1]}" if "@" in clean else "")
                 matchers = [f"geosite:{clean}"]
             else:
                 matchers = [val]
@@ -338,13 +467,29 @@ def compile_acl_rules(
     elif warp_is_active:
         fallback_rule = "direct(all)"
 
-    # Deduplicate rules while strictly preserving insertion order
+    # Deduplicate rules while strictly preserving insertion order and filtering unknown GeoSite/GeoIP tags when .dat files exist
+    config_dir = Path(settings.HYSTERIA_CONFIG_PATH).parent
+    geosite_tags = _load_dat_tags(config_dir / "geosite.dat")
+    geoip_tags = _load_dat_tags(config_dir / "geoip.dat")
+
     all_acl: List[str] = []
     seen = set()
     for rule in reject_rules + custom_rules_acl + routing_rules:
-        if rule not in seen:
-            seen.add(rule)
-            all_acl.append(rule)
+        if rule in seen:
+            continue
+        paren_open = rule.find("(")
+        if paren_open != -1 and rule.endswith(")"):
+            inner = rule[paren_open + 1 : -1]
+            gs_tag = _extract_geo_tag(inner, "geosite:")
+            if gs_tag is not None and (gs_tag in _INVALID_GEOSITE_TAGS or (geosite_tags is not None and gs_tag not in geosite_tags)):
+                logger.warning(f"Skipping unavailable GeoSite ACL rule '{rule}' (tag '{gs_tag}' absent)")
+                continue
+            gi_tag = _extract_geo_tag(inner, "geoip:")
+            if gi_tag is not None and geoip_tags is not None and gi_tag not in geoip_tags:
+                logger.warning(f"Skipping unavailable GeoIP ACL rule '{rule}' (tag '{gi_tag}' absent)")
+                continue
+        seen.add(rule)
+        all_acl.append(rule)
 
     if fallback_rule and fallback_rule not in seen:
         all_acl.append(fallback_rule)

@@ -162,8 +162,32 @@ fi
 # 6. Service setup and shortcuts
 echo -e "${C_YELLOW}[5/5] Перезапуск системных служб...${C_RESET}"
 chmod 755 /etc/hysteria 2>/dev/null || true
-chmod 644 /etc/hysteria/*.key /etc/hysteria/*.crt /etc/hysteria/config.yaml 2>/dev/null || true
+
+# Ensure valid Loyalsoldier GeoIP / GeoSite databases exist on disk
+for geo_file in "geosite.dat" "geoip.dat"; do
+    need_dl=0
+    if [ ! -s "/etc/hysteria/${geo_file}" ] || [ "$(wc -c < "/etc/hysteria/${geo_file}" 2>/dev/null || echo 0)" -lt 100000 ]; then
+        need_dl=1
+    elif [ "$geo_file" == "geosite.dat" ]; then
+        if ! $PYTHON_BIN -c "from pathlib import Path; from app.core.hysteria import _load_dat_tags; t = _load_dat_tags(Path('/etc/hysteria/geosite.dat')); exit(0 if t and 'category-ru' in t else 1)" 2>/dev/null; then
+            need_dl=1
+        fi
+    fi
+    if [ "$need_dl" -eq 1 ]; then
+        curl -fsSL --connect-timeout 10 --retry 2 "https://cdn.jsdelivr.net/gh/Loyalsoldier/v2ray-rules-dat@release/${geo_file}" -o "/etc/hysteria/${geo_file}.tmp" \
+            || curl -fsSL --connect-timeout 10 --retry 2 "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/${geo_file}" -o "/etc/hysteria/${geo_file}.tmp" \
+            || true
+        if [ -s "/etc/hysteria/${geo_file}.tmp" ] && [ "$(wc -c < "/etc/hysteria/${geo_file}.tmp" 2>/dev/null || echo 0)" -ge 100000 ]; then
+            mv -f "/etc/hysteria/${geo_file}.tmp" "/etc/hysteria/${geo_file}"
+        else
+            rm -f "/etc/hysteria/${geo_file}.tmp"
+        fi
+    fi
+done
+
+chmod 644 /etc/hysteria/*.key /etc/hysteria/*.crt /etc/hysteria/config.yaml /etc/hysteria/*.dat 2>/dev/null || true
 sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
+sed -i 's/geosite:ru\([,)]\)/geosite:category-ru\1/g' /etc/hysteria/config.yaml 2>/dev/null || true
 $CLI_CMD reconfig >/dev/null 2>&1 || true
 
 # Ensure Hysteria service unit runs as root
@@ -190,6 +214,11 @@ systemctl daemon-reload
 systemctl enable hysteria-server.service innerblitz.service --quiet 2>/dev/null || true
 systemctl restart hysteria-server.service || true
 systemctl restart innerblitz.service || true
+sleep 1
+if ! systemctl is-active --quiet hysteria-server.service; then
+    echo -e "${C_RED}[!] hysteria-server.service не запустился — последние строки журнала:${C_RESET}"
+    journalctl -u hysteria-server.service -n 10 --no-pager || true
+fi
 
 # Ensure firewall allows incoming connections to panel port and hysteria port
 iptables -P INPUT ACCEPT 2>/dev/null || true

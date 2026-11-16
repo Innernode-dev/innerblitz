@@ -175,6 +175,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
+WorkingDirectory=/etc/hysteria
 ExecStart=/usr/local/bin/hysteria server --config /etc/hysteria/config.yaml
 Restart=always
 RestartSec=3s

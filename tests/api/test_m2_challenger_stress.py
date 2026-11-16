@@ -99,7 +99,6 @@ class TestRoutingRulePriorityTieBreaking(OpaqueE2ETestCase):
             expected_lines.extend([
                 f"{action_tag}({val})",
                 f"{action_tag}(suffix:{val})",
-                f"{action_tag}(domain:{val})",
             ])
         self.assertEqual(acl_collision_lines, expected_lines)
 

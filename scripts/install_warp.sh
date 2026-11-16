@@ -77,16 +77,21 @@ install_cloudflare_warp_socks5() {
 
     log "INFO" "[PHASE 2/5] Starting and enabling warp-svc systemd unit..."
     systemctl enable --now warp-svc
-    sleep 2
+    for _ in {1..10}; do
+        if warp-cli --accept-tos status >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
 
     log "INFO" "[PHASE 3/5] Registering WARP client account..."
     # Support both newer (v2024+) and legacy warp-cli syntax
     warp-cli --accept-tos registration new 2>/dev/null || warp-cli --accept-tos register 2>/dev/null || true
 
     log "INFO" "[PHASE 4/5] Configuring SOCKS5 Proxy Mode on 127.0.0.1:$PORT..."
-    warp-cli --accept-tos mode proxy
-    warp-cli --accept-tos proxy port "$PORT"
-    warp-cli --accept-tos connect
+    warp-cli --accept-tos mode proxy 2>/dev/null || warp-cli --accept-tos set-mode proxy
+    warp-cli --accept-tos proxy port "$PORT" 2>/dev/null || warp-cli --accept-tos set-proxy-port "$PORT"
+    warp-cli --accept-tos connect || true
 
     log "INFO" "[PHASE 5/5] Verifying Cloudflare SOCKS5 connectivity..."
     local ok=0
@@ -137,14 +142,16 @@ install_wgcf_wireguard() {
     log "INFO" "[PHASE 3/5] Generating WireGuard WARP configuration profile..."
     /usr/local/bin/wgcf generate
 
-    log "INFO" "[PHASE 4/5] Tuning /etc/wireguard/warp.conf (Table = off to prevent routing conflicts)..."
+    log "INFO" "[PHASE 4/5] Tuning /etc/wireguard/warp.conf (Table = 51820, MTU = 1280, policy routing & TCPMSS)..."
     cp -f wgcf-profile.conf /etc/wireguard/warp.conf
-    # Ensure Table = off is present in [Interface] to prevent overriding server default route
-    if ! grep -q "Table = off" /etc/wireguard/warp.conf; then
-        sed -i '/\[Interface\]/a Table = off' /etc/wireguard/warp.conf
-    fi
+    sed -i '/^Table[[:space:]]*=/d' /etc/wireguard/warp.conf
+    sed -i '/^MTU[[:space:]]*=/d' /etc/wireguard/warp.conf
+    sed -i '/^DNS[[:space:]]*=/d' /etc/wireguard/warp.conf
+    sed -i '/^PostUp[[:space:]]*=/d' /etc/wireguard/warp.conf
+    sed -i '/^PostDown[[:space:]]*=/d' /etc/wireguard/warp.conf
+    sed -i '/\[Interface\]/a Table = 51820\nMTU = 1280\nPostUp = ip -4 rule add oif %i lookup 51820 prio 30001 || true\nPostUp = iptables -t nat -C POSTROUTING -o %i -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o %i -j MASQUERADE\nPostUp = iptables -t mangle -C POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || iptables -t mangle -A POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220\nPostDown = ip -4 rule del oif %i lookup 51820 prio 30001 || true\nPostDown = iptables -t nat -D POSTROUTING -o %i -j MASQUERADE 2>/dev/null || true\nPostDown = iptables -t mangle -D POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || true' /etc/wireguard/warp.conf
 
-    systemctl enable --now wg-quick@warp
+    systemctl restart wg-quick@warp 2>/dev/null || systemctl enable --now wg-quick@warp
     sleep 2
 
     log "INFO" "[PHASE 5/5] Verifying WireGuard interface connectivity..."

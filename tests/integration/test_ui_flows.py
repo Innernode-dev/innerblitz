@@ -116,6 +116,22 @@ class TestUIFlowsAndTemplates(OpaqueE2ETestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn("text/html", res.headers.get("content-type", ""))
 
+    def test_authenticated_config_editor_renders_200(self):
+        """Authenticated user accessing /config receives 200 OK rendering config.html."""
+        self.login_admin()
+        res = self.client.get("/config")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("text/html", res.headers.get("content-type", ""))
+        self.assertNotIn("TemplateSyntaxError", res.text)
+        self.assertIn("rawYamlEditor", res.text)
+
+        # Regenerate endpoint rebuilds valid config.yaml
+        regen_res = self.client.post("/api/settings/regenerate-config")
+        self.assertEqual(regen_res.status_code, 200)
+        regen_data = regen_res.json()
+        self.assertTrue(regen_data.get("ok"))
+        self.assertIn("listen:", regen_data.get("content", ""))
+
     def test_client_subscription_portal_renders_200(self):
         """User accessing /portal/{sub_token} receives 200 OK with client_portal.html."""
         user = self.create_test_user(username="portal_viewer")

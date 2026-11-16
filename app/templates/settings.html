@@ -1,25 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}Настройки панели и безопасность{% endblock %}
-{% block page_title %}Настройки панели, Стелс и Безопасность{% endblock %}
+{% block title %}Маршрутизация, настройки и стелс{% endblock %}
+{% block page_title %}Маршрутизация, Стелс и Безопасность{% endblock %}
 
 {% block content %}
-<div class="space-y-8 max-w-5xl">
+<div class="space-y-6 max-w-6xl">
 
     <!-- 0. Интеллектуальная Маршрутизация & Cloudflare WARP -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-blue-500 shadow-xl">
-        <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6 shadow-xl">
+        <div class="border-b border-[#1c263b] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="split" class="w-5 h-5 text-blue-400"></i>
+                <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="split" class="w-5 h-5 text-cyan-400"></i>
                     <span>Маршрутизация трафика & Cloudflare WARP</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    Интеллектуальное управление правилами ACL Hysteria 2 без ручной правки YAML-файлов
+                    Только явные шлюзы (Direct / WARP), гео-маршрут РФ и ваши правила ACL без скрытых пресетов
                 </p>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="saveRoutingRules()" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="/config" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-semibold transition flex items-center gap-1.5">
+                    <i data-lucide="file-code" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Конфиг YAML</span>
+                </a>
+                <button onclick="saveRoutingRules()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
                     <i data-lucide="save" class="w-4 h-4"></i>
                     <span>Применить правила</span>
                 </button>
@@ -28,10 +32,10 @@
 
         <!-- Global Outbound Gateway Switcher -->
         <div class="space-y-3">
-            <label class="block text-xs font-semibold text-slate-300">Основной шлюз выхода в интернет (Global Outbound)</label>
+            <label class="block text-xs font-bold text-slate-300">Основной шлюз выхода в интернет (Global Outbound)</label>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <label id="outboundDirectCard" class="p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
-                    <input type="radio" name="global_outbound" id="outboundDirect" value="direct" class="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800" onchange="handleOutboundChange('direct')">
+                <label id="outboundDirectCard" class="p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
+                    <input type="radio" name="global_outbound" id="outboundDirect" value="direct" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('direct')">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-bold text-white">Прямой IP сервера (Direct)</span>
@@ -41,71 +45,76 @@
                     </div>
                 </label>
 
-                <label id="outboundWarpCard" class="p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
-                    <input type="radio" name="global_outbound" id="outboundWarp" value="warp" class="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800" onchange="handleOutboundChange('warp')">
+                <label id="outboundWarpCard" class="p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700">
+                    <input type="radio" name="global_outbound" id="outboundWarp" value="warp" class="mt-1 w-4 h-4 text-cyan-500 focus:ring-cyan-500 bg-slate-950 border-slate-700" onchange="handleOutboundChange('warp')">
                     <div class="space-y-1">
                         <div class="flex items-center gap-2">
                             <span class="text-sm font-bold text-white">Cloudflare WARP (IP Cloudflare)</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 font-mono">Анонимность</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 font-mono">Анонимность</span>
                         </div>
-                        <p class="text-xs text-slate-400">Весь трафик маскируется под чистый IP адрес сети Cloudflare. IP хостинга не светится.</p>
+                        <p class="text-xs text-slate-400">Весь трафик маскируется под чистый IP адрес сети Cloudflare. IP хостинга скрыт.</p>
                     </div>
                 </label>
             </div>
         </div>
 
         <!-- Cloudflare WARP Lifecycle & Diagnostics Block -->
-        <div class="p-5 rounded-2xl bg-slate-900/70 border border-slate-800 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+        <div class="p-4 sm:p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1c263b] pb-3">
                 <div class="flex items-center gap-2.5">
                     <i data-lucide="cloud-lightning" class="w-5 h-5 text-amber-400"></i>
                     <div>
-                        <h4 class="text-sm font-bold text-white">Интеллектуальный жизненный цикл WARP</h4>
+                        <h4 class="text-sm font-bold text-white">Состояние и диагностика Cloudflare WARP</h4>
                         <span class="text-[11px] text-slate-400" id="warpDetectionNote">Авто-определение существующего WireGuard / SOCKS5 подключения</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-2">
-                    <span id="warpStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span id="warpStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-slate-500"></span>
                         <span id="warpStatusText">Проверка...</span>
                     </span>
-                    <button onclick="checkWarpStatus()" title="Обновить статус WARP" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition border border-slate-700">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                    <button onclick="checkWarpStatus()" title="Проверить статус WARP" class="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium transition border border-slate-800 flex items-center gap-1.5">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        <span>Статус</span>
+                    </button>
+                    <button onclick="repairWarp()" title="Переподключить WARP и починить маршрутизацию" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-semibold transition border border-amber-500/25 flex items-center gap-1.5">
+                        <i data-lucide="wrench" class="w-3.5 h-3.5"></i>
+                        <span>Починить WARP</span>
                     </button>
                 </div>
             </div>
 
             <!-- Diagnostics Metrics -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                    <span class="text-slate-500 block text-[11px]">Внешний IP WARP</span>
-                    <span class="font-mono font-bold text-white mt-0.5 block truncate" id="warpDiagIp">—</span>
+                <div class="p-3 rounded-xl bg-[#0b111e] border border-[#1c263b]">
+                    <span class="text-slate-400 block text-[11px]">Внешний IP WARP</span>
+                    <span class="font-mono tabular-nums font-bold text-white mt-0.5 block truncate" id="warpDiagIp">—</span>
                 </div>
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                    <span class="text-slate-500 block text-[11px]">Статус Cloudflare</span>
-                    <span class="font-semibold text-emerald-400 mt-0.5 block" id="warpDiagStatus">—</span>
+                <div class="p-3 rounded-xl bg-[#0b111e] border border-[#1c263b]">
+                    <span class="text-slate-400 block text-[11px]">Статус Cloudflare</span>
+                    <span class="font-semibold text-emerald-400 mt-0.5 block font-mono" id="warpDiagStatus">—</span>
                 </div>
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                    <span class="text-slate-500 block text-[11px]">Пинг / Задержка</span>
-                    <span class="font-mono text-cyan-300 mt-0.5 block" id="warpDiagPing">—</span>
+                <div class="p-3 rounded-xl bg-[#0b111e] border border-[#1c263b]">
+                    <span class="text-slate-400 block text-[11px]">Пинг / Задержка</span>
+                    <span class="font-mono tabular-nums text-cyan-300 mt-0.5 block" id="warpDiagPing">—</span>
                 </div>
-                <div class="p-3 rounded-xl bg-slate-950 border border-slate-800/80">
-                    <span class="text-slate-500 block text-[11px]">Тип подключения</span>
-                    <span class="font-mono text-slate-300 mt-0.5 block" id="warpDiagMode">—</span>
+                <div class="p-3 rounded-xl bg-[#0b111e] border border-[#1c263b]">
+                    <span class="text-slate-400 block text-[11px]">Тип подключения</span>
+                    <span class="font-mono text-slate-200 mt-0.5 block truncate" id="warpDiagMode">—</span>
                 </div>
             </div>
 
             <!-- WARP Actions & 1-Click Installer -->
             <div class="flex flex-wrap items-center justify-between gap-3 pt-1">
                 <div class="text-[11px] text-slate-400">
-                    Для чистого сервера доступна автоматическая установка WireGuard WARP в 1 клик.
+                    Для чистого сервера доступна автоматическая установка WARP (SOCKS5 / WireGuard) в 1 клик.
                 </div>
                 <div class="flex items-center gap-2">
-                    <button onclick="openWarpLogModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition border border-slate-700 flex items-center gap-1.5">
+                    <button onclick="openWarpLogModal()" class="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium transition border border-slate-800 flex items-center gap-1.5">
                         <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
                         <span>Лог установки</span>
                     </button>
-                    <button id="btnInstallWarp" onclick="startWarpInstall()" class="px-4 py-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-500 hover:from-amber-500 hover:to-orange-400 text-white text-xs font-bold transition shadow-md shadow-amber-600/20 flex items-center gap-1.5">
+                    <button id="btnInstallWarp" onclick="startWarpInstall()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition shadow-md shadow-amber-500/20 flex items-center gap-1.5">
                         <i data-lucide="download-cloud" class="w-4 h-4"></i>
                         <span>Установить WARP в 1 клик</span>
                     </button>
@@ -114,44 +123,44 @@
         </div>
 
         <!-- Special Rule for Russian Federation (RU traffic) -->
-        <div class="space-y-3 pt-2 border-t border-slate-800">
+        <div class="space-y-3 pt-2 border-t border-[#1c263b]">
             <div class="flex items-center justify-between">
                 <div>
-                    <label class="block text-xs font-semibold text-slate-200">Специальное правило для РФ (geosite:ru и geoip:ru)</label>
-                    <span class="text-[11px] text-slate-400">Направление для сайтов зоны .RU, Госуслуг, банков и российских IP</span>
+                    <label class="block text-xs font-bold text-slate-200">Специальное правило для РФ (geosite:ru, geoip:ru, .ru / .su / .рф)</label>
+                    <span class="text-[11px] text-slate-400">Направление для сайтов зоны .RU, Госуслуг, банков и российских IP адресов</span>
                 </div>
-                <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Гео-роутинг</span>
+                <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Гео-роутинг</span>
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label id="ruDirectLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="direct" id="ruModeDirect" class="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-slate-950 border-slate-800">
+                <label id="ruDirectLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="direct" id="ruModeDirect" class="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
                             <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                            <span>⚡ Напрямую</span>
+                            <span>Напрямую (Direct)</span>
                         </div>
                         <span class="text-[11px] text-slate-400">Через хостинг (мин. пинг)</span>
                     </div>
                 </label>
 
-                <label id="ruWarpLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="warp" id="ruModeWarp" class="w-4 h-4 text-blue-600 focus:ring-blue-500 bg-slate-950 border-slate-800">
+                <label id="ruWarpLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="warp" id="ruModeWarp" class="w-4 h-4 text-amber-500 focus:ring-amber-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-blue-400"></span>
-                            <span>🛡️ Через WARP</span>
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>Через WARP</span>
                         </div>
-                        <span class="text-[11px] text-slate-400">Под IP Cloudflare</span>
+                        <span class="text-[11px] text-slate-400">Выход через IP Cloudflare</span>
                     </div>
                 </label>
 
-                <label id="ruBlockLabel" class="p-3.5 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
-                    <input type="radio" name="routing_ru" value="block" id="ruModeBlock" class="w-4 h-4 text-red-600 focus:ring-red-500 bg-slate-950 border-slate-800">
+                <label id="ruBlockLabel" class="p-3.5 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-center gap-3 hover:border-slate-700">
+                    <input type="radio" name="routing_ru" value="block" id="ruModeBlock" class="w-4 h-4 text-rose-500 focus:ring-rose-500 bg-slate-950 border-slate-700">
                     <div>
                         <div class="text-xs font-bold text-white flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-red-400"></span>
-                            <span>🚫 Блокировать</span>
+                            <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                            <span>Блокировать</span>
                         </div>
                         <span class="text-[11px] text-slate-400">Запрет RU трафика</span>
                     </div>
@@ -159,60 +168,30 @@
             </div>
         </div>
 
-        <!-- Quick Security Toggles -->
-        <div class="space-y-3 pt-2 border-t border-slate-800">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="space-y-0.5">
-                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
-                            <i data-lucide="shield-ban" class="w-4 h-4 text-red-400"></i>
-                            <span>Блокировка рекламы (category-ads-all)</span>
-                        </span>
-                        <span class="text-[11px] text-slate-400">Автоматическая фильтрация рекламных и трекинговых доменов</span>
-                    </div>
-                    <input type="checkbox" id="routeAds" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
-                </div>
-
-                <div class="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
-                    <div class="space-y-0.5">
-                        <span class="text-xs font-bold text-white flex items-center gap-1.5">
-                            <i data-lucide="eye-off" class="w-4 h-4 text-purple-400"></i>
-                            <span>Блокировка телеметрии Windows (win-spy)</span>
-                        </span>
-                        <span class="text-[11px] text-slate-400">Блокирует отправку телеметрии и отчетов Microsoft</span>
-                    </div>
-                    <input type="checkbox" id="routeWinSpy" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
-                </div>
-            </div>
-        </div>
-
         <!-- Sniffing & Port Hopping Interactive Controls -->
-        <div class="space-y-3 pt-2 border-t border-slate-800">
-            <div class="flex items-center justify-between">
-                <div>
-                    <label class="block text-xs font-semibold text-slate-200">Параметры Sniffing & Скачков портов (Port Hopping)</label>
-                    <span class="text-[11px] text-slate-400">Тонкие сетевые настройки обнаружения доменов и обхода фильтрации UDP</span>
-                </div>
+        <div class="space-y-3 pt-2 border-t border-[#1c263b]">
+            <div>
+                <label class="block text-xs font-bold text-slate-200">Параметры Sniffing & Скачков портов (Port Hopping)</label>
+                <span class="text-[11px] text-slate-400">Тонкие сетевые настройки обнаружения доменов и обхода фильтрации UDP</span>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Sniffing Block -->
-                <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-white flex items-center gap-1.5">
                             <i data-lucide="search" class="w-4 h-4 text-cyan-400"></i>
                             <span>Распознавание доменов (Sniffing)</span>
                         </span>
-                        <input type="checkbox" id="cfgSniffEnable" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" id="cfgSniffEnable" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                     </div>
                     <div class="grid grid-cols-2 gap-3 pt-1">
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Таймаут (Timeout)</label>
-                            <input type="text" id="cfgSniffTimeout" placeholder="2s" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-white">
+                            <input type="text" id="cfgSniffTimeout" placeholder="2s" class="w-full px-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono text-white">
                         </div>
                         <div>
                             <label class="block text-[11px] text-slate-400 mb-1">Rewrite Domain</label>
-                            <select id="cfgSniffRewrite" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white">
+                            <select id="cfgSniffRewrite" class="w-full px-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-white">
                                 <option value="true" selected>Включено (Рекомендуется)</option>
                                 <option value="false">Выключено</option>
                             </select>
@@ -220,48 +199,69 @@
                     </div>
                 </div>
 
-                <!-- Port Hopping Block -->
-                <div class="p-4 rounded-xl bg-slate-900/70 border border-slate-800 space-y-3">
+                <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-3">
                     <div class="flex items-center justify-between">
                         <span class="text-xs font-bold text-white flex items-center gap-1.5">
                             <i data-lucide="shuffle" class="w-4 h-4 text-amber-400"></i>
                             <span>Port Hopping (Скачки UDP портов)</span>
                         </span>
-                        <input type="checkbox" id="cfgPortHoppingEnable" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" id="cfgPortHoppingEnable" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                     </div>
                     <div>
                         <label class="block text-[11px] text-slate-400 mb-1">Диапазон UDP портов</label>
-                        <input type="text" id="cfgPortHoppingRange" placeholder="20000:50000" class="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-mono text-white">
-                        <span class="text-[10px] text-slate-500 mt-1 block">Используется цепочка iptables/nftables INNERBLITZ_HOPPING</span>
+                        <input type="text" id="cfgPortHoppingRange" placeholder="20000:50000" class="w-full px-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono text-white">
+                        <span class="text-[10px] text-slate-500 mt-1 block">Цепочка iptables/nftables INNERBLITZ_HOPPING</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Dynamic Routing Rules Management Table (CRUD) -->
-        <div class="space-y-4 pt-4 border-t border-slate-800">
+        <div class="space-y-4 pt-4 border-t border-[#1c263b]">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                    <h4 class="text-sm font-bold text-white flex items-center gap-2">
-                        <i data-lucide="list-ordered" class="w-4 h-4 text-purple-400"></i>
+                    <h4 class="text-sm font-extrabold text-white flex items-center gap-2">
+                        <i data-lucide="list-ordered" class="w-4 h-4 text-cyan-400"></i>
                         <span>Пользовательские правила маршрутизации ACL</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-0.5">
-                        Точечная маршрутизация для доменов, подсетей IP, GeoIP и Geosite с выбором шлюза (Direct, WARP, Block)
+                        Имеют высший приоритет над гео-пресетами: домены, подсети IP, GeoIP и Geosite
                     </p>
                 </div>
-                <button onclick="openCreateRuleModal()" class="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs transition shadow-md shadow-purple-600/30 flex items-center gap-1.5 self-start sm:self-auto">
+                <button onclick="openCreateRuleModal()" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md shadow-cyan-500/20 flex items-center gap-1.5 self-start sm:self-auto">
                     <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                     <span>Добавить правило</span>
                 </button>
             </div>
 
+            <!-- 1-Click Quick Rule Templates -->
+            <div class="p-3 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-2">
+                <div class="text-[11px] font-semibold text-slate-400">Быстрые шаблоны в 1 клик:</div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" onclick="applyQuickRuleTemplate('banks_ru')" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/25 text-[11px] font-semibold transition">
+                        Банки РФ и Госуслуги (Direct)
+                    </button>
+                    <button type="button" onclick="applyQuickRuleTemplate('ai_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
+                        AI и нейросети (WARP)
+                    </button>
+                    <button type="button" onclick="applyQuickRuleTemplate('crypto_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
+                        Криптобиржи (WARP)
+                    </button>
+                    <button type="button" onclick="applyQuickRuleTemplate('media_warp')" class="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 text-[11px] font-semibold transition">
+                        Медиа и стриминг (WARP)
+                    </button>
+                    <button type="button" onclick="applyQuickRuleTemplate('ipcheck_warp')" class="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 text-[11px] font-semibold transition">
+                        Проверка IP (WARP)
+                    </button>
+                </div>
+            </div>
+
             <!-- Rules Table -->
-            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
+            <div class="rounded-xl overflow-hidden border border-[#1c263b] bg-[#06090f]">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr class="bg-slate-950/80 border-b border-slate-800 text-slate-400 uppercase font-semibold text-[10px]">
+                            <tr class="bg-[#0b111e] border-b border-[#1c263b] text-slate-400 uppercase font-semibold text-[10px]">
                                 <th class="py-3 px-4 w-12 text-center">#</th>
                                 <th class="py-3 px-4">Имя правила</th>
                                 <th class="py-3 px-4">Тип</th>
@@ -271,7 +271,7 @@
                                 <th class="py-3 px-4 text-right">Действия</th>
                             </tr>
                         </thead>
-                        <tbody id="routingRulesTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                        <tbody id="routingRulesTableBody" class="divide-y divide-[#1c263b]/70 text-slate-300">
                             <tr><td colspan="7" class="py-8 text-center text-slate-500">Загрузка правил маршрутизации...</td></tr>
                         </tbody>
                     </table>
@@ -280,36 +280,36 @@
         </div>
     </div>
 
-    <!-- 1. Стелс-доступ и маскировка панели от РКН/сканеров -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-purple-500">
-        <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <!-- 1. Стелс-доступ и маскировка панели -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6">
+        <div class="border-b border-[#1c263b] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="shield-alert" class="w-5 h-5 text-purple-400"></i>
+                <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-5 h-5 text-cyan-400"></i>
                     <span>Стелс-доступ и маскировка панели от РКН</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
                     Панель скрыта на случайном высоком порту и секретном URL-пути. Корень отображает сайт-приманку (Decoy).
                 </p>
             </div>
-            <div class="flex items-center gap-2 bg-slate-900 px-3.5 py-1.5 rounded-xl border border-slate-800">
-                <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-brand-600 focus:ring-brand-500">
+            <div class="flex items-center gap-2 bg-[#06090f] px-3.5 py-2 rounded-xl border border-[#1c263b]">
+                <input type="checkbox" id="cfgDecoyEnabled" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                 <label for="cfgDecoyEnabled" class="text-xs font-semibold text-slate-200">Включить Decoy на корне /</label>
             </div>
         </div>
 
         <!-- Live URL preview -->
-        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
+        <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div class="min-w-0">
                 <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">Текущий секретный URL-адрес входа:</span>
-                <span class="font-mono text-sm text-purple-300 font-bold" id="panelLiveUrl">http://...</span>
+                <span class="font-mono text-sm text-cyan-300 font-bold break-all" id="panelLiveUrl">http://...</span>
             </div>
-            <div class="flex items-center gap-2">
-                <a id="panelLiveUrlLink" href="#" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-medium transition flex items-center gap-1.5">
+            <div class="flex items-center gap-2 shrink-0">
+                <a id="panelLiveUrlLink" href="#" target="_blank" class="px-3.5 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition flex items-center gap-1.5">
                     <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                     <span>Открыть</span>
                 </a>
-                <button onclick="copyToClipboard('panelLiveUrlText')" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+                <button onclick="copyToClipboard('panelLiveUrlText')" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-medium transition flex items-center gap-1.5">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                     <span>Копировать</span>
                 </button>
@@ -318,69 +318,69 @@
         </div>
 
         <!-- Server Public IP and Domain -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/60 border border-slate-800">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-xl bg-[#06090f] border border-[#1c263b]">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
                     <span>Внешний IPv4 сервера (Public IP)</span>
-                    <button type="button" onclick="detectServerIp()" class="text-[11px] text-purple-400 hover:text-purple-300 font-mono flex items-center gap-1 transition">
+                    <button type="button" onclick="detectServerIp()" class="text-[11px] text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 transition">
                         <i data-lucide="refresh-cw" class="w-3 h-3"></i>
                         <span>Автоопределение IP</span>
                     </button>
                 </label>
                 <div class="flex items-center gap-2">
-                    <input type="text" id="cfgServerIp" placeholder="185.x.x.x" 
-                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 font-mono">
-                    <button type="button" onclick="detectServerIp()" class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
-                        <i data-lucide="crosshair" class="w-3.5 h-3.5 text-purple-400"></i>
+                    <input type="text" id="cfgServerIp" placeholder="185.x.x.x"
+                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                    <button type="button" onclick="detectServerIp()" class="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-medium transition flex items-center gap-1.5">
+                        <i data-lucide="crosshair" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>Определить</span>
                     </button>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-1 block">Используется во всех ссылках hy2://, профилях Sing-box/Clash и QR-кодах вместо 127.0.0.1.</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">Используется в ссылках hy2://, профилях Sing-box/Clash и QR-кодах.</span>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Домен сервера (Опционально)</label>
-                <input type="text" id="cfgServerDomain" placeholder="vpn.example.com" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 font-mono">
-                <span class="text-[11px] text-slate-500 mt-1 block">Если указан, клиенты будут подключаться через этот домен вместо IP адреса.</span>
+                <input type="text" id="cfgServerDomain" placeholder="vpn.example.com"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                <span class="text-[11px] text-slate-500 mt-1 block">Если указан, клиенты подключаются через этот домен вместо IP адреса.</span>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Порт веб-панели (рекомендуется 20000–60000)</label>
-                <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
-                <span class="text-[11px] text-slate-500">Нестандартный порт защищает от массовых сканеров</span>
+                <input type="number" id="cfgPanelPort" min="1" max="65535" placeholder="8080"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                <span class="text-[11px] text-slate-500">Нестандартный порт защищает от сканеров</span>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Секретная директория входа (URL-путь)</label>
                 <div class="flex items-center">
-                    <span class="px-3.5 py-2.5 bg-slate-900/90 border border-r-0 border-slate-800 text-slate-500 text-sm rounded-l-xl">/</span>
-                    <input type="text" id="cfgPanelSecretPath" placeholder="bdjs74xhdg37" 
-                           class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                    <span class="px-3.5 py-2.5 bg-[#0b111e] border border-r-0 border-[#1c263b] text-slate-500 text-sm rounded-l-xl">/</span>
+                    <input type="text" id="cfgPanelSecretPath" placeholder="bdjs74xhdg37"
+                           class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
                 </div>
                 <span class="text-[11px] text-slate-500">Например: <code>bdjs74xhdg37</code> или <code>sys-auth</code></span>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Тема маскировки Decoy (Anti-RKN)</label>
-                <select id="cfgDecoyTheme" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                <select id="cfgDecoyTheme" class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500">
                     <option value="nginx">Веб-сервер Nginx (Максимальная маскировка)</option>
                     <option value="innernode">Облачный узел InnerNode Daemon</option>
                     <option value="docs">Техническая документация Edge API</option>
                     <option value="404">Черная дыра (Имитация закрытого порта 404)</option>
                 </select>
-                <span class="text-[11px] text-slate-500">Отображается сканерам и при открытии корня /</span>
+                <span class="text-[11px] text-slate-500">Отображается сканерам на корне /</span>
             </div>
         </div>
 
         <!-- Web Panel SSL Settings Block -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/80">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2 border-t border-[#1c263b]">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Режим SSL / HTTPS веб-панели</label>
-                <select id="cfgPanelSslMode" onchange="handlePanelSslChange()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500">
+                <select id="cfgPanelSslMode" onchange="handlePanelSslChange()" class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500">
                     <option value="http">HTTP (Без сертификата / Быстро, без предупреждений браузера)</option>
                     <option value="self_signed_ip">HTTPS на IP (Самоподписанный IP SAN, ротация каждые 6 дней)</option>
                     <option value="domain">HTTPS на Домен (Доверенный доменный сертификат)</option>
@@ -388,19 +388,19 @@
                 <span class="text-[11px] text-slate-500" id="panelSslHint">HTTP обеспечивает быстрый прямой доступ без SSL-ошибок в браузере.</span>
             </div>
 
-            <div id="panelSslStatusBlock" class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col justify-between">
+            <div id="panelSslStatusBlock" class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] flex flex-col justify-between">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
-                        <i data-lucide="shield" class="w-3.5 h-3.5 text-brand-400"></i>
+                        <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i>
                         Статус сертификата веб-панели:
                     </span>
-                    <span id="panelSslBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">HTTP</span>
+                    <span id="panelSslBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400 font-medium">HTTP</span>
                 </div>
                 <div class="text-[11px] text-slate-400 mt-1" id="panelSslInfoText">
                     Сертификат не используется (прямой HTTP).
                 </div>
                 <div class="pt-2 flex items-center gap-2">
-                    <button id="btnRenewCert" onclick="renewPanelCert()" class="hidden px-3 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition flex items-center gap-1">
+                    <button id="btnRenewCert" onclick="renewPanelCert()" class="hidden px-3 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-medium transition flex items-center gap-1">
                         <i data-lucide="refresh-cw" class="w-3 h-3"></i>
                         <span>Обновить 6-дневный IP сертификат</span>
                     </button>
@@ -408,29 +408,16 @@
             </div>
         </div>
 
-        <!-- Protection Explainer -->
-        <div class="p-4 rounded-xl bg-purple-950/20 border border-purple-800/30 space-y-1.5 text-xs text-slate-300">
-            <span class="font-bold text-purple-300 flex items-center gap-1.5">
-                <i data-lucide="shield-check" class="w-4 h-4"></i>
-                Как работает защита от блокировок РКН и провайдеров:
-            </span>
-            <ul class="list-disc list-inside space-y-1 text-slate-400 pl-1 text-[11px]">
-                <li><b class="text-slate-300">Скрытый порт:</b> Сканеры блокировок обычно проверяют стандартные 80, 443, 8080, 8443, 2053, 2096. Порты 20000+ игнорируются ботами.</li>
-                <li><b class="text-slate-300">Секретная директория:</b> Панель открывается только по заданному URL-пути. Вход по <code>/login</code> отключен.</li>
-                <li><b class="text-slate-300">Сайт-приманка с заголовками Nginx:</b> Любые сторонние запросы видят сайт-приманку с HTTP-заголовком <code>Server: nginx/1.24.0 (Ubuntu)</code>.</li>
-            </ul>
-        </div>
-
         <div class="flex flex-wrap items-center gap-3 pt-2">
-            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-semibold text-xs transition shadow-lg shadow-brand-600/30 flex items-center gap-1.5">
+            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
                 <i data-lucide="save" class="w-3.5 h-3.5"></i>
                 <span>Сохранить параметры доступа</span>
             </button>
-            <button onclick="randomizePanelAccess()" class="px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+            <button onclick="randomizePanelAccess()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/25 text-xs font-semibold transition flex items-center gap-1.5">
                 <i data-lucide="dice-5" class="w-3.5 h-3.5"></i>
-                <span>🎲 Сгенерировать случайный stealth-порт и путь</span>
+                <span>Сгенерировать случайный stealth-порт и путь</span>
             </button>
-            <button onclick="resetPanelAccessDefault()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition flex items-center gap-1.5">
+            <button onclick="resetPanelAccessDefault()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium transition flex items-center gap-1.5">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                 <span>Сбросить на 8080 и /panel</span>
             </button>
@@ -438,43 +425,41 @@
     </div>
 
     <!-- 2. Администратор и Безопасность -->
-    <div class="glass-card rounded-2xl p-6 space-y-6">
-        <div class="border-b border-slate-800 pb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="user-check" class="w-5 h-5 text-brand-400"></i>
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6">
+        <div class="border-b border-[#1c263b] pb-4">
+            <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="user-check" class="w-5 h-5 text-cyan-400"></i>
                 <span>Учетная запись администратора</span>
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">Смена логина и пароля входа в панель управления</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Change Username -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3">
                 <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
-                    <i data-lucide="user" class="w-4 h-4 text-brand-400"></i>
+                    <i data-lucide="user" class="w-4 h-4 text-cyan-400"></i>
                     <span>Логин администратора</span>
                 </h4>
                 <div class="space-y-2">
-                    <input type="text" id="adminUsernameInput" placeholder="admin" 
-                           class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
-                    <button onclick="handleChangeUsername()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+                    <input type="text" id="adminUsernameInput" placeholder="admin"
+                           class="w-full px-3.5 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-white">
+                    <button onclick="handleChangeUsername()" class="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-semibold transition">
                         Сохранить новый логин
                     </button>
                 </div>
             </div>
 
-            <!-- Change Password -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3">
                 <h4 class="text-sm font-bold text-white flex items-center gap-1.5">
-                    <i data-lucide="key" class="w-4 h-4 text-brand-400"></i>
+                    <i data-lucide="key" class="w-4 h-4 text-cyan-400"></i>
                     <span>Смена пароля</span>
                 </h4>
                 <div class="space-y-2">
-                    <input type="password" id="oldAdminPassword" placeholder="Текущий пароль" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
-                    <input type="password" id="newAdminPassword" placeholder="Новый пароль" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-sm text-white">
-                    <button onclick="handleChangePassword()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition">
+                    <input type="password" id="oldAdminPassword" placeholder="Текущий пароль"
+                           class="w-full px-3.5 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-white">
+                    <input type="password" id="newAdminPassword" placeholder="Новый пароль"
+                           class="w-full px-3.5 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-white">
+                    <button onclick="handleChangePassword()" class="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-semibold transition">
                         Обновить пароль
                     </button>
                 </div>
@@ -483,53 +468,51 @@
     </div>
 
     <!-- 3. Двухфакторная аутентификация (2FA) -->
-    <div class="glass-card rounded-2xl p-6 space-y-6">
-        <div class="border-b border-slate-800 pb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="shield-check" class="w-5 h-5 text-brand-400"></i>
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6">
+        <div class="border-b border-[#1c263b] pb-4">
+            <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-5 h-5 text-cyan-400"></i>
                 <span>Двухфакторная защита (2FA)</span>
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">Вход с подтверждением через Google Authenticator или Telegram OTP</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Google Authenticator -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center justify-between">
                         <span class="flex items-center gap-1.5">
-                            <i data-lucide="smartphone" class="w-4 h-4 text-brand-400"></i>
+                            <i data-lucide="smartphone" class="w-4 h-4 text-cyan-400"></i>
                             <span>Google Authenticator (TOTP)</span>
                         </span>
-                        <span id="totpStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
+                        <span id="totpStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400">Выключено</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-2">
                         Генератор 6-значных одноразовых кодов (работает оффлайн в Aegis, 2FAS, Google Authenticator).
                     </p>
                 </div>
                 <div class="pt-3">
-                    <button id="totpToggleBtn" onclick="openTotpModal()" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition">
+                    <button id="totpToggleBtn" onclick="openTotpModal()" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition">
                         Настроить 2FA
                     </button>
                 </div>
             </div>
 
-            <!-- Telegram 2FA -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center justify-between">
                         <span class="flex items-center gap-1.5">
                             <i data-lucide="send" class="w-4 h-4 text-sky-400"></i>
                             <span>Telegram OTP Подтверждение</span>
                         </span>
-                        <span id="tgStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400">Выключено</span>
+                        <span id="tgStatusBadge" class="text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400">Выключено</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-2">
-                        При входе бот присылает одноразовый проверочный код прямо вам в личные сообщения Telegram.
+                        При входе бот присылает одноразовый проверочный код в личные сообщения Telegram.
                     </p>
                 </div>
                 <div class="pt-3">
-                    <button onclick="openTelegramModal()" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition border border-slate-700">
+                    <button onclick="openTelegramModal()" class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-bold transition border border-slate-800">
                         Параметры Telegram
                     </button>
                 </div>
@@ -537,45 +520,43 @@
         </div>
 
         <div class="pt-1">
-            <button onclick="triggerEmergencyDisable2FA()" class="text-xs text-red-400 hover:text-red-300 transition flex items-center gap-1.5">
+            <button onclick="triggerEmergencyDisable2FA()" class="text-xs text-rose-400 hover:text-rose-300 transition flex items-center gap-1.5">
                 <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
                 <span>Экстренно отключить все методы 2FA (вход только по паролю)</span>
             </button>
         </div>
     </div>
 
-    <!-- 4. Резервное копирование и восстановление (Backup & Restore) -->
-    <div class="glass-card rounded-2xl p-6 space-y-6">
-        <div class="border-b border-slate-800 pb-4">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="database" class="w-5 h-5 text-brand-400"></i>
+    <!-- 4. Резервное копирование и восстановление -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6">
+        <div class="border-b border-[#1c263b] pb-4">
+            <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="database" class="w-5 h-5 text-cyan-400"></i>
                 <span>Резервное копирование и восстановление</span>
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">Создание полного архива базы данных SQLite, ключей и сертификатов</p>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Download Backup -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center gap-2">
                         <i data-lucide="download" class="w-4 h-4 text-emerald-400"></i>
                         <span>Скачать резервную копию</span>
                     </h4>
                     <p class="text-xs text-slate-400 mt-1">
-                        Архив <code>.tar.gz</code> содержит всю базу данных пользователей, сессий, сертификаты и конфигурацию Hysteria 2.
+                        Архив <code>.tar.gz</code> содержит всю базу пользователей, сертификаты и конфигурацию Hysteria 2.
                     </p>
                 </div>
                 <div class="pt-2">
-                    <a href="/api/settings/backup/download" class="w-full py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition flex items-center justify-center gap-2">
+                    <a href="/api/settings/backup/download" class="w-full py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition flex items-center justify-center gap-2">
                         <i data-lucide="download" class="w-4 h-4"></i>
                         <span>Скачать бэкап архивом (.tar.gz)</span>
                     </a>
                 </div>
             </div>
 
-            <!-- Upload Restore -->
-            <div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3 flex flex-col justify-between">
+            <div class="p-5 rounded-2xl bg-[#06090f] border border-[#1c263b] space-y-3 flex flex-col justify-between">
                 <div>
                     <h4 class="text-sm font-bold text-white flex items-center gap-2">
                         <i data-lucide="upload" class="w-4 h-4 text-amber-400"></i>
@@ -586,7 +567,7 @@
                     </p>
                 </div>
                 <div class="pt-2">
-                    <label class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer">
+                    <label class="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer">
                         <i data-lucide="upload" class="w-4 h-4"></i>
                         <span>Выбрать и восстановить бэкап</span>
                         <input type="file" id="backupFileInput" accept=".tar.gz,.tgz" class="hidden" onchange="handleRestoreBackup(event)">
@@ -597,16 +578,16 @@
     </div>
 
     <!-- 5. Сетевая оптимизация Linux (BBR + QUIC) -->
-    <div class="glass-card rounded-2xl p-6 space-y-4">
-        <div class="border-b border-slate-800 pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-4">
+        <div class="border-b border-[#1c263b] pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                <h3 class="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
                     <i data-lucide="gauge" class="w-5 h-5 text-amber-400"></i>
                     <span>Оптимизация скорости сети (BBR + буферы QUIC)</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Включение алгоритма Google TCP BBR и расширение UDP сокетов ядра для максимальной скорости Hysteria 2</p>
+                <p class="text-xs text-slate-400 mt-0.5">Включение алгоритма Google TCP BBR и расширение UDP буферов ядра</p>
             </div>
-            <button onclick="triggerOptimizeBBR()" class="px-4 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-2">
+            <button onclick="triggerOptimizeBBR()" class="px-4 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-bold transition flex items-center gap-2">
                 <i data-lucide="zap" class="w-4 h-4"></i>
                 <span>Применить BBR</span>
             </button>
@@ -614,13 +595,13 @@
     </div>
 
     <!-- Sticky Bottom Save Bar -->
-    <div class="sticky bottom-20 lg:bottom-4 z-20 lg:z-40 bg-[#0c1220]/95 backdrop-blur-md border border-[#1e293b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+    <div class="sticky bottom-20 lg:bottom-4 z-20 lg:z-40 bg-[#080d18]/95 backdrop-blur-md border border-[#1c263b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
             <span>Параметры порта панели, URL-пути и маскировки Decoy:</span>
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+            <button onclick="savePanelAccessManual()" class="px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
                 <i data-lucide="save" class="w-4 h-4"></i>
                 <span>Сохранить параметры панели</span>
             </button>
@@ -631,10 +612,10 @@
 
 <!-- Modal: Setup TOTP 2FA -->
 <div id="totpModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
-    <div class="glass w-full max-w-md rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="glass w-full max-w-md rounded-2xl p-6 border border-[#2b3a59] shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="smartphone" class="w-5 h-5 text-brand-400"></i>
+                <i data-lucide="smartphone" class="w-5 h-5 text-cyan-400"></i>
                 <span>Настройка 2FA Google Authenticator</span>
             </h3>
             <button onclick="closeTotpModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -649,9 +630,9 @@
 
         <div class="space-y-3">
             <label class="block text-xs font-semibold text-slate-300">Введите 6-значный код из приложения для подтверждения:</label>
-            <input type="text" id="totpVerifyCode" maxlength="6" placeholder="000000" 
-                   class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-brand-500">
-            <button onclick="submitVerifyTotp()" class="w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-medium text-sm transition">
+            <input type="text" id="totpVerifyCode" maxlength="6" placeholder="000000"
+                   class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-cyan-500">
+            <button onclick="submitVerifyTotp()" class="w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition">
                 Активировать 2FA
             </button>
         </div>
@@ -660,8 +641,8 @@
 
 <!-- Modal: Telegram Bot Setup -->
 <div id="telegramModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
-    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-[#2b3a59] shadow-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
             <h3 class="text-lg font-bold text-white flex items-center gap-2">
                 <i data-lucide="send" class="w-5 h-5 text-sky-400"></i>
                 <span>Интеграция с Telegram-ботом</span>
@@ -674,33 +655,33 @@
         <div class="space-y-4">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Токен Telegram-бота (от @BotFather)</label>
-                <input type="text" id="cfgTgBotToken" placeholder="123456789:ABCDef..." 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+                <input type="text" id="cfgTgBotToken" placeholder="123456789:ABCDef..."
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white font-mono focus:outline-none focus:border-cyan-500">
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Chat ID администратора</label>
-                <input type="text" id="cfgTgAdminChatId" placeholder="123456789" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-brand-500">
+                <input type="text" id="cfgTgAdminChatId" placeholder="123456789"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white font-mono focus:outline-none focus:border-cyan-500">
             </div>
 
             <div class="space-y-2 pt-1">
                 <div class="flex items-center gap-3">
-                    <input type="checkbox" id="cfgTgNotificationsEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <input type="checkbox" id="cfgTgNotificationsEnabled" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                     <label for="cfgTgNotificationsEnabled" class="text-xs text-slate-200">Уведомления о превышении лимитов трафика</label>
                 </div>
                 <div class="flex items-center gap-3">
-                    <input type="checkbox" id="cfgTg2faEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <input type="checkbox" id="cfgTg2faEnabled" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                     <label for="cfgTg2faEnabled" class="text-xs text-slate-200">Подтверждение входа в панель кодом через Telegram</label>
                 </div>
             </div>
         </div>
 
-        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-            <button onclick="closeTelegramModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium hover:bg-slate-700 transition">
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-[#1c263b]">
+            <button onclick="closeTelegramModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-slate-300 border border-slate-800 text-xs font-medium hover:bg-slate-800 transition">
                 Закрыть
             </button>
-            <button onclick="saveTelegramSettings()" class="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition">
+            <button onclick="saveTelegramSettings()" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition">
                 Сохранить
             </button>
         </div>
@@ -709,34 +690,34 @@
 
 <!-- Modal: WARP Installation Log Drawer -->
 <div id="warpLogModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden">
-    <div class="glass w-full max-w-2xl rounded-2xl p-5 border border-slate-700 shadow-2xl relative space-y-3 flex flex-col max-h-[85vh]">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="glass w-full max-w-2xl rounded-2xl p-5 border border-[#2b3a59] shadow-2xl relative space-y-3 flex flex-col max-h-[85vh]">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
             <h3 class="text-base font-bold text-white flex items-center gap-2">
                 <i data-lucide="terminal" class="w-4 h-4 text-amber-400"></i>
                 <span>Журнал автоматической установки Cloudflare WARP</span>
             </h3>
             <div class="flex items-center gap-2">
-                <span id="warpInstallStatusBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">Ожидание</span>
+                <span id="warpInstallStatusBadge" class="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400 font-mono">Ожидание</span>
                 <button onclick="closeWarpLogModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
         </div>
 
-        <div id="warpLogTerminal" class="flex-1 bg-black/95 rounded-xl p-3.5 border border-slate-800 font-mono text-xs text-emerald-400 overflow-y-auto space-y-1 min-h-[300px] max-h-[460px] whitespace-pre-wrap selection:bg-emerald-800 selection:text-white">
+        <div id="warpLogTerminal" class="flex-1 bg-[#04060b] rounded-xl p-3.5 border border-[#1c263b] font-mono text-xs text-emerald-400 overflow-y-auto space-y-1 min-h-[300px] max-h-[460px] whitespace-pre-wrap selection:bg-emerald-800 selection:text-white">
             <div class="text-slate-500">// Журнал установки WARP появится здесь...</div>
         </div>
 
-        <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs">
+        <div class="flex items-center justify-between pt-2 border-t border-[#1c263b] text-xs">
             <div class="text-slate-400 text-[11px] flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" id="warpLogIndicator"></span>
                 <span id="warpLogStatusText">Автопрокрутка активна</span>
             </div>
             <div class="flex items-center gap-2">
-                <button onclick="cancelWarpInstall()" class="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-medium transition">
+                <button onclick="cancelWarpInstall()" class="px-3 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium transition">
                     Прервать установку
                 </button>
-                <button onclick="closeWarpLogModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition border border-slate-700">
+                <button onclick="closeWarpLogModal()" class="px-4 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold transition border border-slate-800">
                     Закрыть
                 </button>
             </div>
@@ -746,10 +727,10 @@
 
 <!-- Modal: Add / Edit Custom Routing Rule -->
 <div id="ruleModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
-    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-[#2b3a59] shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
             <h3 id="ruleModalTitle" class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="split" class="w-4 h-4 text-purple-400"></i>
+                <i data-lucide="split" class="w-4 h-4 text-cyan-400"></i>
                 <span>Добавить правило маршрутизации</span>
             </h3>
             <button onclick="closeRuleModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -760,27 +741,25 @@
         <form id="ruleForm" onsubmit="handleRuleSubmit(event)" class="space-y-4">
             <input type="hidden" id="modalRuleId">
 
-            <!-- Rule Name & Priority -->
             <div class="grid grid-cols-3 gap-3">
                 <div class="col-span-2">
                     <label class="block text-xs font-medium text-slate-300 mb-1">Имя правила *</label>
                     <input type="text" id="modalRuleName" required placeholder="Custom-Rule-1"
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono">
+                           class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500 font-mono">
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Приоритет (#)</label>
                     <input type="number" id="modalRulePriority" value="100" min="1" max="9999"
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono">
+                           class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500 font-mono">
                 </div>
             </div>
 
-            <!-- Type & Outbound Action -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Тип сопоставления *</label>
                     <select id="modalRuleType" onchange="validateRuleRealTime()"
-                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
-                        <option value="domain">domain (Точный домен)</option>
+                            class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
+                        <option value="domain">domain (Домен и поддомены)</option>
                         <option value="suffix">suffix (Суффикс / *.domain)</option>
                         <option value="keyword">keyword (Ключевое слово)</option>
                         <option value="ip_cidr">ip_cidr (IP / CIDR подсеть)</option>
@@ -791,7 +770,7 @@
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Шлюз выхода (Outbound) *</label>
                     <select id="modalRuleAction" onchange="validateRuleRealTime()"
-                            class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
+                            class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
                         <option value="direct">Direct (Прямой IP)</option>
                         <option value="warp">WARP (Cloudflare WARP)</option>
                         <option value="block">Block (Блокировать)</option>
@@ -799,34 +778,28 @@
                 </div>
             </div>
 
-            <!-- Match Values (textarea) -->
             <div>
                 <label class="block text-xs font-medium text-slate-300 mb-1">
                     Значения для сопоставления * (через запятую или построчно)
                 </label>
                 <textarea id="modalRuleValues" rows="3" required oninput="validateRuleRealTime()" placeholder="example.com, api.openai.com&#10;192.168.1.0/24"
-                          class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500 font-mono"></textarea>
+                          class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500 font-mono"></textarea>
                 <span class="text-[10px] text-slate-500">Примеры: example.com (domain), .org (suffix), google (keyword), 1.1.1.1/32 (ip_cidr), ru (geoip), category-ads-all (geosite)</span>
             </div>
 
-            <!-- Live Validation Banner -->
-            <div id="ruleValidationBanner" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2">
-                <!-- Dynamically populated -->
-            </div>
+            <div id="ruleValidationBanner" class="hidden text-xs p-2.5 rounded-xl border flex items-center gap-2"></div>
 
-            <!-- Description / Note -->
             <div>
                 <label class="block text-xs font-medium text-slate-300 mb-1">Примечание (Опционально)</label>
                 <input type="text" id="modalRuleDesc" placeholder="Пояснение к правилу..."
-                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-purple-500">
+                       class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
             </div>
 
-            <!-- Modal Action Buttons -->
-            <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
-                <button type="button" onclick="closeRuleModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-xs font-medium transition">
+            <div class="flex justify-end gap-3 pt-3 border-t border-[#1c263b]">
+                <button type="button" onclick="closeRuleModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-slate-300 border border-slate-800 hover:bg-slate-800 text-xs font-medium transition">
                     Отмена
                 </button>
-                <button type="submit" id="btnSaveRule" class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold transition shadow-md shadow-purple-600/30 flex items-center gap-1.5">
+                <button type="submit" id="btnSaveRule" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition shadow-md shadow-cyan-500/20 flex items-center gap-1.5">
                     <i data-lucide="save" class="w-3.5 h-3.5"></i>
                     <span>Сохранить правило</span>
                 </button>
@@ -846,7 +819,7 @@
             const res = await fetch('/api/settings');
             if (res.ok) {
                 currentSettings = await res.json();
-                
+
                 const ip = currentSettings.server_ip || window.location.hostname;
                 const port = currentSettings.panel_port || window.location.port || '8080';
                 const path = currentSettings.panel_secret_path || 'panel';
@@ -902,7 +875,7 @@
                 } else {
                     if (sslBadge) {
                         sslBadge.textContent = 'HTTP';
-                        sslBadge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium';
+                        sslBadge.className = 'text-[11px] px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400 font-medium';
                     }
                     if (sslText) {
                         sslText.textContent = 'Сертификат не используется (прямой HTTP).';
@@ -916,7 +889,6 @@
                 document.getElementById('cfgTgNotificationsEnabled').checked = currentSettings.tg_notifications_enabled == '1';
                 document.getElementById('cfgTg2faEnabled').checked = currentSettings.tg_2fa_enabled == '1';
 
-                // Badges
                 const totpOn = currentSettings.totp_enabled == '1';
                 const badge = document.getElementById('totpStatusBadge');
                 const btn = document.getElementById('totpToggleBtn');
@@ -924,12 +896,12 @@
                     badge.textContent = 'Включено';
                     badge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
                     btn.textContent = 'Отключить 2FA';
-                    btn.className = 'w-full py-2.5 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 text-xs font-bold transition';
+                    btn.className = 'w-full py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-bold transition';
                 } else {
                     badge.textContent = 'Выключено';
-                    badge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
+                    badge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400';
                     btn.textContent = 'Настроить 2FA';
-                    btn.className = 'w-full py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition';
+                    btn.className = 'w-full py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition';
                 }
 
                 const tgBadge = document.getElementById('tgStatusBadge');
@@ -938,7 +910,7 @@
                     tgBadge.className = 'text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
                 } else {
                     tgBadge.textContent = 'Выключено';
-                    tgBadge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400';
+                    tgBadge.className = 'text-xs font-normal px-2.5 py-0.5 rounded-full bg-slate-900 text-slate-400';
                 }
             }
         } catch (e) {
@@ -1219,7 +1191,7 @@
     async function triggerEmergencyDisable2FA() {
         if (!confirm('Экстренно отключить все методы 2FA? Вход будет возможен только по логину и паролю.')) return;
         try {
-            const res = await fetch('/api/settings', {
+            await fetch('/api/settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tg_2fa_enabled: false })
@@ -1288,12 +1260,12 @@
         const warpCard = document.getElementById('outboundWarpCard');
         if (!directCard || !warpCard) return;
         if (mode === 'warp') {
-            warpCard.className = 'p-4 rounded-xl border-2 border-blue-500 bg-blue-950/30 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-blue-500/10';
-            directCard.className = 'p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
+            warpCard.className = 'p-4 rounded-xl border-2 border-amber-400 bg-amber-500/10 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-amber-500/10';
+            directCard.className = 'p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
             document.getElementById('outboundWarp').checked = true;
         } else {
-            directCard.className = 'p-4 rounded-xl border-2 border-blue-500 bg-blue-950/30 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-blue-500/10';
-            warpCard.className = 'p-4 rounded-xl border border-slate-800 bg-slate-900/90 cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
+            directCard.className = 'p-4 rounded-xl border-2 border-cyan-400 bg-cyan-500/10 cursor-pointer transition flex items-start gap-3 shadow-lg shadow-cyan-500/10';
+            warpCard.className = 'p-4 rounded-xl border border-[#1c263b] bg-[#06090f] cursor-pointer transition flex items-start gap-3 hover:border-slate-700';
             document.getElementById('outboundDirect').checked = true;
         }
     }
@@ -1303,7 +1275,7 @@
             const res = await fetch('/api/routing');
             if (res.ok) {
                 const rules = await res.json();
-                
+
                 const outMode = (rules.routing_global_outbound || 'direct').toLowerCase();
                 handleOutboundChange(outMode);
 
@@ -1311,16 +1283,6 @@
                 if (ruMode === 'warp') document.getElementById('ruModeWarp').checked = true;
                 else if (ruMode === 'block') document.getElementById('ruModeBlock').checked = true;
                 else document.getElementById('ruModeDirect').checked = true;
-
-                if (document.getElementById('routeOpenai')) document.getElementById('routeOpenai').value = (rules.routing_openai || 'warp').toLowerCase();
-                if (document.getElementById('routeDiscord')) document.getElementById('routeDiscord').value = (rules.routing_discord || 'direct').toLowerCase();
-                if (document.getElementById('routeYoutube')) document.getElementById('routeYoutube').value = (rules.routing_youtube || 'direct').toLowerCase();
-                if (document.getElementById('routeTelegram')) document.getElementById('routeTelegram').value = (rules.routing_telegram || 'direct').toLowerCase();
-                if (document.getElementById('routeNetflix')) document.getElementById('routeNetflix').value = (rules.routing_netflix || 'warp').toLowerCase();
-                if (document.getElementById('routeP2p')) document.getElementById('routeP2p').value = (rules.routing_p2p || 'block').toLowerCase();
-
-                document.getElementById('routeAds').checked = rules.routing_ads !== '0' && rules.routing_ads !== false;
-                document.getElementById('routeWinSpy').checked = rules.routing_win_spy !== '0' && rules.routing_win_spy !== false;
 
                 document.getElementById('cfgSniffEnable').checked = rules.sniff_enable !== '0' && rules.sniff_enable !== false;
                 document.getElementById('cfgSniffTimeout').value = rules.sniff_timeout || '2s';
@@ -1341,11 +1303,17 @@
         const payload = {
             routing_global_outbound: globalOutbound,
             routing_ru: ruRouting,
-            routing_ads: document.getElementById('routeAds') ? document.getElementById('routeAds').checked : true,
-            routing_win_spy: document.getElementById('routeWinSpy') ? document.getElementById('routeWinSpy').checked : true,
+            routing_openai: 'off',
+            routing_discord: 'off',
+            routing_youtube: 'off',
+            routing_telegram: 'off',
+            routing_netflix: 'off',
+            routing_p2p: 'allow',
+            routing_ads: false,
+            routing_win_spy: false,
             sniff_enable: document.getElementById('cfgSniffEnable') ? document.getElementById('cfgSniffEnable').checked : true,
             sniff_timeout: (document.getElementById('cfgSniffTimeout') ? document.getElementById('cfgSniffTimeout').value.trim() : '') || '2s',
-            sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite') ? document.getElementById('cfgSniffRewrite').value === 'true' : false),
+            sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite') ? document.getElementById('cfgSniffRewrite').value === 'true' : true),
             port_hopping_enabled: document.getElementById('cfgPortHoppingEnable') ? document.getElementById('cfgPortHoppingEnable').checked : true,
             port_hopping_range: (document.getElementById('cfgPortHoppingRange') ? document.getElementById('cfgPortHoppingRange').value.trim() : '') || '20000:50000'
         };
@@ -1391,10 +1359,10 @@
             const warpStat = statusData.warp_status || 'off';
 
             if (active) {
-                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5';
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5';
                 text.textContent = warpStat === 'plus' ? 'Active (WARP+)' : 'Active (WARP On)';
             } else {
-                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+                badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-900 text-slate-400 border border-slate-800 flex items-center gap-1.5';
                 text.textContent = 'Offline / Не подключен';
             }
 
@@ -1409,6 +1377,24 @@
         } catch (e) {
             text.textContent = 'Ошибка проверки';
             console.warn('Warp check failed:', e);
+        }
+    }
+
+    async function repairWarp() {
+        try {
+            showToast('Запуск самодиагностики и восстановления WARP...', 'info');
+            const res = await fetch('/api/warp/repair', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast(`WARP восстановлен (${data.service})`, 'success');
+                await checkWarpStatus();
+                await saveRoutingRules();
+            } else {
+                const detail = (data.actions_taken || []).join('; ') || 'Не удалось перезапустить WARP';
+                showToast('Диагностика WARP: ' + detail, 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка при попытке восстановления WARP', 'error');
         }
     }
 
@@ -1507,7 +1493,7 @@
                 showToast('Установка отменена', 'info');
                 const term = document.getElementById('warpLogTerminal');
                 const div = document.createElement('div');
-                div.className = 'text-red-400 font-bold';
+                div.className = 'text-rose-400 font-bold';
                 div.textContent = '[ABORTED] Процесс установки прерван пользователем.';
                 term.appendChild(div);
             }
@@ -1516,8 +1502,78 @@
         }
     }
 
-    // ==================== DYNAMIC ROUTING RULES (3x-UI Style) ====================
+    // ==================== DYNAMIC ROUTING RULES & QUICK TEMPLATES ====================
     let allRoutingRules = [];
+
+    const QUICK_RULE_TEMPLATES = {
+        banks_ru: {
+            name: 'RU-Banks-Gosuslugi',
+            action: 'direct',
+            rule_type: 'suffix',
+            priority: 10,
+            rule_values: ['sberbank.ru', 'tbank.ru', 'gosuslugi.ru', 'vtb.ru', 'nalog.ru', 'mos.ru', 'ozon.ru', 'wb.ru'],
+            description: 'Российские банки, маркетплейсы и госсервисы напрямую'
+        },
+        ai_warp: {
+            name: 'AI-Services-WARP',
+            action: 'warp',
+            rule_type: 'suffix',
+            priority: 20,
+            rule_values: ['openai.com', 'chatgpt.com', 'claude.ai', 'anthropic.com', 'gemini.google.com'],
+            description: 'OpenAI, Claude и Gemini через Cloudflare WARP'
+        },
+        crypto_warp: {
+            name: 'Crypto-Exchanges-WARP',
+            action: 'warp',
+            rule_type: 'suffix',
+            priority: 30,
+            rule_values: ['bybit.com', 'binance.com', 'okx.com', 'coinbase.com'],
+            description: 'Криптобиржи через чистый IP WARP'
+        },
+        media_warp: {
+            name: 'Media-Streaming-WARP',
+            action: 'warp',
+            rule_type: 'suffix',
+            priority: 40,
+            rule_values: ['youtube.com', 'googlevideo.com', 'ytimg.com', 'netflix.com', 'spotify.com', 'discord.com', 'discord.gg'],
+            description: 'YouTube, Netflix, Spotify и Discord через WARP'
+        },
+        ipcheck_warp: {
+            name: 'IP-Check-WARP',
+            action: 'warp',
+            rule_type: 'suffix',
+            priority: 50,
+            rule_values: ['2ip.ru', 'whoer.net', 'ipleak.net'],
+            description: 'Сервисы проверки IP через WARP'
+        }
+    };
+
+    async function applyQuickRuleTemplate(templateKey) {
+        const tpl = QUICK_RULE_TEMPLATES[templateKey];
+        if (!tpl) return;
+        const alreadyExists = allRoutingRules.some(r => r.name === tpl.name);
+        if (alreadyExists) {
+            showToast(`Правило "${tpl.name}" уже добавлено в список.`, 'info');
+            return;
+        }
+        try {
+            const res = await fetch('/api/routing/rules', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...tpl, enabled: true })
+            });
+            if (res.ok) {
+                showToast(`Шаблон "${tpl.name}" добавлен и применен!`, 'success');
+                await loadRoutingRules();
+                loadRoutingData();
+            } else {
+                const err = await res.json();
+                showToast(err.detail || 'Ошибка добавления шаблона', 'error');
+            }
+        } catch (e) {
+            showToast('Ошибка сети при добавлении шаблона', 'error');
+        }
+    }
 
     async function loadRoutingRules() {
         try {
@@ -1536,21 +1592,21 @@
         if (!tbody) return;
 
         if (!rules || rules.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Пользовательских правил нет. Нажмите "Добавить правило" для создания!</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-500">Пользовательских правил нет. Нажмите "Добавить правило" или выберите шаблон выше.</td></tr>`;
             return;
         }
 
         tbody.innerHTML = rules.map((r, idx) => {
             let actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">DIRECT</span>';
             if (r.action === 'warp') {
-                actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">WARP</span>';
+                actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">WARP</span>';
             } else if (r.action === 'block') {
                 actionBadge = '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">BLOCK</span>';
             }
 
             const values = r.rule_values || [];
-            const displayValues = values.slice(0, 3).map(v => 
-                `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono text-slate-300 border border-slate-700">${v}</span>`
+            const displayValues = values.slice(0, 3).map(v =>
+                `<span class="px-1.5 py-0.5 rounded bg-[#0b111e] text-[10px] font-mono text-slate-300 border border-[#1c263b]">${escapeHtml(v)}</span>`
             ).join(' ');
             const moreCount = values.length > 3 ? `<span class="text-[10px] text-slate-500">+${values.length - 3}</span>` : '';
 
@@ -1558,14 +1614,14 @@
             const isDownDisabled = (idx === rules.length - 1);
 
             return `
-                <tr class="hover:bg-slate-800/40 transition">
-                    <td class="py-3 px-4 text-center font-mono text-slate-400 font-semibold">#${r.priority || (idx + 1) * 10}</td>
+                <tr class="hover:bg-slate-800/35 transition">
+                    <td class="py-3 px-4 text-center font-mono tabular-nums text-slate-400 font-semibold">#${r.priority || (idx + 1) * 10}</td>
                     <td class="py-3 px-4">
-                        <div class="font-bold text-white font-mono">${r.name}</div>
-                        ${r.description ? `<div class="text-[10px] text-slate-500 mt-0.5">${r.description}</div>` : ''}
+                        <div class="font-bold text-white font-mono">${escapeHtml(r.name)}</div>
+                        ${r.description ? `<div class="text-[10px] text-slate-500 mt-0.5">${escapeHtml(r.description)}</div>` : ''}
                     </td>
                     <td class="py-3 px-4">
-                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 uppercase">${r.rule_type}</span>
+                        <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 uppercase">${escapeHtml(r.rule_type)}</span>
                     </td>
                     <td class="py-3 px-4">
                         <div class="flex flex-wrap items-center gap-1">${displayValues} ${moreCount}</div>
@@ -1574,7 +1630,7 @@
                     <td class="py-3 px-4 text-center">
                         <label class="relative inline-flex items-center cursor-pointer" title="${r.enabled ? 'Активно (клик для выключения)' : 'Выключено (клик для включения)'}">
                             <input type="checkbox" onchange="toggleRuleStatus(${r.id}, this.checked)" ${r.enabled ? 'checked' : ''} class="sr-only peer">
-                            <div class="w-7 h-3.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-purple-600"></div>
+                            <div class="w-7 h-3.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-cyan-500"></div>
                         </label>
                     </td>
                     <td class="py-3 px-4 text-right">
@@ -1585,10 +1641,10 @@
                             <button onclick="moveRule(${idx}, 1)" ${isDownDisabled ? 'disabled class="opacity-20 cursor-not-allowed p-1"' : 'class="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-white transition"'} title="Понизить приоритет (Вниз)">
                                 <i data-lucide="arrow-down" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="openEditRuleModal(${r.id})" class="p-1 rounded hover:bg-slate-800 text-blue-400 transition" title="Редактировать правило">
+                            <button onclick="openEditRuleModal(${r.id})" class="p-1 rounded hover:bg-slate-800 text-cyan-400 transition" title="Редактировать правило">
                                 <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
                             </button>
-                            <button onclick="deleteRule(${r.id})" class="p-1 rounded hover:bg-red-500/20 text-red-400 transition" title="Удалить правило">
+                            <button onclick="deleteRule(${r.id})" class="p-1 rounded hover:bg-rose-500/20 text-rose-400 transition" title="Удалить правило">
                                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                             </button>
                         </div>
@@ -1597,7 +1653,7 @@
             `;
         }).join('');
 
-        lucide.createIcons();
+        lucide.createIcons({ root: tbody });
     }
 
     async function toggleRuleStatus(ruleId, checked) {
@@ -1670,12 +1726,12 @@
                 if (data.valid || data.ok) {
                     banner.className = 'text-xs p-2.5 rounded-xl border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 flex items-center gap-2';
                     banner.innerHTML = '<i data-lucide="check-circle" class="w-4 h-4"></i><span>Синтаксис и значения правила корректны!</span>';
-                    lucide.createIcons();
+                    lucide.createIcons({ root: banner });
                     return true;
                 } else {
                     banner.className = 'text-xs p-2.5 rounded-xl border bg-rose-500/10 text-rose-400 border-rose-500/20 flex items-center gap-2';
-                    banner.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4"></i><span>${data.message || 'Ошибка синтаксиса'}</span>`;
-                    lucide.createIcons();
+                    banner.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4"></i><span>${escapeHtml(data.message || 'Ошибка синтаксиса')}</span>`;
+                    lucide.createIcons({ root: banner });
                     return false;
                 }
             }
@@ -1687,7 +1743,7 @@
 
     function openCreateRuleModal() {
         document.getElementById('modalRuleId').value = '';
-        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="split" class="w-4 h-4 text-purple-400"></i><span>Добавить правило маршрутизации</span>';
+        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="split" class="w-4 h-4 text-cyan-400"></i><span>Добавить правило маршрутизации</span>';
         document.getElementById('modalRuleName').value = '';
         document.getElementById('modalRulePriority').value = (allRoutingRules.length + 1) * 10;
         document.getElementById('modalRuleType').value = 'domain';
@@ -1704,7 +1760,7 @@
         if (!rule) return;
 
         document.getElementById('modalRuleId').value = rule.id;
-        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-4 h-4 text-purple-400"></i><span>Редактировать правило маршрутизации</span>';
+        document.getElementById('ruleModalTitle').innerHTML = '<i data-lucide="edit-2" class="w-4 h-4 text-cyan-400"></i><span>Редактировать правило маршрутизации</span>';
         document.getElementById('modalRuleName').value = rule.name;
         document.getElementById('modalRulePriority').value = rule.priority || 100;
         document.getElementById('modalRuleType').value = rule.rule_type || 'domain';
@@ -1734,7 +1790,6 @@
         if (!name) return showToast('Введите имя правила', 'error');
         if (values.length === 0) return showToast('Укажите хотя бы одно значение сопоставления', 'error');
 
-        // Pre-validate before submitting
         const isValid = await validateRuleRealTime();
         if (!isValid) return showToast('Проверьте ошибки синтаксиса в правиле!', 'error');
 
@@ -1750,7 +1805,6 @@
 
         try {
             if (ruleId) {
-                // Update
                 const res = await fetch(`/api/routing/rules/${ruleId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1765,7 +1819,6 @@
                     showToast(err.detail || 'Ошибка обновления правила', 'error');
                 }
             } else {
-                // Create
                 const res = await fetch('/api/routing/rules', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

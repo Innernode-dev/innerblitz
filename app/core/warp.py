@@ -9,6 +9,7 @@ import collections
 import datetime
 import logging
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -103,6 +104,63 @@ async def check_socks5_alive(
                 pass
     except (OSError, asyncio.TimeoutError, asyncio.IncompleteReadError):
         return False, None
+
+
+def ensure_wireguard_policy_routing(iface: str = "warp") -> bool:
+    """
+    Ensure WireGuard WARP interface has an isolated routing table (51820),
+    oif policy rule, NAT masquerade, and TCP MSS clamping so Hysteria 2
+    `bindDevice` outbound works without routing conflicts or PMTU blackholes.
+    """
+    if os.name != "posix" or not iface or not re.match(r"^[a-zA-Z0-9_.\-]{1,15}$", iface):
+        return False
+    if hasattr(os, "geteuid") and os.geteuid() != 0:
+        return False
+
+    ip_bin = shutil.which("ip")
+    if not ip_bin:
+        return False
+
+    try:
+        subprocess.run(
+            [ip_bin, "-4", "route", "replace", "default", "dev", iface, "table", "51820"],
+            capture_output=True, text=True, timeout=3
+        )
+        rules_res = subprocess.run(
+            [ip_bin, "-4", "rule", "show"],
+            capture_output=True, text=True, timeout=3
+        )
+        expected_rule = f"oif {iface} lookup 51820"
+        if rules_res.returncode == 0 and expected_rule not in rules_res.stdout:
+            subprocess.run(
+                [ip_bin, "-4", "rule", "add", "oif", iface, "lookup", "51820", "prio", "30001"],
+                capture_output=True, text=True, timeout=3
+            )
+
+        ipt_bin = shutil.which("iptables")
+        if ipt_bin:
+            chk_nat = subprocess.run(
+                [ipt_bin, "-t", "nat", "-C", "POSTROUTING", "-o", iface, "-j", "MASQUERADE"],
+                capture_output=True, timeout=3
+            )
+            if chk_nat.returncode != 0:
+                subprocess.run(
+                    [ipt_bin, "-t", "nat", "-A", "POSTROUTING", "-o", iface, "-j", "MASQUERADE"],
+                    capture_output=True, timeout=3
+                )
+            chk_mss = subprocess.run(
+                [ipt_bin, "-t", "mangle", "-C", "POSTROUTING", "-o", iface, "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--set-mss", "1220"],
+                capture_output=True, timeout=3
+            )
+            if chk_mss.returncode != 0:
+                subprocess.run(
+                    [ipt_bin, "-t", "mangle", "-A", "POSTROUTING", "-o", iface, "-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-j", "TCPMSS", "--set-mss", "1220"],
+                    capture_output=True, timeout=3
+                )
+        return True
+    except Exception as e:
+        logger.debug(f"WireGuard policy routing setup notice for {iface}: {e}")
+        return False
 
 
 def check_wireguard_interface(candidate_names: Optional[List[str]] = None) -> Optional[str]:
@@ -322,6 +380,7 @@ async def detect_warp(force_refresh: bool = False, timeout: float = 3.0) -> Dict
     if wg_iface:
         mode = WarpMode.WIREGUARD
         interface = wg_iface
+        ensure_wireguard_policy_routing(wg_iface)
     elif socks5_ok:
         mode = WarpMode.SOCKS5
         socks5_addr = f"127.0.0.1:{configured_port}"
@@ -620,19 +679,31 @@ class WarpProcessManager:
                 pass
 
     async def _on_install_success(self, mode: str, port: int):
-        """Auto-configure settings and reload Hysteria 2 configuration."""
+        """Auto-configure settings from live detection and reload Hysteria 2 configuration."""
         try:
-            await crud.set_settings({
+            detected = await detect_warp(force_refresh=True)
+            if detected.get("active") and detected.get("mode") in ("socks5", "wireguard"):
+                resolved_mode = detected["mode"]
+            else:
+                resolved_mode = "socks5" if mode in ("auto", "socks5") else "wireguard"
+
+            updates = {
                 "warp_enabled": "1",
-                "warp_mode": "socks5" if mode in ("auto", "socks5") else "wireguard",
+                "warp_mode": resolved_mode,
                 "warp_port": str(port),
                 "warp_install_status": "success",
                 "warp_last_installed": self.end_time or ""
-            })
+            }
+            if detected.get("interface"):
+                updates["warp_interface"] = detected["interface"]
+            if detected.get("socks5_addr"):
+                updates["warp_port"] = detected["socks5_addr"].split(":")[-1]
+
+            await crud.set_settings(updates)
             from app.core.hysteria import apply_and_save_config, restart_hysteria
             await apply_and_save_config()
             restart_hysteria()
-            self._append_log("[SUCCESS] Hysteria 2 configuration updated and service restarted with WARP outbound.")
+            self._append_log(f"[SUCCESS] Hysteria 2 configuration updated and service restarted with WARP outbound ({resolved_mode}).")
         except Exception as e:
             self._append_log(f"[WARN] Failed to automatically apply Hysteria config: {e}")
 
@@ -697,12 +768,14 @@ async def run_warp_installer(mode: str = "auto", port: int = 40000, clean: bool 
 # ==================== SYSTEMD SERVICE MANAGEMENT ====================
 
 def get_warp_service_name() -> Optional[str]:
-    """Identify which WARP systemd service unit is active."""
+    """Identify which WARP systemd service unit is active or installed."""
     from app.core.hysteria import run_systemctl
     for svc in ("warp-svc.service", "wg-quick@warp.service"):
         ok, out = run_systemctl("is-active", svc)
         if ok and "active" in out:
             return svc
+    if not shutil.which("warp-cli") and Path("/etc/wireguard/warp.conf").exists():
+        return "wg-quick@warp.service"
     return None
 
 
@@ -762,6 +835,9 @@ def repair_warp_service() -> Dict[str, Any]:
                     actions_taken.append("Registered new warp-cli account")
             except Exception as e:
                 actions_taken.append(f"warp-cli status check notice: {e}")
+    elif service == "wg-quick@warp.service":
+        if ensure_wireguard_policy_routing("warp"):
+            actions_taken.append("Applied WireGuard policy routing table 51820 & TCPMSS")
 
     # Step 4: Verify active status
     is_active_ok, is_active_out = run_systemctl("is-active", service)

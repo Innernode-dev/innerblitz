@@ -4,38 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Вход — InnerBlitz Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        body {
+            background-color: #06090f;
+            background-image:
+                radial-gradient(ellipse 75% 55% at 50% 0%, rgba(6, 182, 212, 0.12), transparent 70%),
+                linear-gradient(to right, rgba(28, 38, 59, 0.24) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(28, 38, 59, 0.24) 1px, transparent 1px);
+            background-size: 100% 100%, 36px 36px, 36px 36px;
+            font-family: 'Manrope', system-ui, sans-serif;
+        }
         .glass {
-            background: rgba(17, 24, 39, 0.75);
+            background: rgba(11, 17, 30, 0.92);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid #1c263b;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 24px 60px -15px rgba(0, 0, 0, 0.8);
         }
-        .glow-brand {
-            box-shadow: 0 0 35px -5px rgba(124, 58, 237, 0.5);
-        }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-brand-500 selection:text-white relative overflow-hidden">
+<body class="bg-[#06090f] text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-cyan-500 selection:text-slate-950 relative overflow-hidden">
 
-    <!-- Ambient background glow circles -->
-    <div class="absolute -top-40 -left-40 w-96 h-96 bg-purple-600/20 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-
-    <div class="glass w-full max-w-md rounded-3xl p-8 border border-slate-800 shadow-2xl relative z-10 space-y-6">
+    <div class="glass w-full max-w-md rounded-2xl p-7 sm:p-8 relative z-10 space-y-6">
         <!-- Logo & Header -->
         <div class="text-center space-y-2">
-            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center glow-brand text-white font-bold mx-auto mb-3">
-                <i data-lucide="zap" class="w-8 h-8"></i>
+            <div class="w-13 h-13 w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-400 flex items-center justify-center text-slate-950 font-extrabold mx-auto mb-3 shadow-lg shadow-cyan-500/20">
+                <i data-lucide="zap" class="w-7 h-7"></i>
             </div>
-            <h1 class="text-2xl font-bold tracking-tight text-white">InnerBlitz Panel</h1>
-            <p class="text-xs text-slate-400">Управление прокси-сервером Hysteria 2</p>
+            <h1 class="text-2xl font-extrabold tracking-tight text-white">InnerBlitz Panel</h1>
+            <p class="text-xs text-slate-400 font-mono">Hysteria 2 Control Plane</p>
         </div>
 
         <!-- Error Alert -->
-        <div id="loginError" class="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium hidden flex items-center gap-2">
+        <div id="loginError" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25 text-rose-300 text-xs font-medium hidden flex items-center gap-2">
             <i data-lucide="alert-circle" class="w-4 h-4 flex-shrink-0"></i>
             <span id="loginErrorMsg">Ошибка входа</span>
         </div>
@@ -45,44 +52,44 @@
             <!-- Step 1: Username & Password -->
             <div id="credentialsStep" class="space-y-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Логин</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Логин</label>
                     <div class="relative">
                         <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                        <input type="text" id="usernameInput" required autofocus placeholder="admin" 
-                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition">
+                        <input type="text" id="usernameInput" required autofocus placeholder="admin"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition font-mono">
                     </div>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Пароль</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Пароль</label>
                     <div class="relative">
                         <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                        <input type="password" id="passwordInput" required placeholder="••••••••" 
-                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition">
+                        <input type="password" id="passwordInput" required placeholder="••••••••"
+                               class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition">
                     </div>
                 </div>
             </div>
 
             <!-- Step 2: 2FA (shown only if required) -->
             <div id="twoFactorStep" class="space-y-3 hidden">
-                <div class="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs">
+                <div class="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-200 text-xs">
                     <span id="twoFactorPrompt">Введите 6-значный код двухфакторной аутентификации</span>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1.5">Код подтверждения (2FA)</label>
-                    <input type="text" id="twoFactorCode" maxlength="6" placeholder="000000" 
-                           class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-purple-500">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Код подтверждения (2FA)</label>
+                    <input type="text" id="twoFactorCode" maxlength="6" placeholder="000000"
+                           class="w-full px-4 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-center font-mono text-xl tracking-widest text-white focus:outline-none focus:border-cyan-500">
                 </div>
             </div>
 
-            <button type="submit" id="submitBtn" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-medium text-sm transition shadow-lg shadow-purple-600/30 flex items-center justify-center gap-2">
+            <button type="submit" id="submitBtn" class="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
                 <span id="btnText">Войти в систему</span>
                 <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
         </form>
 
-        <div class="text-center pt-2">
-            <span class="text-[11px] text-slate-500">Защищено сквозным шифрованием и проверкой IP</span>
+        <div class="text-center pt-1">
+            <span class="text-[11px] text-slate-500 font-mono">TLS • Anti-Scan • Hysteria 2</span>
         </div>
     </div>
 

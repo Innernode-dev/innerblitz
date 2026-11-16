@@ -26,7 +26,9 @@ from app.core.security import (
     get_totp_uri, verify_totp, generate_secret_path
 )
 from app.core.cert import generate_self_signed_cert
-from app.core.hysteria import apply_and_save_config, restart_hysteria, run_systemctl, validate_hysteria_config
+from app.core.hysteria import (
+    apply_and_save_config, build_hysteria_yaml, restart_hysteria, run_systemctl, validate_hysteria_config
+)
 from app.core.firewall import (
     configure_port_hopping, flush_port_hopping, 
     open_firewall_port, close_firewall_port, ensure_firewall_permissive
@@ -156,14 +158,32 @@ async def update_settings(payload: SettingsPayload):
             updates[k] = str(v)
 
     if updates:
-        if updates.get("routing_global_outbound") == "warp":
-            updates["warp_enabled"] = "1"
+        warp_routing_keys = (
+            "routing_global_outbound", "routing_ru", "ru_routing",
+            "routing_openai", "routing_discord", "routing_youtube",
+            "routing_telegram", "routing_netflix"
+        )
+        if any(str(updates.get(k, "")).strip().lower() == "warp" for k in warp_routing_keys):
+            if "warp_enabled" not in updates:
+                updates["warp_enabled"] = "1"
         if "ru_routing" in updates and "routing_ru" not in updates:
             updates["routing_ru"] = updates["ru_routing"]
         elif "routing_ru" in updates and "ru_routing" not in updates:
             updates["ru_routing"] = updates["routing_ru"]
         if "sniff_enable" in updates:
             updates["sniff_enabled"] = updates["sniff_enable"]
+
+        if "sni" in updates and updates["sni"]:
+            updates["sni"] = updates["sni"].strip()
+            if "masquerade_target" not in updates:
+                updates["masquerade_target"] = f"https://{updates['sni']}"
+
+            # If in self_signed_ip mode, regenerate cert with new SNI SAN and update fingerprint pin
+            cur_tls = updates.get("tls_type") or await crud.get_setting("tls_type", "self_signed_ip")
+            if cur_tls == "self_signed_ip":
+                server_ip = updates.get("server_ip") or await crud.get_setting("server_ip", "127.0.0.1")
+                cert_p, key_p, new_sha = generate_self_signed_cert(server_ip, sni=updates["sni"])
+                updates["cert_sha256"] = new_sha
 
         await crud.set_settings(updates)
         await apply_and_save_config()
@@ -194,20 +214,6 @@ async def update_settings(payload: SettingsPayload):
             except Exception as e:
                 logger.warning(f"Failed to punch firewall for listen_port: {e}")
 
-        if "sni" in updates and updates["sni"]:
-            updates["sni"] = updates["sni"].strip()
-            if "masquerade_target" not in updates:
-                updates["masquerade_target"] = f"https://{updates['sni']}"
-            
-            # If in self_signed_ip mode, regenerate cert with new SNI SAN and update fingerprint pin
-            cur_tls = updates.get("tls_type") or await crud.get_setting("tls_type", "self_signed_ip")
-            if cur_tls == "self_signed_ip":
-                server_ip = updates.get("server_ip") or await crud.get_setting("server_ip", "127.0.0.1")
-                cert_p, key_p, new_sha = generate_self_signed_cert(server_ip, sni=updates["sni"])
-                updates["cert_sha256"] = new_sha
-
-        await crud.set_settings(updates)
-        await apply_and_save_config()
         restart_hysteria()
 
     return {"ok": True, "message": "Settings updated and Hysteria config applied"}
@@ -592,13 +598,41 @@ class RawConfigPayload(BaseModel):
 
 @router.get("/raw-config")
 async def get_raw_config():
-    """Retrieve raw Hysteria 2 config.yaml content."""
+    """Retrieve raw Hysteria 2 config.yaml content, generating it on disk if missing."""
     cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+    if not cfg_path.exists():
+        await apply_and_save_config()
+
     if cfg_path.exists():
         with open(cfg_path, "r", encoding="utf-8") as f:
             content = f.read()
-        return {"ok": True, "content": content}
-    return {"ok": False, "content": "# Config not found on disk"}
+        return {"ok": True, "content": content, "path": str(cfg_path)}
+
+    all_settings = await crud.get_all_settings()
+    all_settings["custom_routing_rules"] = await crud.get_routing_rules(enabled_only=True)
+    generated = build_hysteria_yaml(all_settings)
+    return {"ok": True, "content": generated, "path": str(cfg_path), "generated": True}
+
+@router.post("/regenerate-config")
+async def regenerate_config_from_db():
+    """Rebuild config.yaml cleanly from database settings and restart core."""
+    try:
+        apply_res = await apply_and_save_config()
+        if not apply_res:
+            return {"ok": False, "message": f"Rebuild failed: {apply_res.message}"}
+
+        ok, out = restart_hysteria()
+        cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
+        content = cfg_path.read_text(encoding="utf-8") if cfg_path.exists() else ""
+        return {
+            "ok": True,
+            "content": content,
+            "service_restart": ok,
+            "output": out,
+            "message": "Конфигурация пересобрана из настроек БД и применена!"
+        }
+    except Exception as e:
+        return {"ok": False, "message": str(e)}
 
 @router.post("/raw-config")
 async def save_raw_config(payload: RawConfigPayload):
@@ -613,7 +647,7 @@ async def save_raw_config(payload: RawConfigPayload):
             return {"ok": False, "message": f"Failed to save config: {apply_res.message}"}
 
         ok, out = restart_hysteria()
-        return {"ok": ok, "message": "Raw YAML config applied and Hysteria restarted!", "output": out}
+        return {"ok": True, "service_restart": ok, "message": "Конфигурация config.yaml сохранена и ядро перезапущено!", "output": out}
     except Exception as e:
         return {"ok": False, "message": str(e)}
 
@@ -775,8 +809,8 @@ async def update_routing_settings(payload: RoutingPayload):
     for sk in service_keys:
         if sk in data and data[sk] is not None:
             val = str(data[sk]).strip().lower()
-            if val not in ("direct", "warp", "block"):
-                raise HTTPException(status_code=400, detail=f"Invalid value for {sk}. Must be 'direct', 'warp', or 'block'")
+            if val not in ("direct", "warp", "block", "off", "none"):
+                raise HTTPException(status_code=400, detail=f"Invalid value for {sk}. Must be 'direct', 'warp', 'block', or 'off'")
             updates[sk] = val
 
     if "routing_p2p" in data and data["routing_p2p"] is not None:
@@ -793,6 +827,12 @@ async def update_routing_settings(payload: RoutingPayload):
 
     if "warp_enabled" in data and data["warp_enabled"] is not None:
         updates["warp_enabled"] = "1" if data["warp_enabled"] else "0"
+    elif (
+        updates.get("routing_global_outbound") == "warp"
+        or updates.get("routing_ru") == "warp"
+        or any(updates.get(sk) == "warp" for sk in service_keys)
+    ):
+        updates["warp_enabled"] = "1"
 
     if "sniff_enable" in data and data["sniff_enable"] is not None:
         updates["sniff_enable"] = "1" if str(data["sniff_enable"]).lower() in ("1", "true") else "0"

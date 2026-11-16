@@ -122,6 +122,46 @@ def validate_hysteria_config(content: str) -> Tuple[bool, str]:
 
     return True, "Configuration is valid"
 
+def _resolve_warp_active(
+    config_data: Dict[str, Any],
+    rules: Optional[List[Dict[str, Any]]] = None,
+    global_outbound: Optional[str] = None,
+) -> bool:
+    """
+    Determine whether the Hysteria 2 'warp' outbound must be emitted.
+    Invariant: If any active route (global outbound, RU routing, or an enabled custom rule)
+    explicitly targets WARP, WARP outbound is active unless disabled via boolean False
+    with no WARP-targeting rules.
+    """
+    global_out = str(
+        global_outbound or config_data.get("routing_global_outbound", "direct") or "direct"
+    ).strip().lower()
+    ru_mode = str(
+        config_data.get("routing_ru") or config_data.get("ru_routing", "direct") or "direct"
+    ).strip().lower()
+
+    any_custom_warp = any(
+        isinstance(r, dict)
+        and r.get("enabled", True)
+        and str(r.get("action", "")).strip().lower() == "warp"
+        for r in (rules or [])
+    )
+    any_explicit_warp_target = (
+        global_out == "warp"
+        or ru_mode == "warp"
+        or any_custom_warp
+    )
+
+    warp_enabled_raw = config_data.get("warp_enabled")
+    if warp_enabled_raw is False:
+        return False
+    if warp_enabled_raw is not None:
+        if str(warp_enabled_raw).lower() in ("1", "true"):
+            return True
+        return any_explicit_warp_target
+    return any_explicit_warp_target
+
+
 def compile_acl_rules(
     rules: Optional[List[Dict[str, Any]]] = None,
     global_outbound: str = "direct",
@@ -131,11 +171,10 @@ def compile_acl_rules(
     Dynamic Hysteria 2 ACL Compiler.
     Merges ACL rules in strict precedence order:
     1. Built-in Security / Private RFC 1918 subnets (reject)
-    2. Threat / Ad rejections (ads, win-spy, p2p)
-    3. Service presets (OpenAI, Discord, YouTube, Telegram, Netflix)
-    4. RU regional rules
-    5. User-defined custom routing rules (sorted by priority ASC, id ASC)
-    6. Global outbound fallback rule (all)
+    2. Threat / Ad rejections & QUIC UDP/443 fallback guards for WARP SOCKS5 (reject)
+    3. User-defined custom routing rules (sorted by priority ASC, id ASC)
+    4. Service presets (OpenAI, Discord, YouTube, Telegram, Netflix) & RU regional rules
+    5. Global outbound fallback rule (all)
     """
     if presets is None:
         presets = {}
@@ -143,12 +182,8 @@ def compile_acl_rules(
         rules = []
 
     global_out = str(global_outbound or presets.get("routing_global_outbound", "direct") or "direct").strip().lower()
-
-    warp_enabled_raw = presets.get("warp_enabled")
-    if warp_enabled_raw is not None:
-        warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
-    else:
-        warp_is_active = (global_out == "warp")
+    warp_is_active = _resolve_warp_active(presets, rules=rules, global_outbound=global_out)
+    warp_mode = str(presets.get("warp_mode", "socks5") or "socks5").strip().lower()
 
     reject_rules: List[str] = []
     routing_rules: List[str] = []
@@ -197,22 +232,46 @@ def compile_acl_rules(
         elif mode == "direct" and warp_is_active and global_out == "warp":
             routing_rules.append(f"direct({geosite})")
 
-    # 4. RU Traffic routing rules (geosite:ru, geoip:ru)
+    # 4. RU Traffic routing rules (geosite:ru, geoip:ru, .ru/.su/.рф suffixes)
     ru_mode = str(presets.get("routing_ru") or presets.get("ru_routing", "direct") or "direct").strip().lower()
     if ru_mode not in ("direct", "warp", "block"):
         ru_mode = "direct"
 
     if ru_mode == "block":
-        reject_rules.append("reject(geosite:ru)")
-        reject_rules.append("reject(geoip:ru)")
+        reject_rules.extend([
+            "reject(geosite:ru)",
+            "reject(geoip:ru)",
+            "reject(suffix:ru)",
+            "reject(suffix:su)",
+            "reject(suffix:xn--p1ai)",
+        ])
     elif ru_mode == "warp" and warp_is_active:
-        routing_rules.append("warp(geosite:ru)")
-        routing_rules.append("warp(geoip:ru)")
-    elif ru_mode == "direct" and warp_is_active and global_out == "warp":
-        routing_rules.append("direct(geosite:ru)")
-        routing_rules.append("direct(geoip:ru)")
+        # Reject HTTP/3 QUIC (UDP/443) for WARP SOCKS5 so browsers fall back to TCP/HTTPS immediately
+        if warp_mode != "wireguard":
+            reject_rules.extend([
+                "reject(geosite:ru, udp/443)",
+                "reject(suffix:ru, udp/443)",
+                "reject(suffix:su, udp/443)",
+                "reject(suffix:xn--p1ai, udp/443)",
+            ])
+        routing_rules.extend([
+            "warp(geosite:ru)",
+            "warp(geoip:ru)",
+            "warp(suffix:ru)",
+            "warp(suffix:su)",
+            "warp(suffix:xn--p1ai)",
+        ])
+    elif ru_mode == "direct" and warp_is_active:
+        routing_rules.extend([
+            "direct(geosite:ru)",
+            "direct(geoip:ru)",
+            "direct(suffix:ru)",
+            "direct(suffix:su)",
+            "direct(suffix:xn--p1ai)",
+        ])
 
     # 5. User-defined custom routing rules sorted by priority ASC, id ASC
+    # Evaluated before broad regional/service presets so user overrides take effect.
     enabled_rules = [r for r in rules if r.get("enabled", True)]
     sorted_rules = sorted(enabled_rules, key=lambda r: (r.get("priority", 100), r.get("id", 0)))
 
@@ -236,7 +295,7 @@ def compile_acl_rules(
                 clean = val.removeprefix("domain:").strip()
                 if clean.startswith("*."):
                     clean = clean[2:]
-                matchers = [clean, f"suffix:{clean}", f"domain:{clean}"]
+                matchers = [clean, f"suffix:{clean}"]
             elif rule_type == "suffix":
                 clean = val.removeprefix("suffix:").removeprefix("domain-suffix:").strip()
                 if clean.startswith("*."):
@@ -282,7 +341,7 @@ def compile_acl_rules(
     # Deduplicate rules while strictly preserving insertion order
     all_acl: List[str] = []
     seen = set()
-    for rule in reject_rules + routing_rules + custom_rules_acl:
+    for rule in reject_rules + custom_rules_acl + routing_rules:
         if rule not in seen:
             seen.add(rule)
             all_acl.append(rule)
@@ -386,18 +445,28 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
   udpPorts: all"""
 
     # Outbounds & Routing Policy
+    custom_rules = config_data.get("custom_routing_rules") or config_data.get("routing_rules") or []
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()
     warp_port = config_data.get("warp_port", "40000")
+    warp_mode = str(config_data.get("warp_mode", "socks5") or "socks5").strip().lower()
+    warp_iface = str(config_data.get("warp_interface", "warp") or "warp").strip()
 
-    warp_enabled_raw = config_data.get("warp_enabled")
-    if warp_enabled_raw is not None:
-        warp_is_active = str(warp_enabled_raw).lower() in ("1", "true")
-    else:
-        warp_is_active = (global_outbound == "warp")
+    warp_is_active = _resolve_warp_active(config_data, rules=custom_rules, global_outbound=global_outbound)
 
     outbounds_block = ""
     if warp_is_active:
-        outbounds_block = f"""outbounds:
+        if warp_mode == "wireguard":
+            outbounds_block = f"""outbounds:
+  - name: direct
+    type: direct
+  - name: warp
+    type: direct
+    direct:
+      mode: 4
+      bindDevice: {warp_iface}
+"""
+        else:
+            outbounds_block = f"""outbounds:
   - name: direct
     type: direct
   - name: warp
@@ -424,8 +493,7 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
   maxIdleTimeout: {max_idle}
   maxIncomingStreams: {int(max_streams)}{keep_alive_line}"""
 
-    # Compile ACL rules merging security, service presets, custom rules, and fallback
-    custom_rules = config_data.get("custom_routing_rules") or config_data.get("routing_rules") or []
+    # Compile ACL rules merging security, custom rules, service presets, and fallback
     all_acl_rules = compile_acl_rules(custom_rules, global_outbound=global_outbound, presets=config_data)
 
     acl_lines = "\n".join(f"    - {r}" for r in all_acl_rules)
@@ -606,6 +674,7 @@ After=network.target
 [Service]
 Type=simple
 User=root
+WorkingDirectory=/etc/hysteria
 Environment=HYSTERIA_LOG_LEVEL={lvl}
 StandardOutput={out_dest}
 StandardError={out_dest}

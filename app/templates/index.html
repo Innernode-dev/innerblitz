@@ -4,255 +4,313 @@
 {% block page_title %}Обзор системы{% endblock %}
 
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-6">
 
-    <!-- Quick Action Bar (3x-UI Style) -->
-    <div class="glass-card p-4 rounded-xl border border-[#1e293b] flex flex-col md:flex-row items-start md:items-center justify-between gap-3 shadow-md">
-        <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+    <!-- Command Header & Quick Actions -->
+    <div class="glass-card p-4 sm:p-5 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div class="flex items-center gap-3.5">
+            <div class="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
                 <i data-lucide="shield-check" class="w-5 h-5"></i>
             </div>
             <div>
-                <div class="flex items-center gap-2">
-                    <span class="text-sm font-bold text-white">Панель управления Hysteria 2</span>
-                    <span id="daemonStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-sm sm:text-base font-extrabold tracking-tight text-white">Панель управления Hysteria 2</span>
+                    <span id="daemonStatusBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span id="daemonStatusText">QUIC v2 Active</span>
                     </span>
-                    <span id="coreVersionBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">v2.x</span>
+                    <span id="coreVersionBadge" class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800">v2.x</span>
                 </div>
-                <p class="text-xs text-slate-400">Управление узлом, клиентами, правилами маршрутизации, TLS сертификатами и обходом блокировок.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Телеметрия узла, управление клиентами, раздельная маршрутизация и обход DPI.</p>
             </div>
         </div>
-        <div class="flex flex-wrap items-center gap-2">
-            <button onclick="applyPreset('anti-dpi')" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-sm">
+        <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
+            <button onclick="applyPreset('anti-dpi')" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-500/20">
                 <i data-lucide="shield" class="w-3.5 h-3.5"></i>
                 <span>Анти-DPI Пресет</span>
             </button>
-            <button onclick="generateIpCert()" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition flex items-center gap-1.5">
+            <button onclick="generateIpCert()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition flex items-center gap-1.5">
                 <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-400"></i>
                 <span>Обновить IP SAN</span>
             </button>
-            <a href="/users" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-medium text-xs transition flex items-center gap-1.5">
-                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-blue-400"></i>
+            <a href="/users" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition flex items-center gap-1.5">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5 text-cyan-400"></i>
                 <span>Добавить клиента</span>
             </a>
         </div>
     </div>
 
-    <!-- 4 Key Telemetry Cards (3x-UI Style) -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <!-- Key Telemetry Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
 
         <!-- Card 1: Real-time Speedometer & Bandwidth -->
-        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
             <div>
                 <div class="flex items-center justify-between mb-4">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Скорость и трафик</span>
-                    <div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        <i data-lucide="activity" class="w-5 h-5"></i>
+                    <span class="text-xs font-bold text-slate-300">Скорость и трафик</span>
+                    <div class="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <i data-lucide="activity" class="w-4 h-4"></i>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3 mb-4">
-                    <div>
+                    <div class="p-2.5 rounded-xl bg-[#06090f] border border-[#1c263b]">
                         <span class="text-[11px] text-slate-400 block mb-0.5">Входящий (RX)</span>
                         <div class="flex items-center gap-1">
                             <i data-lucide="arrow-down" class="w-3.5 h-3.5 text-emerald-400"></i>
-                            <span id="liveDownSpeed" class="text-lg font-bold text-emerald-400 font-mono">0 B/s</span>
+                            <span id="liveDownSpeed" class="text-base font-bold text-emerald-400 font-mono tabular-nums">0 B/s</span>
                         </div>
                     </div>
-                    <div>
+                    <div class="p-2.5 rounded-xl bg-[#06090f] border border-[#1c263b]">
                         <span class="text-[11px] text-slate-400 block mb-0.5">Исходящий (TX)</span>
                         <div class="flex items-center gap-1">
                             <i data-lucide="arrow-up" class="w-3.5 h-3.5 text-cyan-400"></i>
-                            <span id="liveUpSpeed" class="text-lg font-bold text-cyan-400 font-mono">0 B/s</span>
+                            <span id="liveUpSpeed" class="text-base font-bold text-cyan-400 font-mono tabular-nums">0 B/s</span>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="border-t border-slate-800 pt-3">
+            <div class="border-t border-[#1c263b] pt-3 space-y-1">
                 <div class="flex items-center justify-between text-xs text-slate-400">
                     <span>Всего загружено:</span>
-                    <span id="totalDownTraffic" class="font-mono text-slate-200 font-semibold">0 B</span>
+                    <span id="totalDownTraffic" class="font-mono tabular-nums text-slate-200 font-semibold">0 B</span>
                 </div>
-                <div class="flex items-center justify-between text-xs text-slate-400 mt-1">
+                <div class="flex items-center justify-between text-xs text-slate-400">
                     <span>Всего отдано:</span>
-                    <span id="totalUpTraffic" class="font-mono text-slate-200 font-semibold">0 B</span>
+                    <span id="totalUpTraffic" class="font-mono tabular-nums text-slate-200 font-semibold">0 B</span>
                 </div>
             </div>
         </div>
 
-        <!-- Card 2: Client Breakdown Status (3x-UI) -->
-        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <!-- Card 2: Client Breakdown -->
+        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
             <div>
                 <div class="flex items-center justify-between mb-3">
-                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Клиенты</span>
-                    <div class="p-2.5 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                        <i data-lucide="users" class="w-5 h-5"></i>
+                    <span class="text-xs font-bold text-slate-300">Клиенты</span>
+                    <div class="p-2 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                        <i data-lucide="users" class="w-4 h-4"></i>
                     </div>
                 </div>
                 <div class="flex items-baseline gap-2 mb-3">
-                    <span id="totalUsersCount" class="text-3xl font-bold text-white">0</span>
-                    <span class="text-xs text-slate-400">всего клиентов</span>
-                    <span id="onlineBadge" class="ml-auto text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                    <span id="totalUsersCount" class="text-3xl font-extrabold text-white font-mono tabular-nums">0</span>
+                    <span class="text-xs text-slate-400">всего</span>
+                    <span id="onlineBadge" class="ml-auto text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1.5 font-mono tabular-nums">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span id="onlineClientsCount">0</span> онлайн
                     </span>
                 </div>
             </div>
-            <!-- Client Status Breakdown Badges -->
-            <div class="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
-                <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-900/60 border border-slate-800">
+            <div class="grid grid-cols-2 gap-2 text-xs border-t border-[#1c263b] pt-3">
+                <div class="flex items-center justify-between p-1.5 rounded-lg bg-[#06090f] border border-[#1c263b]">
                     <span class="text-slate-400 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
                         <span>Активны:</span>
                     </span>
-                    <span id="activeUsersCount" class="font-bold text-blue-400">0</span>
+                    <span id="activeUsersCount" class="font-bold font-mono tabular-nums text-cyan-300">0</span>
                 </div>
-                <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div class="flex items-center justify-between p-1.5 rounded-lg bg-[#06090f] border border-[#1c263b]">
                     <span class="text-slate-400 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
                         <span>Истекли:</span>
                     </span>
-                    <span id="expiredUsersCount" class="font-bold text-amber-400">0</span>
+                    <span id="expiredUsersCount" class="font-bold font-mono tabular-nums text-amber-400">0</span>
                 </div>
-                <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div class="flex items-center justify-between p-1.5 rounded-lg bg-[#06090f] border border-[#1c263b]">
                     <span class="text-slate-400 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                        <span class="w-2 h-2 rounded-full bg-violet-400"></span>
                         <span>Квота:</span>
                     </span>
-                    <span id="quotaUsersCount" class="font-bold text-purple-400">0</span>
+                    <span id="quotaUsersCount" class="font-bold font-mono tabular-nums text-violet-300">0</span>
                 </div>
-                <div class="flex items-center justify-between p-1.5 rounded-lg bg-slate-900/60 border border-slate-800">
+                <div class="flex items-center justify-between p-1.5 rounded-lg bg-[#06090f] border border-[#1c263b]">
                     <span class="text-slate-400 flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full bg-red-500"></span>
-                        <span>Выключ.:</span>
+                        <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span>Выкл.:</span>
                     </span>
-                    <span id="disabledUsersCount" class="font-bold text-red-400">0</span>
+                    <span id="disabledUsersCount" class="font-bold font-mono tabular-nums text-rose-400">0</span>
                 </div>
             </div>
         </div>
 
-        <!-- Card 3: VPS Resource Gauges (CPU, RAM, Disk) -->
-        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <!-- Card 3: VPS Resource Gauges -->
+        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Нагрузка VPS</span>
-                <div class="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                    <i data-lucide="cpu" class="w-5 h-5"></i>
+                <span class="text-xs font-bold text-slate-300">Нагрузка VPS</span>
+                <div class="p-2 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                    <i data-lucide="cpu" class="w-4 h-4"></i>
                 </div>
             </div>
-            <div class="space-y-2.5">
-                <!-- CPU -->
+            <div class="space-y-3">
                 <div>
                     <div class="flex justify-between text-xs mb-1">
                         <span class="text-slate-400">CPU</span>
-                        <span id="cpuPercent" class="text-white font-medium font-mono">0%</span>
+                        <span id="cpuPercent" class="text-white font-semibold font-mono tabular-nums">0%</span>
                     </div>
-                    <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div id="cpuBar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="w-full bg-[#06090f] border border-[#1c263b] rounded-full h-2 overflow-hidden">
+                        <div id="cpuBar" class="bg-cyan-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-                <!-- RAM -->
                 <div>
                     <div class="flex justify-between text-xs mb-1">
                         <span class="text-slate-400">RAM</span>
-                        <span id="ramText" class="text-white font-medium font-mono text-[11px]">0 / 0 GB (0%)</span>
+                        <span id="ramText" class="text-white font-semibold font-mono tabular-nums text-[11px]">0 / 0 GB (0%)</span>
                     </div>
-                    <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div id="ramBar" class="bg-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="w-full bg-[#06090f] border border-[#1c263b] rounded-full h-2 overflow-hidden">
+                        <div id="ramBar" class="bg-emerald-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
-                <!-- Disk -->
                 <div>
                     <div class="flex justify-between text-xs mb-1">
                         <span class="text-slate-400">Диск</span>
-                        <span id="diskText" class="text-white font-medium font-mono text-[11px]">0 / 0 GB (0%)</span>
+                        <span id="diskText" class="text-white font-semibold font-mono tabular-nums text-[11px]">0 / 0 GB (0%)</span>
                     </div>
-                    <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div id="diskBar" class="bg-cyan-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                    <div class="w-full bg-[#06090f] border border-[#1c263b] rounded-full h-2 overflow-hidden">
+                        <div id="diskBar" class="bg-amber-400 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Card 4: Node Status & Uptime -->
-        <div class="glass-card p-6 rounded-2xl flex flex-col justify-between">
+        <div class="glass-card p-5 rounded-2xl flex flex-col justify-between">
             <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Аптайм и узел</span>
-                <div class="p-2.5 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                    <i data-lucide="clock" class="w-5 h-5"></i>
+                <span class="text-xs font-bold text-slate-300">Аптайм и узел</span>
+                <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    <i data-lucide="clock" class="w-4 h-4"></i>
                 </div>
             </div>
             <div>
-                <div class="text-2xl font-bold text-white font-mono" id="uptimeText">0d 0h 0m</div>
-                <div class="mt-1 text-xs text-slate-400">Время непрерывной работы</div>
+                <div class="text-2xl font-extrabold text-white font-mono tabular-nums" id="uptimeText">0d 0h 0m</div>
+                <div class="mt-1 text-xs text-slate-400">Непрерывная работа сервера</div>
             </div>
-            <div class="border-t border-slate-800 pt-3 space-y-1.5 text-xs">
+            <div class="border-t border-[#1c263b] pt-3 space-y-1.5 text-xs">
                 <div class="flex items-center justify-between">
                     <span class="text-slate-400">Порт Hysteria:</span>
-                    <span id="listenPortText" class="font-mono bg-slate-800 px-2 py-0.5 rounded text-amber-300">443 UDP</span>
+                    <span id="listenPortText" class="font-mono tabular-nums bg-[#06090f] border border-[#1c263b] px-2 py-0.5 rounded text-amber-300">443 UDP</span>
                 </div>
                 <div class="flex items-center justify-between">
                     <span class="text-slate-400">Внешний IP:</span>
-                    <span id="nodeEgressIp" class="font-mono text-slate-300">—</span>
+                    <span id="nodeEgressIp" class="font-mono tabular-nums text-slate-200">—</span>
                 </div>
             </div>
         </div>
 
     </div>
 
-    <!-- Routing & WARP Live Gateway Status Card -->
-    <div class="glass-card rounded-2xl p-5 border-l-4 border-l-blue-500 shadow-lg relative overflow-hidden">
-        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <!-- Hero Feature: Live Split-Routing Topology Pipeline -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-5 border-b border-[#1c263b]">
             <div class="flex items-center gap-3.5">
-                <div class="w-11 h-11 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+                <div class="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-400">
                     <i data-lucide="split" class="w-5 h-5"></i>
                 </div>
                 <div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-sm font-bold text-white">Шлюз маршрутизации & Cloudflare WARP</span>
-                        <span id="dashWarpBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm sm:text-base font-extrabold text-white">Топология маршрутизации & Cloudflare WARP</span>
+                        <span id="dashWarpBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 text-slate-400 border border-slate-800 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
                             <span id="dashWarpText">Опрос...</span>
                         </span>
-                        <span id="dashRulesBadge" class="px-2 py-0.5 rounded text-[11px] font-mono bg-purple-500/10 text-purple-400 border border-purple-500/20 hidden">
-                            <span id="dashRulesCount">0</span> правил
+                        <span id="dashRulesBadge" class="px-2 py-0.5 rounded text-[11px] font-mono tabular-nums bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hidden">
+                            <span id="dashRulesCount">0</span> правил ACL
                         </span>
                     </div>
                     <div class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2.5">
                         <span>Основной выход: <b id="dashGlobalOutboundText" class="text-white font-mono">Прямой IP</b></span>
                         <span>•</span>
-                        <span>Трафик РФ: <b id="dashRuTrafficText" class="text-emerald-400 font-mono">⚡ Напрямую</b></span>
-                        <span id="dashWarpIpContainer" class="hidden">• IP WARP: <b id="dashWarpIp" class="text-cyan-300 font-mono">—</b></span>
-                        <span id="dashWarpPingContainer" class="hidden">(<span id="dashWarpPing" class="font-mono text-slate-300">0 ms</span>)</span>
+                        <span>Трафик РФ: <b id="dashRuTrafficText" class="text-emerald-400 font-mono">Напрямую</b></span>
+                        <span id="dashWarpIpContainer" class="hidden">• IP WARP: <b id="dashWarpIp" class="text-amber-300 font-mono tabular-nums">—</b></span>
+                        <span id="dashWarpPingContainer" class="hidden">(<span id="dashWarpPing" class="font-mono tabular-nums text-slate-300">0 ms</span>)</span>
                     </div>
                 </div>
             </div>
-            <div class="flex items-center gap-2 self-stretch md:self-auto justify-end">
-                <a href="/settings" class="px-4 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5 shadow-sm">
-                    <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
-                    <span>Настроить правила</span>
-                </a>
+            <a href="/settings" class="px-4 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-bold transition flex items-center gap-1.5">
+                <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+                <span>Настроить правила</span>
+            </a>
+        </div>
+
+        <!-- Visual Traffic Pipeline -->
+        <div class="grid grid-cols-1 lg:grid-cols-11 gap-3 pt-5 items-center">
+            <!-- Stage 1: Clients -->
+            <div class="lg:col-span-3 p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold text-white">Клиенты (QUIC)</div>
+                    <div class="text-[11px] font-mono text-slate-400 truncate">Sniff + Salamander</div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="hidden lg:flex lg:col-span-1 justify-center items-center">
+                <div class="w-full h-px bg-gradient-to-r from-cyan-500/60 to-emerald-500/60 relative">
+                    <span class="absolute right-0 -top-1 w-2 h-2 border-t border-r border-cyan-400 rotate-45"></span>
+                </div>
+            </div>
+
+            <!-- Stage 2: Hysteria ACL Core -->
+            <div class="lg:col-span-3 p-3.5 rounded-xl bg-[#06090f] border border-cyan-500/35 flex items-center gap-3 shadow-inner">
+                <div class="w-9 h-9 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <i data-lucide="cpu" class="w-4 h-4"></i>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-xs font-bold text-white">InnerBlitz ACL</div>
+                    <div class="text-[11px] font-mono text-cyan-300 truncate">Приоритетный роутер</div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="hidden lg:flex lg:col-span-1 justify-center items-center">
+                <div class="w-full h-px bg-gradient-to-r from-emerald-500/60 to-amber-500/60 relative">
+                    <span class="absolute right-0 -top-1 w-2 h-2 border-t border-r border-amber-400 rotate-45"></span>
+                </div>
+            </div>
+
+            <!-- Stage 3: Split Outbounds -->
+            <div class="lg:col-span-3 space-y-2">
+                <div id="pipeNodeDirect" class="px-3 py-2 rounded-lg bg-[#06090f] border border-emerald-500/30 flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-2 text-slate-200 font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                        <span>Direct IP</span>
+                    </span>
+                    <span id="pipeDirectTag" class="font-mono text-[10px] text-emerald-400">Основной</span>
+                </div>
+                <div id="pipeNodeWarp" class="px-3 py-2 rounded-lg bg-[#06090f] border border-[#1c263b] flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-2 text-slate-200 font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        <span>Cloudflare WARP</span>
+                    </span>
+                    <span id="pipeWarpTag" class="font-mono text-[10px] text-slate-400">Ожидание</span>
+                </div>
+                <div id="pipeNodeRu" class="px-3 py-2 rounded-lg bg-[#06090f] border border-[#1c263b] flex items-center justify-between text-xs">
+                    <span class="flex items-center gap-2 text-slate-200 font-semibold">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+                        <span>Трафик РФ (.ru)</span>
+                    </span>
+                    <span id="pipeRuTag" class="font-mono text-[10px] text-cyan-300">Direct</span>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Live Traffic Chart -->
-    <div class="glass-card p-6 rounded-2xl">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div class="glass-card p-5 sm:p-6 rounded-2xl">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-5">
             <div>
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i data-lucide="line-chart" class="w-5 h-5 text-blue-400"></i>
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="line-chart" class="w-5 h-5 text-cyan-400"></i>
                     <span>График сетевой скорости в реальном времени</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-1">Динамика входящего и исходящего трафика (обновление каждые 3 секунды)</p>
+                <p class="text-xs text-slate-400 mt-0.5">Динамика входящего и исходящего трафика (обновление каждые 3 секунды)</p>
             </div>
             <div class="flex items-center gap-4 text-xs font-medium">
                 <div class="flex items-center gap-1.5 text-emerald-400">
-                    <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                     <span>Download (RX)</span>
                 </div>
                 <div class="flex items-center gap-1.5 text-cyan-400">
-                    <span class="w-3 h-3 rounded-full bg-cyan-500 inline-block"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 inline-block"></span>
                     <span>Upload (TX)</span>
                 </div>
             </div>
@@ -264,20 +322,20 @@
 
     <!-- Recent Clients Table -->
     <div class="glass-card rounded-2xl overflow-hidden">
-        <div class="p-6 border-b border-slate-800/80 flex items-center justify-between">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="list-filter" class="w-5 h-5 text-blue-400"></i>
+        <div class="p-5 sm:p-6 border-b border-[#1c263b] flex items-center justify-between">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="list-filter" class="w-5 h-5 text-cyan-400"></i>
                 <span>Список активных клиентов</span>
             </h3>
-            <a href="/users" class="text-sm font-medium text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+            <a href="/users" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition flex items-center gap-1">
                 <span>Все клиенты</span>
-                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
             </a>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
-                    <tr class="bg-slate-900/60 border-b border-slate-800 text-slate-400 text-xs uppercase font-medium">
+                    <tr class="bg-[#06090f]/70 border-b border-[#1c263b] text-slate-400 text-[11px] uppercase font-semibold">
                         <th class="py-3.5 px-6">Клиент</th>
                         <th class="py-3.5 px-6">Статус</th>
                         <th class="py-3.5 px-6">Использовано трафика</th>
@@ -285,7 +343,7 @@
                         <th class="py-3.5 px-6 text-right">Действия</th>
                     </tr>
                 </thead>
-                <tbody id="recentUsersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                <tbody id="recentUsersTableBody" class="divide-y divide-[#1c263b]/60 text-slate-300">
                     <tr id="usersEmptyRow"><td colspan="5" class="py-8 text-center text-slate-500">Загрузка данных...</td></tr>
                 </tbody>
             </table>
@@ -336,20 +394,20 @@
                     {
                         label: 'Download (KB/s)',
                         borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                        backgroundColor: 'rgba(16, 185, 129, 0.10)',
                         data: Array(maxDataPoints).fill(0),
                         borderWidth: 2,
-                        tension: 0.4,
+                        tension: 0.35,
                         fill: true,
                         pointRadius: 0,
                     },
                     {
                         label: 'Upload (KB/s)',
                         borderColor: '#06b6d4',
-                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        backgroundColor: 'rgba(6, 182, 212, 0.08)',
                         data: Array(maxDataPoints).fill(0),
                         borderWidth: 2,
-                        tension: 0.4,
+                        tension: 0.35,
                         fill: true,
                         pointRadius: 0,
                     }
@@ -363,21 +421,19 @@
                     x: { display: false },
                     y: {
                         grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                        ticks: { color: '#64748b', font: { size: 10 } }
+                        ticks: { color: '#64748b', font: { size: 10, family: 'JetBrains Mono' } }
                     }
                 }
             }
         });
     }
 
-    // Consolidated single periodic telemetry fetch
     async function fetchDashboardData() {
         try {
             const res = await fetch('/api/system/dashboard');
             if (!res.ok) return;
             const data = await res.json();
 
-            // 1. Server / System telemetry
             const s = data.server || data.system || {};
             const cpuVal = s.cpu_percent !== undefined ? s.cpu_percent : (s.cpu_pct || 0);
             document.getElementById('cpuPercent').textContent = cpuVal + '%';
@@ -401,7 +457,6 @@
                 document.getElementById('nodeEgressIp').textContent = s.egress_ip;
             }
 
-            // Hysteria core status
             const h = data.hysteria || {};
             let portStr = (h.listen_port || s.port || '443') + ' UDP';
             if (h.port_hopping_enabled && h.port_hopping_range) {
@@ -417,14 +472,13 @@
             const daemonBadge = document.getElementById('daemonStatusBadge');
             const daemonText = document.getElementById('daemonStatusText');
             if (daemonActive) {
-                daemonBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1';
+                daemonBadge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5';
                 daemonText.textContent = 'QUIC v2 Active';
             } else {
-                daemonBadge.className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/30 flex items-center gap-1';
+                daemonBadge.className = 'text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/25 flex items-center gap-1.5';
                 daemonText.textContent = 'Stopped';
             }
 
-            // 2. Bandwidth & Speedometer
             const b = data.bandwidth || {};
             const rxBps = b.download_speed_bps !== undefined ? b.download_speed_bps : (b.current_rx_bps || 0);
             const txBps = b.upload_speed_bps !== undefined ? b.upload_speed_bps : (b.current_tx_bps || 0);
@@ -436,7 +490,6 @@
             document.getElementById('totalDownTraffic').textContent = formatBytes(totalRx);
             document.getElementById('totalUpTraffic').textContent = formatBytes(totalTx);
 
-            // Chart update
             if (data.traffic_history && data.traffic_history.length > 0 && trafficChart) {
                 const downData = data.traffic_history.slice(-maxDataPoints).map(p => p.rate_down_kbps || 0);
                 const upData = data.traffic_history.slice(-maxDataPoints).map(p => p.rate_up_kbps || 0);
@@ -445,7 +498,6 @@
                 trafficChart.update('none');
             }
 
-            // 3. Client summary counts
             const c = data.clients || data.clients_summary || {};
             document.getElementById('totalUsersCount').textContent = c.total || 0;
             document.getElementById('onlineClientsCount').textContent = c.online || 0;
@@ -454,11 +506,20 @@
             document.getElementById('quotaUsersCount').textContent = c.quota_exceeded || 0;
             document.getElementById('disabledUsersCount').textContent = c.disabled || 0;
 
-            // 4. Routing & WARP Gateway
             const g = data.gateway || {};
             const r = data.routing || {};
-            const globalOut = (g.global_outbound || r.global_outbound) === 'warp' ? 'Cloudflare WARP' : 'Прямой IP (Direct)';
+            const globalMode = (g.global_outbound || r.global_outbound || 'direct');
+            const globalOut = globalMode === 'warp' ? 'Cloudflare WARP' : 'Прямой IP (Direct)';
             document.getElementById('dashGlobalOutboundText').textContent = globalOut;
+
+            const pipeDirectTag = document.getElementById('pipeDirectTag');
+            const pipeNodeDirect = document.getElementById('pipeNodeDirect');
+            if (pipeDirectTag && pipeNodeDirect) {
+                pipeDirectTag.textContent = globalMode === 'direct' ? 'Основной' : 'Выборочно';
+                pipeNodeDirect.className = globalMode === 'direct'
+                    ? 'px-3 py-2 rounded-lg bg-[#06090f] border border-emerald-500/40 flex items-center justify-between text-xs'
+                    : 'px-3 py-2 rounded-lg bg-[#06090f] border border-[#1c263b] flex items-center justify-between text-xs';
+            }
 
             if (r.custom_rules_count !== undefined) {
                 document.getElementById('dashRulesBadge').classList.remove('hidden');
@@ -466,18 +527,23 @@
             }
 
             const presets = r.presets_status || {};
-            let ruText = '⚡ Напрямую';
+            let ruText = 'Напрямую';
             let ruClass = 'text-emerald-400 font-mono';
+            let pipeRuLabel = 'Direct';
             if (presets.ru === 'warp') {
-                ruText = '🛡️ Через WARP';
-                ruClass = 'text-blue-400 font-mono';
+                ruText = 'Через WARP';
+                ruClass = 'text-amber-400 font-mono';
+                pipeRuLabel = 'WARP';
             } else if (presets.ru === 'block') {
-                ruText = '🚫 Блокировка';
-                ruClass = 'text-red-400 font-mono';
+                ruText = 'Блокировка';
+                ruClass = 'text-rose-400 font-mono';
+                pipeRuLabel = 'Block';
             }
             const ruElem = document.getElementById('dashRuTrafficText');
             ruElem.textContent = ruText;
             ruElem.className = ruClass;
+            const pipeRuTag = document.getElementById('pipeRuTag');
+            if (pipeRuTag) pipeRuTag.textContent = pipeRuLabel;
 
             const w = data.warp || {};
             const warpBadge = document.getElementById('dashWarpBadge');
@@ -486,10 +552,17 @@
             const warpIpContainer = document.getElementById('dashWarpIpContainer');
             const warpPingElem = document.getElementById('dashWarpPing');
             const warpPingContainer = document.getElementById('dashWarpPingContainer');
+            const pipeWarpTag = document.getElementById('pipeWarpTag');
+            const pipeNodeWarp = document.getElementById('pipeNodeWarp');
 
             if (w.active || g.warp_active) {
-                warpBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5';
-                warpText.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>Активен (WARP)</span>';
+                warpBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5';
+                warpText.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>Активен (${escapeHtml((w.mode || g.mode || 'WARP').toUpperCase())})</span>`;
+                if (pipeWarpTag && pipeNodeWarp) {
+                    pipeWarpTag.textContent = (w.mode || g.mode || 'Active').toUpperCase();
+                    pipeWarpTag.className = 'font-mono text-[10px] text-amber-400';
+                    pipeNodeWarp.className = 'px-3 py-2 rounded-lg bg-[#06090f] border border-amber-500/40 flex items-center justify-between text-xs';
+                }
                 if (w.ip || g.warp_ip) {
                     warpIpElem.textContent = w.ip || g.warp_ip;
                     warpIpContainer.classList.remove('hidden');
@@ -499,13 +572,17 @@
                     warpPingContainer.classList.remove('hidden');
                 }
             } else {
-                warpBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+                warpBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-900 text-slate-400 border border-slate-800 flex items-center gap-1.5';
                 warpText.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span>Не подключен</span>';
                 warpIpContainer.classList.add('hidden');
                 warpPingContainer.classList.add('hidden');
+                if (pipeWarpTag && pipeNodeWarp) {
+                    pipeWarpTag.textContent = 'Offline';
+                    pipeWarpTag.className = 'font-mono text-[10px] text-slate-500';
+                    pipeNodeWarp.className = 'px-3 py-2 rounded-lg bg-[#06090f] border border-[#1c263b] flex items-center justify-between text-xs';
+                }
             }
 
-            // 5. Non-destructive update of recent clients
             const recentClients = data.recent_clients || [];
             updateRecentClientsTable(recentClients.slice(0, 5));
 
@@ -514,7 +591,6 @@
         }
     }
 
-    // Non-destructive DOM diffing update for recent clients
     function updateRecentClientsTable(clients) {
         const tbody = document.getElementById('recentUsersTableBody');
         if (!tbody) return;
@@ -522,14 +598,13 @@
         if (!clients || clients.length === 0) {
             const emptyRow = document.getElementById('usersEmptyRow');
             if (emptyRow) {
-                emptyRow.innerHTML = '<td colspan="5" class="py-8 text-center text-slate-500">Пользователей пока нет. Создайте первого!</td>';
+                emptyRow.innerHTML = '<td colspan="5" class="py-8 text-center text-slate-500">Пользователей пока нет. Создайте первого.</td>';
             } else {
-                tbody.innerHTML = '<tr id="usersEmptyRow"><td colspan="5" class="py-8 text-center text-slate-500">Пользователей пока нет. Создайте первого!</td></tr>';
+                tbody.innerHTML = '<tr id="usersEmptyRow"><td colspan="5" class="py-8 text-center text-slate-500">Пользователей пока нет. Создайте первого.</td></tr>';
             }
             return;
         }
 
-        // If placeholder empty row is present, remove it
         const emptyRow = document.getElementById('usersEmptyRow');
         if (emptyRow) emptyRow.remove();
 
@@ -540,15 +615,13 @@
 
         const currentClientUsernames = new Set(clients.map(u => u.username));
 
-        // Remove stale rows
         existingRowMap.forEach((row, username) => {
             if (!currentClientUsernames.has(username)) {
                 row.remove();
             }
         });
 
-        // Update or insert rows
-        clients.forEach((u, idx) => {
+        clients.forEach((u) => {
             let row = existingRowMap.get(u.username);
             const statusHtml = getStatusBadgeHtml(u);
             const maxTraffic = u.unlimited_user ? 'Безлимит' : (u.max_traffic_gb > 0 ? u.max_traffic_gb + ' GB' : 'Безлимит');
@@ -556,7 +629,6 @@
             const daysLeft = u.unlimited_user ? '∞' : (u.days_left !== undefined ? u.days_left + ' дн.' : '∞');
 
             if (row) {
-                // Non-destructive in-place text & class update
                 const statusCell = row.querySelector('.col-status');
                 if (statusCell && statusCell.dataset.statusKey !== getStatusKey(u)) {
                     statusCell.innerHTML = statusHtml;
@@ -571,20 +643,19 @@
                     daysCell.textContent = daysLeft;
                 }
             } else {
-                // Insert new row
                 row = document.createElement('tr');
-                row.className = 'hover:bg-slate-800/40 transition';
+                row.className = 'hover:bg-slate-800/35 transition';
                 row.setAttribute('data-client-user', u.username);
                 row.innerHTML = `
-                    <td class="py-4 px-6 font-semibold text-white flex items-center gap-2">
-                        <i data-lucide="user" class="w-4 h-4 text-blue-400"></i>
-                        <span>${u.username}</span>
+                    <td class="py-4 px-6 font-semibold text-white flex items-center gap-2 font-mono">
+                        <i data-lucide="user" class="w-4 h-4 text-cyan-400"></i>
+                        <span>${escapeHtml(u.username)}</span>
                     </td>
                     <td class="py-4 px-6 col-status" data-status-key="${getStatusKey(u)}">${statusHtml}</td>
-                    <td class="py-4 px-6 col-traffic text-slate-300 font-mono text-xs">${trafficText}</td>
-                    <td class="py-4 px-6 col-days text-slate-300 text-xs">${daysLeft}</td>
+                    <td class="py-4 px-6 col-traffic text-slate-300 font-mono tabular-nums text-xs">${escapeHtml(trafficText)}</td>
+                    <td class="py-4 px-6 col-days text-slate-300 font-mono tabular-nums text-xs">${escapeHtml(daysLeft)}</td>
                     <td class="py-4 px-6 text-right">
-                        <a href="/portal/${u.sub_token}" target="_blank" class="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-medium transition inline-flex items-center gap-1.5">
+                        <a href="/portal/${encodeURIComponent(u.sub_token || '')}" target="_blank" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition inline-flex items-center gap-1.5">
                             <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                             <span>Портал</span>
                         </a>
@@ -605,11 +676,11 @@
 
     function getStatusBadgeHtml(u) {
         if (!u.enable || u.blocked) {
-            return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20">Отключен</span>';
+            return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-rose-500/10 text-rose-400 border border-rose-500/20">Отключен</span>';
         } else if (u.is_expired) {
             return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">Истёк</span>';
         } else if (u.is_quota_exceeded || u.is_limit_reached) {
-            return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">Лимит исчерпан</span>';
+            return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-violet-500/10 text-violet-300 border border-violet-500/20">Лимит исчерпан</span>';
         }
         return '<span class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Активен</span>';
     }
@@ -617,7 +688,7 @@
     async function applyPreset(presetName) {
         if (!confirm(`Применить пресет '${presetName}'? Ядро будет перезапущено.`)) return;
         try {
-            showToast('Применение пресета...', 'success');
+            showToast('Применение пресета...', 'info');
             const res = await fetch('/api/settings/apply-preset', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -636,7 +707,7 @@
     async function generateIpCert() {
         if (!confirm('Сгенерировать новый самоподписанный TLS сертификат с IP SAN и pinSHA256?')) return;
         try {
-            showToast('Генерация сертификата на IP...', 'success');
+            showToast('Генерация сертификата на IP...', 'info');
             const res = await fetch('/api/settings/generate-ip-cert', { method: 'POST' });
             const data = await res.json();
             if (data.ok) {
@@ -650,7 +721,6 @@
 
     initTrafficChart();
     fetchDashboardData();
-    // Single consolidated polling loop every 3 seconds
     setInterval(fetchDashboardData, 3000);
 </script>
 {% endblock %}

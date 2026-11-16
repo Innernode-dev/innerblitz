@@ -4,21 +4,33 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Личный кабинет — InnerBlitz</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        body {
+            background-color: #06090f;
+            background-image:
+                radial-gradient(ellipse 80% 50% at 50% -15%, rgba(6, 182, 212, 0.10), transparent 70%),
+                linear-gradient(to right, rgba(28, 38, 59, 0.24) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(28, 38, 59, 0.24) 1px, transparent 1px);
+            background-size: 100% 100%, 36px 36px, 36px 36px;
+            font-family: 'Manrope', system-ui, sans-serif;
+        }
         .glass {
-            background: rgba(17, 24, 39, 0.75);
+            background: rgba(11, 17, 30, 0.92);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid #1c263b;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px -15px rgba(0, 0, 0, 0.7);
         }
-        .glow-brand {
-            box-shadow: 0 0 35px -5px rgba(124, 58, 237, 0.5);
-        }
+        .font-mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-start p-4 sm:p-8 font-sans selection:bg-purple-500 selection:text-white">
+<body class="bg-[#06090f] text-slate-100 min-h-screen flex flex-col items-center justify-start p-4 sm:p-8 font-sans selection:bg-cyan-500 selection:text-slate-950">
 
     <!-- Toast Notification Container -->
     <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
@@ -26,28 +38,28 @@
     <div class="w-full max-w-xl space-y-6">
 
         <!-- Top Header Card -->
-        <div class="glass rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
+        <div class="glass rounded-2xl p-6 space-y-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center glow-brand text-white font-bold">
+                    <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-600 to-teal-400 flex items-center justify-center text-slate-950 font-extrabold shadow-lg shadow-cyan-500/20">
                         <i data-lucide="zap" class="w-6 h-6"></i>
                     </div>
                     <div>
-                        <h1 class="text-xl font-bold text-white">{{ user.username }}</h1>
-                        <span class="text-xs text-purple-400 font-medium">Hysteria 2 High-Speed Proxy</span>
+                        <h1 class="text-xl font-extrabold text-white font-mono">{{ user.username }}</h1>
+                        <span class="text-xs text-cyan-400 font-medium">Hysteria 2 High-Speed Proxy</span>
                     </div>
                 </div>
 
                 <!-- Status Badge -->
                 <div>
                     {% if user.blocked %}
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">Заблокирован</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25">Заблокирован</span>
                     {% elif user.is_expired %}
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">Срок истёк</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">Срок истёк</span>
                     {% elif user.is_limit_reached %}
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20">Лимит исчерпан</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25">Лимит исчерпан</span>
                     {% else %}
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5">
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span>Активен</span>
                     </span>
@@ -59,14 +71,14 @@
             <div class="space-y-2 pt-2">
                 <div class="flex justify-between text-xs font-medium">
                     <span class="text-slate-400">Использовано трафика</span>
-                    <span class="text-white">{{ user.used_traffic_gb }} GB / 
+                    <span class="text-white font-mono tabular-nums">{{ user.used_traffic_gb }} GB /
                         {% if user.unlimited_user or user.max_traffic_gb == 0 %}Безлимит{% else %}{{ user.max_traffic_gb }} GB{% endif %}
                     </span>
                 </div>
-                <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
-                    <div class="bg-gradient-to-r from-purple-500 to-indigo-500 h-2.5 rounded-full transition-all duration-500" style="width: {{ percent_used }}%"></div>
+                <div class="w-full bg-[#06090f] rounded-full h-2.5 overflow-hidden border border-[#1c263b]">
+                    <div class="bg-gradient-to-r from-cyan-500 to-emerald-400 h-2.5 rounded-full transition-all duration-500" style="width: {{ percent_used }}%"></div>
                 </div>
-                <div class="flex justify-between text-[11px] text-slate-500 pt-1">
+                <div class="flex justify-between text-[11px] text-slate-400 pt-1 font-mono tabular-nums">
                     <span>Осталось дней: {% if user.unlimited_user or user.expiration_days == 0 %}Бессрочно{% else %}{{ user.days_left }} дн.{% endif %}</span>
                     <span>Лимит устройств: {% if user.max_ips == 0 %}Без ограничений{% else %}{{ user.max_ips }} одновр.{% endif %}</span>
                 </div>
@@ -74,9 +86,9 @@
         </div>
 
         <!-- QR Code & Quick Scan -->
-        <div class="glass rounded-3xl p-6 border border-slate-800 shadow-2xl flex flex-col items-center text-center space-y-4">
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="qr-code" class="w-5 h-5 text-purple-400"></i>
+        <div class="glass rounded-2xl p-6 flex flex-col items-center text-center space-y-4">
+            <h2 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="qr-code" class="w-5 h-5 text-cyan-400"></i>
                 <span>QR-код для подключения</span>
             </h2>
             <div class="p-4 bg-white rounded-2xl shadow-inner">
@@ -88,14 +100,14 @@
         </div>
 
         <!-- 1-Click Import & Copy Buttons -->
-        <div class="glass rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-3">
-            <h3 class="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                <i data-lucide="zap" class="w-4 h-4 text-purple-400"></i>
+        <div class="glass rounded-2xl p-6 space-y-3">
+            <h3 class="text-sm font-extrabold text-white mb-2 flex items-center gap-2">
+                <i data-lucide="zap" class="w-4 h-4 text-cyan-400"></i>
                 <span>Импорт профиля в 1 клик</span>
             </h3>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <a href="hiddify://install-sub?url={{ sub_url }}" class="py-2.5 px-3.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs transition flex items-center justify-between shadow-md shadow-purple-600/20">
+                <a href="hiddify://install-sub?url={{ sub_url }}" class="py-2.5 px-3.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition flex items-center justify-between shadow-md shadow-cyan-500/20">
                     <span class="flex items-center gap-2">
                         <i data-lucide="smartphone" class="w-4 h-4"></i>
                         <span>Открыть в Hiddify</span>
@@ -103,7 +115,7 @@
                     <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                 </a>
 
-                <a href="sing-box://import-remote-profile?url={{ singbox_sub_url }}#InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs transition flex items-center justify-between shadow-md shadow-indigo-600/20">
+                <a href="sing-box://import-remote-profile?url={{ singbox_sub_url }}#InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition flex items-center justify-between shadow-md shadow-emerald-500/20">
                     <span class="flex items-center gap-2">
                         <i data-lucide="box" class="w-4 h-4"></i>
                         <span>Импорт в Sing-box</span>
@@ -111,7 +123,7 @@
                     <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                 </a>
 
-                <a href="clash://install-config?url={{ clash_sub_url }}&name=InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition flex items-center justify-between border border-slate-700">
+                <a href="clash://install-config?url={{ clash_sub_url }}&name=InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-[#06090f] hover:bg-slate-900 text-white font-semibold text-xs transition flex items-center justify-between border border-[#1c263b]">
                     <span class="flex items-center gap-2">
                         <i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i>
                         <span>Импорт в Clash / Mihomo</span>
@@ -119,7 +131,7 @@
                     <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
                 </a>
 
-                <a href="v2rayng://install-sub?url={{ sub_url }}#InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs transition flex items-center justify-between border border-slate-700">
+                <a href="v2rayng://install-sub?url={{ sub_url }}#InnerBlitz-{{ user.username }}" class="py-2.5 px-3.5 rounded-xl bg-[#06090f] hover:bg-slate-900 text-white font-semibold text-xs transition flex items-center justify-between border border-[#1c263b]">
                     <span class="flex items-center gap-2">
                         <i data-lucide="send" class="w-4 h-4 text-emerald-400"></i>
                         <span>Импорт в v2rayNG / NekoBox</span>
@@ -129,66 +141,66 @@
             </div>
 
             <div class="pt-2 space-y-2">
-                <button onclick="copyText('{{ sub_url }}')" class="w-full py-2.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium text-xs transition flex items-center justify-between">
+                <button onclick="copyText('{{ sub_url }}')" class="w-full py-2.5 px-3.5 rounded-xl bg-[#06090f] hover:bg-slate-900 border border-[#1c263b] text-slate-200 font-medium text-xs transition flex items-center justify-between">
                     <span class="flex items-center gap-2">
-                        <i data-lucide="copy" class="w-3.5 h-3.5 text-purple-400"></i>
-                        <span>Скопировать универсальную ссылку подписки</span>
+                        <i data-lucide="copy" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        <span>Скопировать ссылку подписки</span>
                     </span>
-                    <span class="text-[11px] text-purple-400 font-mono">/sub/{{ user.sub_token[:8] }}...</span>
+                    <span class="text-[11px] text-cyan-400 font-mono">/sub/{{ user.sub_token[:8] }}...</span>
                 </button>
 
-                <button onclick="copyText('{{ hy2_uri }}')" class="w-full py-2.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium text-xs transition flex items-center justify-between">
+                <button onclick="copyText('{{ hy2_uri }}')" class="w-full py-2.5 px-3.5 rounded-xl bg-[#06090f] hover:bg-slate-900 border border-[#1c263b] text-slate-200 font-medium text-xs transition flex items-center justify-between">
                     <span class="flex items-center gap-2">
-                        <i data-lucide="link" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        <i data-lucide="link" class="w-3.5 h-3.5 text-emerald-400"></i>
                         <span>Скопировать прямую ссылку hy2://</span>
                     </span>
-                    <span class="text-[11px] text-cyan-400 font-mono">hy2://{{ user.username }}...</span>
+                    <span class="text-[11px] text-emerald-400 font-mono">hy2://{{ user.username }}...</span>
                 </button>
             </div>
 
             <div class="grid grid-cols-2 gap-2.5 pt-1">
-                <a href="{{ clash_sub_url }}" download class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-medium transition text-center flex items-center justify-center gap-1.5">
+                <a href="{{ clash_sub_url }}" download class="py-2 px-3 rounded-xl bg-[#06090f] hover:bg-slate-900 border border-[#1c263b] text-slate-300 text-xs font-medium transition text-center flex items-center justify-center gap-1.5">
                     <i data-lucide="download" class="w-3.5 h-3.5 text-cyan-400"></i>
-                    <span>Конфиг Clash (.yaml)</span>
+                    <span>Clash (.yaml)</span>
                 </a>
-                <a href="{{ singbox_sub_url }}" download class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-medium transition text-center flex items-center justify-center gap-1.5">
-                    <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-400"></i>
-                    <span>Конфиг Sing-box (.json)</span>
+                <a href="{{ singbox_sub_url }}" download class="py-2 px-3 rounded-xl bg-[#06090f] hover:bg-slate-900 border border-[#1c263b] text-slate-300 text-xs font-medium transition text-center flex items-center justify-center gap-1.5">
+                    <i data-lucide="download" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span>Sing-box (.json)</span>
                 </a>
             </div>
         </div>
 
         <!-- Recommended Apps Section -->
-        <div class="glass rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4">
-            <h3 class="text-sm font-bold text-white">Рекомендуемые клиенты</h3>
+        <div class="glass rounded-2xl p-6 space-y-4">
+            <h3 class="text-sm font-extrabold text-white">Рекомендуемые клиенты</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-1">
                     <div class="font-bold text-white flex items-center gap-1.5">
-                        <i data-lucide="smartphone" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <i data-lucide="smartphone" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>Android</span>
                     </div>
-                    <p class="text-slate-400"><b>Hiddify</b> или <b>v2rayNG</b> (из Google Play / GitHub)</p>
+                    <p class="text-slate-400"><b>Hiddify</b> или <b>v2rayNG</b></p>
                 </div>
 
-                <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-1">
                     <div class="font-bold text-white flex items-center gap-1.5">
-                        <i data-lucide="apple" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <i data-lucide="apple" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>iOS (iPhone / iPad)</span>
                     </div>
-                    <p class="text-slate-400"><b>Hiddify</b>, <b>Streisand</b> или <b>Shadowrocket</b> (App Store)</p>
+                    <p class="text-slate-400"><b>Hiddify</b>, <b>Streisand</b> или <b>Shadowrocket</b></p>
                 </div>
 
-                <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-1">
                     <div class="font-bold text-white flex items-center gap-1.5">
-                        <i data-lucide="monitor" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <i data-lucide="monitor" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>Windows</span>
                     </div>
                     <p class="text-slate-400"><b>Hiddify Next</b> или <b>NekoBox / v2rayN</b></p>
                 </div>
 
-                <div class="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
+                <div class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-1">
                     <div class="font-bold text-white flex items-center gap-1.5">
-                        <i data-lucide="laptop" class="w-3.5 h-3.5 text-purple-400"></i>
+                        <i data-lucide="laptop" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span>macOS / Linux</span>
                     </div>
                     <p class="text-slate-400"><b>Hiddify</b> или <b>Sing-box</b></p>
@@ -205,9 +217,15 @@
             const container = document.getElementById('toastContainer');
             const toast = document.createElement('div');
             toast.className = 'pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/90 text-emerald-200 text-xs font-semibold backdrop-blur-md shadow-2xl transition-all duration-300 translate-y-2 opacity-0';
-            toast.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>${message}</span>`;
+            const icon = document.createElement('i');
+            icon.setAttribute('data-lucide', 'check');
+            icon.className = 'w-4 h-4';
+            const span = document.createElement('span');
+            span.textContent = message;
+            toast.appendChild(icon);
+            toast.appendChild(span);
             container.appendChild(toast);
-            lucide.createIcons();
+            lucide.createIcons({ root: toast });
             setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'translate-x-4');

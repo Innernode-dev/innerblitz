@@ -6,16 +6,16 @@
 {% block content %}
 <div class="space-y-6">
 
-    <!-- Top Action Bar (3x-UI Style) -->
+    <!-- Top Action Bar -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <!-- Search & Filter -->
         <div class="flex flex-1 items-center gap-3 max-w-lg">
             <div class="relative flex-1">
                 <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-                <input type="text" id="userSearchInput" oninput="filterUsers()" placeholder="Поиск по логину или заметке..." 
-                       class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition font-mono">
+                <input type="text" id="userSearchInput" oninput="filterUsers()" placeholder="Поиск по логину или заметке..."
+                       class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition font-mono">
             </div>
-            <select id="userStatusFilter" onchange="filterUsers()" class="px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+            <select id="userStatusFilter" onchange="filterUsers()" class="px-3 py-2.5 rounded-xl bg-[#0b111e] border border-[#1c263b] text-xs text-slate-300 focus:outline-none focus:border-cyan-500">
                 <option value="all">Все статусы</option>
                 <option value="active">Активные</option>
                 <option value="online">Онлайн</option>
@@ -27,22 +27,22 @@
 
         <!-- Add Client Button -->
         <div class="flex items-center gap-2">
-            <button onclick="loadUsers()" title="Обновить список" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition">
-                <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+            <button onclick="loadUsers()" title="Обновить список" class="p-2.5 rounded-xl bg-[#0b111e] hover:bg-slate-800 text-slate-300 border border-[#1c263b] transition">
+                <i data-lucide="refresh-cw" class="w-4 h-4 text-cyan-400"></i>
             </button>
-            <button onclick="openCreateUserModal()" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-md shadow-blue-600/30 flex items-center justify-center gap-2">
+            <button onclick="openCreateUserModal()" class="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md shadow-cyan-500/20 flex items-center justify-center gap-2">
                 <i data-lucide="user-plus" class="w-4 h-4"></i>
                 <span>Добавить клиента</span>
             </button>
         </div>
     </div>
 
-    <!-- Clients Table Container (3x-UI Responsive Table) -->
-    <div class="glass-card rounded-2xl border border-[#1e293b]">
+    <!-- Clients Table Container -->
+    <div class="glass-card rounded-2xl border border-[#1c263b]">
         <div class="overflow-x-auto min-h-[380px] pb-28">
             <table class="w-full text-left border-collapse text-sm">
                 <thead>
-                    <tr class="bg-slate-900/80 border-b border-slate-800 text-slate-400 text-xs uppercase font-medium">
+                    <tr class="bg-[#080d18] border-b border-[#1c263b] text-slate-400 text-xs uppercase font-semibold">
                         <th class="py-4 px-6">Клиент / Заметка</th>
                         <th class="py-4 px-6">Статус</th>
                         <th class="py-4 px-6 min-w-[200px]">Трафик & Прогресс</th>
@@ -51,7 +51,7 @@
                         <th class="py-4 px-6 text-right">Действия</th>
                     </tr>
                 </thead>
-                <tbody id="usersTableBody" class="divide-y divide-slate-800/60 text-slate-300">
+                <tbody id="usersTableBody" class="divide-y divide-[#1c263b]/60 text-slate-300">
                     <tr><td colspan="6" class="py-12 text-center text-slate-500">Загрузка клиентов...</td></tr>
                 </tbody>
             </table>
@@ -60,12 +60,12 @@
 
 </div>
 
-<!-- Modal: Create / Edit Client (3x-UI Style) -->
-<div id="userModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
-    <div class="glass w-full max-w-xl rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 id="userModalTitle" class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="user-plus" class="w-5 h-5 text-blue-400"></i>
+<!-- Modal: Create / Edit Client -->
+<div id="userModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-xl rounded-2xl p-6 border border-[#2b3a59] shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
+            <h3 id="userModalTitle" class="text-lg font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="user-plus" class="w-5 h-5 text-cyan-400"></i>
                 <span>Добавить клиента</span>
             </h3>
             <button onclick="closeUserModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -80,28 +80,28 @@
             <!-- Inbound Selector & Username -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Inbound (Узел)</label>
-                    <select id="modalInboundId" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Inbound (Узел)</label>
+                    <select id="modalInboundId" class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500">
                         <option value="1">Hysteria-Main (UDP 443)</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Имя пользователя (Логин) *</label>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Имя пользователя (Логин) *</label>
                     <input type="text" id="modalUsername" required pattern="^[a-zA-Z0-9_\-]+$" placeholder="client_user1"
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                           class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
                     <span class="text-[10px] text-slate-500">Латинские буквы, цифры, дефис, подчеркивание</span>
                 </div>
             </div>
 
             <!-- Client Password with Generator -->
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Пароль клиента (Hysteria 2 Auth)</label>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Пароль клиента (Hysteria 2 Auth)</label>
                 <div class="flex gap-2">
-                    <input type="text" id="modalPassword" placeholder="Случайный пароль" 
-                           class="flex-1 px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-blue-500">
-                    <button type="button" onclick="generateRandomUserPassword()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition flex items-center gap-1.5" title="Сгенерировать случайный пароль">
-                        <i data-lucide="dices" class="w-4 h-4 text-purple-400"></i>
-                        <span>🎲 Рандом</span>
+                    <input type="text" id="modalPassword" placeholder="Случайный пароль"
+                           class="flex-1 px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white font-mono focus:outline-none focus:border-cyan-500">
+                    <button type="button" onclick="generateRandomUserPassword()" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-medium border border-[#1c263b] transition flex items-center gap-1.5" title="Сгенерировать случайный пароль">
+                        <i data-lucide="dices" class="w-4 h-4 text-cyan-400"></i>
+                        <span>Рандом</span>
                     </button>
                 </div>
             </div>
@@ -109,68 +109,67 @@
             <!-- Traffic Quota in GB with Presets & Unlimited -->
             <div>
                 <div class="flex items-center justify-between mb-1">
-                    <label class="text-xs font-medium text-slate-300">Лимит трафика (GB)</label>
+                    <label class="text-xs font-semibold text-slate-300">Лимит трафика (GB)</label>
                     <label class="flex items-center gap-1.5 cursor-pointer">
-                        <input type="checkbox" id="modalTrafficUnlimited" onchange="toggleTrafficUnlimited(this.checked)" class="w-3.5 h-3.5 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" id="modalTrafficUnlimited" onchange="toggleTrafficUnlimited(this.checked)" class="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                         <span class="text-xs text-slate-400">Безлимитный трафик</span>
                     </label>
                 </div>
-                <input type="number" id="modalTraffic" step="1" min="0" value="30" 
-                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                <input type="number" id="modalTraffic" step="1" min="0" value="30"
+                       class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
                 <!-- Quick Traffic Presets -->
                 <div class="flex flex-wrap gap-1.5 mt-2">
-                    <button type="button" onclick="setTrafficPreset(10)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">10 GB</button>
-                    <button type="button" onclick="setTrafficPreset(30)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">30 GB</button>
-                    <button type="button" onclick="setTrafficPreset(50)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">50 GB</button>
-                    <button type="button" onclick="setTrafficPreset(100)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">100 GB</button>
-                    <button type="button" onclick="setTrafficPreset(500)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300">500 GB</button>
-                    <button type="button" onclick="setTrafficPreset(0)" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 font-semibold">∞ Безлимит</button>
+                    <button type="button" onclick="setTrafficPreset(10)" class="px-2 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-mono">10 GB</button>
+                    <button type="button" onclick="setTrafficPreset(30)" class="px-2 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-mono">30 GB</button>
+                    <button type="button" onclick="setTrafficPreset(50)" class="px-2 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-mono">50 GB</button>
+                    <button type="button" onclick="setTrafficPreset(100)" class="px-2 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-mono">100 GB</button>
+                    <button type="button" onclick="setTrafficPreset(500)" class="px-2 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-mono">500 GB</button>
+                    <button type="button" onclick="setTrafficPreset(0)" class="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 text-xs text-emerald-400 font-semibold">∞ Безлимит</button>
                 </div>
             </div>
 
-            <!-- Expiration Date & Presets (+7d, +30d, +90d, +365d, Unlimited) -->
+            <!-- Expiration Date & Presets -->
             <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Срок действия (Дата и время истечения)</label>
-                <input type="datetime-local" id="modalExpiryDate" 
-                       class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Срок действия (Дата и время истечения)</label>
+                <input type="datetime-local" id="modalExpiryDate"
+                       class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
                 <input type="hidden" id="modalDays" value="30">
-                <!-- Expiration Quick Duration Presets -->
                 <div class="flex flex-wrap gap-1.5 mt-2">
-                    <button type="button" onclick="addExpiryDays(7)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">+7 дней</button>
-                    <button type="button" onclick="addExpiryDays(30)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">+30 дней</button>
-                    <button type="button" onclick="addExpiryDays(90)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">+90 дней</button>
-                    <button type="button" onclick="addExpiryDays(365)" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-medium">+365 дней</button>
-                    <button type="button" onclick="setExpiryUnlimited()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-emerald-400 font-semibold">∞ Бессрочно</button>
+                    <button type="button" onclick="addExpiryDays(7)" class="px-2.5 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-medium">+7 дней</button>
+                    <button type="button" onclick="addExpiryDays(30)" class="px-2.5 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-medium">+30 дней</button>
+                    <button type="button" onclick="addExpiryDays(90)" class="px-2.5 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-medium">+90 дней</button>
+                    <button type="button" onclick="addExpiryDays(365)" class="px-2.5 py-1 rounded-lg bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-xs text-slate-300 font-medium">+365 дней</button>
+                    <button type="button" onclick="setExpiryUnlimited()" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 hover:bg-emerald-500/20 text-xs text-emerald-400 font-semibold">∞ Бессрочно</button>
                 </div>
             </div>
 
             <!-- Device Limit & Note -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Лимит одновременных IP (Устройств)</label>
-                    <input type="number" id="modalMaxIps" min="0" value="0" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Лимит одновременных IP</label>
+                    <input type="number" id="modalMaxIps" min="0" value="0"
+                           class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
                     <span class="text-[10px] text-slate-500">0 = Не ограничено</span>
                 </div>
                 <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Заметка / Примечание</label>
-                    <input type="text" id="modalNote" placeholder="Для смартфона / Клиент #1" 
-                           class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1">Заметка / Примечание</label>
+                    <input type="text" id="modalNote" placeholder="Для смартфона / Клиент #1"
+                           class="w-full px-3.5 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500">
                 </div>
             </div>
 
             <!-- VIP Unlimited Checkbox -->
-            <div class="flex items-center gap-2 pt-1 border-t border-slate-800/80">
-                <input type="checkbox" id="modalUnlimited" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-blue-500">
-                <label for="modalUnlimited" class="text-xs text-slate-300">Полный VIP безлимит (игнорировать все лимиты трафика и срока)</label>
+            <div class="flex items-center gap-2 pt-1 border-t border-[#1c263b]">
+                <input type="checkbox" id="modalUnlimited" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
+                <label for="modalUnlimited" class="text-xs text-slate-300">Полный VIP безлимит (игнорировать лимиты трафика и срока)</label>
             </div>
 
             <!-- Modal Action Buttons -->
-            <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                <button type="button" onclick="closeUserModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-medium transition">
+            <div class="flex justify-end gap-3 pt-4 border-t border-[#1c263b]">
+                <button type="button" onclick="closeUserModal()" class="px-4 py-2 rounded-xl bg-slate-900 border border-[#1c263b] text-slate-300 hover:bg-slate-800 text-sm font-medium transition">
                     Отмена
                 </button>
-                <button type="submit" class="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition shadow-md shadow-blue-600/30">
+                <button type="submit" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-sm font-bold transition shadow-md shadow-cyan-500/20">
                     Сохранить
                 </button>
             </div>
@@ -179,11 +178,11 @@
 </div>
 
 <!-- Modal: Show Client Connection / QR / Links -->
-<div id="qrModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm hidden">
-    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-slate-700/80 shadow-2xl relative space-y-4">
-        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-            <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                <i data-lucide="qr-code" class="w-5 h-5 text-blue-400"></i>
+<div id="qrModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md hidden">
+    <div class="glass w-full max-w-lg rounded-2xl p-6 border border-[#2b3a59] shadow-2xl relative space-y-4">
+        <div class="flex items-center justify-between border-b border-[#1c263b] pb-3">
+            <h3 class="text-lg font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="qr-code" class="w-5 h-5 text-cyan-400"></i>
                 <span id="qrModalUsername">Подключение</span>
             </h3>
             <button onclick="closeQrModal()" class="text-slate-400 hover:text-white p-1 rounded-lg">
@@ -200,8 +199,8 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Ссылка Hysteria 2 (hy2://)</label>
                 <div class="flex gap-2">
-                    <input type="text" id="hy2UriInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300">
-                    <button onclick="copyToClipboard('hy2UriInput')" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium transition">
+                    <input type="text" id="hy2UriInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-[#06090f] border border-[#1c263b] font-mono text-xs text-slate-300">
+                    <button onclick="copyToClipboard('hy2UriInput')" class="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition">
                         Копировать
                     </button>
                 </div>
@@ -210,8 +209,8 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Универсальная ссылка подписки (Sing-box & Clash)</label>
                 <div class="flex gap-2">
-                    <input type="text" id="subUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-purple-300">
-                    <button onclick="copyToClipboard('subUrlInput')" class="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium transition">
+                    <input type="text" id="subUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-[#06090f] border border-[#1c263b] font-mono text-xs text-amber-300">
+                    <button onclick="copyToClipboard('subUrlInput')" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold transition">
                         Копировать
                     </button>
                 </div>
@@ -220,8 +219,8 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Веб-портал самообслуживания клиента</label>
                 <div class="flex gap-2">
-                    <input type="text" id="portalUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-xs text-slate-300">
-                    <a id="portalLinkBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1">
+                    <input type="text" id="portalUrlInput" readonly class="flex-1 px-3 py-1.5 rounded-lg bg-[#06090f] border border-[#1c263b] font-mono text-xs text-slate-300">
+                    <a id="portalLinkBtn" href="#" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-medium transition flex items-center gap-1">
                         <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                         <span>Открыть</span>
                     </a>
@@ -392,9 +391,9 @@
                     <td class="py-4 px-6">
                         <div class="flex items-center gap-2">
                             ${onlineDot}
-                            <span class="font-semibold text-white font-mono">${u.username}</span>
+                            <span class="font-semibold text-white font-mono">${escapeHtml(u.username)}</span>
                         </div>
-                        ${u.note ? `<div class="text-xs text-slate-400 mt-0.5 pl-4 truncate max-w-xs">${u.note}</div>` : ''}
+                        ${u.note ? `<div class="text-xs text-slate-400 mt-0.5 pl-4 truncate max-w-xs">${escapeHtml(u.note)}</div>` : ''}
                     </td>
 
                     <!-- Status Toggle -->

@@ -252,6 +252,13 @@ async def settings_page(request: Request):
         return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
     return render_template(request, "settings.html", {"user": user})
 
+@app.get("/config", response_class=HTMLResponse)
+async def config_page(request: Request):
+    user = await check_auth_or_redirect(request)
+    if not user:
+        return RedirectResponse(url="/login", status_code=status.HTTP_302_FOUND)
+    return render_template(request, "config.html", {"user": user})
+
 @app.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     user = await check_auth_or_redirect(request)

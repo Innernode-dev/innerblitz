@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 import logging
+import time
 from typing import Dict, Any, Tuple
 from app.config import settings
 from app.database import crud
@@ -12,7 +13,7 @@ class TrafficCollector:
         self._running = False
         self._task: asyncio.Task = None
         self._last_stats = {}
-        self._last_time = 0
+        self._last_time = time.monotonic()
 
     async def _fetch_stats(self, endpoint: str) -> Dict[str, Any]:
         secret = await crud.get_setting("traffic_secret", "")
@@ -29,6 +30,10 @@ class TrafficCollector:
 
     async def collect_once(self) -> Tuple[float, float, int]:
         """Fetch traffic increments, update DB, and calculate current rates."""
+        now = time.monotonic()
+        dt = max(1.0, now - self._last_time) if self._last_time > 0 else 4.0
+        self._last_time = now
+
         traffic_data = await self._fetch_stats("/traffic?clear=1")
         online_data = await self._fetch_stats("/online")
 
@@ -46,11 +51,11 @@ class TrafficCollector:
                     if tx > 0 or rx > 0:
                         await crud.add_user_traffic(username, tx, rx)
 
-        # Convert to KBps (assuming ~5 sec interval)
+        # Convert to KBps using actual elapsed monotonic interval
         # Server rx (receive from client) = Client upload
         # Server tx (transmit to client) = Client download
-        rate_up_kbps = round((total_rx / 1024) / 5, 2)
-        rate_down_kbps = round((total_tx / 1024) / 5, 2)
+        rate_up_kbps = round((total_rx / 1024) / dt, 2)
+        rate_down_kbps = round((total_tx / 1024) / dt, 2)
 
         # Record metric in DB for live chart
         await crud.record_traffic_metric(rate_up_kbps, rate_down_kbps, active_users)

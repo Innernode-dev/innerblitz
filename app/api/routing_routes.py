@@ -19,6 +19,13 @@ logger = logging.getLogger("innerblitz.routing_api")
 
 router = APIRouter(prefix="/api/routing", tags=["Routing Rules"])
 
+async def _ensure_warp_enabled_if_rules_require():
+    """Ensure warp_enabled is active in settings whenever any enabled custom rule targets WARP."""
+    enabled_rules = await crud.get_routing_rules(enabled_only=True)
+    if any(str(r.get("action", "")).strip().lower() == "warp" for r in enabled_rules):
+        await crud.set_setting("warp_enabled", "1")
+
+
 @router.get("/rules", response_model=List[RoutingRuleOut])
 async def list_routing_rules(admin: str = Depends(get_current_admin)):
     """List all custom dynamic routing rules sorted by priority ASC, id ASC."""
@@ -37,6 +44,7 @@ async def create_new_routing_rule(
         raise HTTPException(status_code=400, detail="rule_values list cannot be empty")
 
     created = await crud.create_routing_rule(payload)
+    await _ensure_warp_enabled_if_rules_require()
     # Recompile Hysteria 2 configuration atomically
     apply_res = await apply_and_save_config()
     if apply_res.success:
@@ -69,6 +77,7 @@ async def update_single_routing_rule(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Routing rule {rule_id} not found")
 
     updated = await crud.update_routing_rule(rule_id, payload)
+    await _ensure_warp_enabled_if_rules_require()
     apply_res = await apply_and_save_config()
     if apply_res.success:
         restart_hysteria()
@@ -127,6 +136,7 @@ async def toggle_rule_enabled(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Routing rule {rule_id} not found")
 
     toggled = await crud.toggle_routing_rule(rule_id)
+    await _ensure_warp_enabled_if_rules_require()
     apply_res = await apply_and_save_config()
     if apply_res.success:
         restart_hysteria()

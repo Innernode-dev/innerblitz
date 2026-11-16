@@ -6,12 +6,12 @@
 {% block content %}
 <div class="space-y-5 max-w-6xl">
 
-    <!-- 1. Log Policy & Management Card (3x-UI Style) -->
-    <div class="glass-card rounded-xl p-4 border border-[#1e293b] space-y-4">
-        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#1e293b] pb-3">
+    <!-- 1. Log Policy & Management Card -->
+    <div class="glass-card rounded-2xl p-4 sm:p-5 space-y-4 shadow-xl">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-[#1c263b] pb-3.5">
             <div>
-                <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i>
+                <h3 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
                     <span>Политика сбора логов & Приватность (Zero-Logs)</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
@@ -19,12 +19,12 @@
                 </p>
             </div>
             <div class="flex items-center gap-2">
-                <span id="logStatusPill" class="text-[11px] font-mono px-2.5 py-1 rounded bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                <span id="logStatusPill" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
                     Уровень: INFO
                 </span>
-                <button onclick="clearServerLogs()" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold transition flex items-center gap-1.5" title="Очистить и сжать journalctl логи на диске">
+                <button onclick="clearServerLogs()" class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-xs font-semibold transition flex items-center gap-1.5" title="Очистить и сжать journalctl логи на диске">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                    <span>Очистить логи (1-клик)</span>
+                    <span>Очистить логи</span>
                 </button>
             </div>
         </div>
@@ -33,30 +33,30 @@
             <!-- Log Level Select -->
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1">Уровень детализации (Log Level)</label>
-                <select id="logLevelSelect" class="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-blue-500">
-                    <option value="debug">DEBUG (Максимальная детализация для отладки)</option>
+                <select id="logLevelSelect" class="w-full px-3 py-2 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
+                    <option value="debug">DEBUG (Максимальная детализация)</option>
                     <option value="info" selected>INFO (Стандартный рекомендуемый)</option>
-                    <option value="warn">WARN (Только предупреждения и сбои)</option>
-                    <option value="error">ERROR (Только критические ошибки)</option>
+                    <option value="warn">WARN (Предупреждения и сбои)</option>
+                    <option value="error">ERROR (Только ошибки)</option>
                 </select>
             </div>
 
             <!-- Zero-Logs Mode Toggle -->
-            <div class="flex items-center gap-3 pt-4 md:pt-0">
-                <input type="checkbox" id="zeroLogsToggle" onchange="handleZeroLogsToggleChange()" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-blue-500">
+            <div class="flex items-center gap-3 pt-2 md:pt-0">
+                <input type="checkbox" id="zeroLogsToggle" onchange="handleZeroLogsToggleChange()" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                 <div>
                     <label for="zeroLogsToggle" class="text-xs font-semibold text-white block cursor-pointer">
-                        Режим Zero-Logs (100% Приватность)
+                        Режим Zero-Logs (Приватность)
                     </label>
-                    <span class="text-[11px] text-slate-400 block">Не писать логи на диск (/dev/null). Полная защита приватности.</span>
+                    <span class="text-[11px] text-slate-400 block">Отключает запись истории подключений на диск.</span>
                 </div>
             </div>
 
             <!-- Apply Button -->
             <div class="flex md:justify-end items-center">
-                <button onclick="saveLogConfig()" class="w-full md:w-auto px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow">
+                <button onclick="saveLogConfig()" class="w-full md:w-auto px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20">
                     <i data-lucide="check" class="w-3.5 h-3.5"></i>
-                    <span>Применить настройки логов</span>
+                    <span>Применить</span>
                 </button>
             </div>
         </div>
@@ -65,12 +65,12 @@
     <!-- 2. Stream Toolbar -->
     <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <!-- Service Tabs -->
-        <div class="flex items-center gap-1.5 p-1 rounded-lg bg-[#0c1220] border border-[#1e293b]">
-            <button id="tabHysteria" onclick="switchLogService('hysteria')" class="px-3 py-1.5 rounded text-xs font-bold transition bg-blue-600 text-white flex items-center gap-1.5 shadow-sm">
+        <div class="flex items-center gap-1.5 p-1 rounded-xl bg-[#0b111e] border border-[#1c263b]">
+            <button id="tabHysteria" onclick="switchLogService('hysteria')" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-cyan-500 text-slate-950 flex items-center gap-1.5 shadow-sm">
                 <i data-lucide="zap" class="w-3.5 h-3.5"></i>
                 <span>Ядро Hysteria 2</span>
             </button>
-            <button id="tabPanel" onclick="switchLogService('innerblitz')" class="px-3 py-1.5 rounded text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5">
+            <button id="tabPanel" onclick="switchLogService('innerblitz')" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5">
                 <i data-lucide="layout" class="w-3.5 h-3.5"></i>
                 <span>Веб-панель InnerBlitz</span>
             </button>
@@ -80,29 +80,29 @@
         <div class="flex flex-wrap items-center gap-2">
             <!-- Real-time Filter -->
             <div class="relative min-w-[180px]">
-                <input type="text" id="logFilterInput" oninput="applyLogFilter()" placeholder="Фильтр (поиск)..." 
-                       class="w-full pl-7 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-blue-500 font-mono">
-                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2 top-2"></i>
+                <input type="text" id="logFilterInput" oninput="applyLogFilter()" placeholder="Фильтр (поиск)..."
+                       class="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500 font-mono">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2"></i>
             </div>
 
             <!-- Lines selector -->
-            <select id="logLinesSelect" onchange="fetchLogs()" class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300 focus:outline-none font-mono">
+            <select id="logLinesSelect" onchange="fetchLogs()" class="px-2.5 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-slate-300 focus:outline-none font-mono">
                 <option value="50">50 строк</option>
                 <option value="100" selected>100 строк</option>
                 <option value="250">250 строк</option>
                 <option value="500">500 строк</option>
             </select>
 
-            <div class="flex items-center gap-1.5 text-xs text-slate-300 px-2 py-1 rounded bg-[#0c1220] border border-[#1e293b]">
-                <input type="checkbox" id="autoRefreshLogs" checked class="w-3.5 h-3.5 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-blue-500">
+            <div class="flex items-center gap-1.5 text-xs text-slate-300 px-2.5 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b]">
+                <input type="checkbox" id="autoRefreshLogs" checked class="w-3.5 h-3.5 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                 <label for="autoRefreshLogs" class="text-[11px]">Авто (3с)</label>
             </div>
 
-            <button onclick="fetchLogs()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition flex items-center gap-1" title="Обновить журнал">
+            <button onclick="fetchLogs()" class="px-2.5 py-1.5 rounded-lg bg-[#0b111e] hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-medium transition flex items-center gap-1" title="Обновить журнал">
                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
             </button>
 
-            <button onclick="copyLogs()" class="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 text-xs font-semibold transition flex items-center gap-1.5">
+            <button onclick="copyLogs()" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition flex items-center gap-1.5">
                 <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                 <span>Копировать</span>
             </button>
@@ -110,8 +110,8 @@
     </div>
 
     <!-- 3. Terminal Log Console -->
-    <div class="glass-card rounded-xl border border-[#1e293b] overflow-hidden shadow-2xl">
-        <div class="flex items-center justify-between px-4 py-2.5 bg-[#0a0e1a] border-b border-[#1e293b] text-xs text-slate-400 font-mono">
+    <div class="glass-card rounded-2xl border border-[#1c263b] overflow-hidden shadow-2xl">
+        <div class="flex items-center justify-between px-4 py-2.5 bg-[#080d18] border-b border-[#1c263b] text-xs text-slate-400 font-mono">
             <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                 <span id="currentServiceLabel">Служба: hysteria-server.service</span>
@@ -121,7 +121,7 @@
                 <span>Journalctl stream • UTF-8</span>
             </div>
         </div>
-        <pre id="logsContent" class="w-full h-[620px] overflow-y-auto p-4 bg-[#060911] font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed selection:bg-blue-600 selection:text-white"></pre>
+        <pre id="logsContent" class="w-full h-[620px] overflow-y-auto p-4 bg-[#04060b] font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed selection:bg-cyan-600 selection:text-white"></pre>
     </div>
 
 </div>
@@ -139,12 +139,12 @@
         const label = document.getElementById('currentServiceLabel');
 
         if (service === 'hysteria') {
-            tabHys.className = 'px-3 py-1.5 rounded text-xs font-bold transition bg-blue-600 text-white flex items-center gap-1.5 shadow-sm';
-            tabPanel.className = 'px-3 py-1.5 rounded text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5';
+            tabHys.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-cyan-500 text-slate-950 flex items-center gap-1.5 shadow-sm';
+            tabPanel.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5';
             label.textContent = 'Служба: hysteria-server.service';
         } else {
-            tabPanel.className = 'px-3 py-1.5 rounded text-xs font-bold transition bg-blue-600 text-white flex items-center gap-1.5 shadow-sm';
-            tabHys.className = 'px-3 py-1.5 rounded text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5';
+            tabPanel.className = 'px-3.5 py-1.5 rounded-lg text-xs font-bold transition bg-cyan-500 text-slate-950 flex items-center gap-1.5 shadow-sm';
+            tabHys.className = 'px-3.5 py-1.5 rounded-lg text-xs font-semibold transition text-slate-400 hover:text-white flex items-center gap-1.5';
             label.textContent = 'Служба: innerblitz.service';
         }
         fetchLogs();

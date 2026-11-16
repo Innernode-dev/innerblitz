@@ -4,47 +4,47 @@
 {% block page_title %}Конфигурация подключения Inbound (Hysteria 2){% endblock %}
 
 {% block content %}
-<div class="space-y-8 max-w-6xl pb-12">
+<div class="space-y-6 max-w-6xl pb-12">
 
-    <!-- 1. Header Overview Card (3x-UI Style) -->
-    <div class="glass-card rounded-xl p-5 border-l-4 border-l-blue-500 shadow-lg relative overflow-hidden">
+    <!-- 1. Header Overview Card -->
+    <div class="glass-card rounded-2xl p-5 shadow-lg relative overflow-hidden">
         <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5">
             <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                <div class="w-12 h-12 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
                     <i data-lucide="zap" class="w-6 h-6"></i>
                 </div>
                 <div>
                     <div class="flex flex-wrap items-center gap-2">
-                        <h2 class="text-base font-bold text-white tracking-wide">Основной Inbound Hysteria 2</h2>
-                        <span id="nodeStatusBadge" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                        <h2 class="text-base font-extrabold text-white tracking-tight">Основной Inbound Hysteria 2</h2>
+                        <span id="nodeStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
                             <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                             Активен (QUIC/UDP)
                         </span>
-                        <span class="px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-300 border border-slate-700">
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-mono bg-[#06090f] text-slate-300 border border-[#1c263b]">
                             Protocol: Hysteria 2
                         </span>
                     </div>
-                    <div class="text-xs text-slate-400 mt-1 flex flex-wrap items-center gap-2.5">
-                        <span>Сервер: <b class="text-white font-mono" id="nodeIpText">127.0.0.1</b></span>
-                        <span>•</span>
-                        <span>Порт: <b class="text-blue-300 font-mono" id="nodeListenBadge">443 UDP</b></span>
-                        <span>•</span>
-                        <span>Маскировочный SNI: <b class="text-cyan-300 font-mono" id="nodeSniBadge">bing.com</b></span>
+                    <div class="text-xs text-slate-400 mt-1.5 flex flex-wrap items-center gap-2.5 font-mono tabular-nums">
+                        <span>Сервер: <b class="text-white" id="nodeIpText">127.0.0.1</b></span>
+                        <span class="text-slate-600">•</span>
+                        <span>Порт: <b class="text-cyan-300" id="nodeListenBadge">443 UDP</b></span>
+                        <span class="text-slate-600">•</span>
+                        <span>SNI: <b class="text-emerald-300" id="nodeSniBadge">bing.com</b></span>
                     </div>
                 </div>
             </div>
 
             <!-- Header Quick Actions -->
             <div class="flex flex-wrap items-center gap-2 self-stretch lg:self-auto justify-end">
-                <button onclick="openRawConfigModal()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium transition flex items-center gap-1.5">
-                    <i data-lucide="file-code" class="w-3.5 h-3.5 text-blue-400"></i>
-                    <span>YAML Редактор</span>
-                </button>
-                <button onclick="restartCore()" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 text-xs font-medium transition flex items-center gap-1.5">
+                <a href="/config" class="px-3.5 py-2 rounded-xl bg-[#06090f] hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="file-code" class="w-3.5 h-3.5 text-cyan-400"></i>
+                    <span>Студия YAML</span>
+                </a>
+                <button onclick="restartCore()" class="px-3.5 py-2 rounded-xl bg-[#06090f] hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-medium transition flex items-center gap-1.5">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-amber-400"></i>
                     <span>Перезапустить</span>
                 </button>
-                <button onclick="saveNodeConfig()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition shadow-md shadow-blue-600/30 flex items-center gap-1.5">
+                <button onclick="saveNodeConfig()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-md shadow-cyan-500/20 flex items-center gap-1.5">
                     <i data-lucide="save" class="w-3.5 h-3.5"></i>
                     <span>Сохранить и применить</span>
                 </button>
@@ -52,102 +52,102 @@
         </div>
     </div>
 
-    <!-- 2. TLS & SNI Безопасность (3x-UI Style) -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-cyan-500 shadow-xl">
-        <div class="border-b border-slate-800/80 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+    <!-- 2. TLS & SNI Безопасность -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6 shadow-xl">
+        <div class="border-b border-[#1c263b] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
                     <i data-lucide="lock" class="w-5 h-5 text-cyan-400"></i>
-                    <span>TLS Сертификат & Маскировочный SNI (3X-UI DPI Bypass)</span>
+                    <span>TLS Сертификат & Маскировочный SNI (DPI Bypass)</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    Автоматическая связка маскировочного домена SNI и отпечатка pinSHA256 для бесперебойной работы клиентов в РФ
+                    Автоматическая связка маскировочного домена SNI и отпечатка pinSHA256 для клиентов
                 </p>
             </div>
-            <span class="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-semibold">
+            <span class="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 text-xs font-mono">
                 Self-Signed SAN + pinSHA256
             </span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <!-- TLS Type -->
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Режим сертификата TLS</label>
-                <select id="nodeTlsType" onchange="toggleTlsDomainField()" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500">
-                    <option value="self_signed_ip">Самоподписанный IP + SNI (Без домена, защита pinSHA256)</option>
-                    <option value="acme">Let's Encrypt (ACME) — Для собственного домена</option>
+                <select id="nodeTlsType" onchange="toggleTlsDomainField()" class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500">
+                    <option value="self_signed_ip">Самоподписанный IP + SNI (Без домена, pinSHA256)</option>
+                    <option value="acme">Let's Encrypt (ACME) — Для домена</option>
                 </select>
-                <span class="text-[11px] text-slate-500 mt-1 block">Режим IP позволяет клиентам подключаться напрямую без покупки домена.</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">Режим IP позволяет клиентам подключаться напрямую без домена.</span>
             </div>
 
-            <!-- Custom SNI (The Main Feature) -->
+            <!-- Custom SNI -->
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center justify-between">
-                    <span>Маскировочный SNI (DPI Bypass)</span>
+                    <span>Маскировочный SNI</span>
                     <span class="text-[10px] text-cyan-400 uppercase font-mono">DPI Stealth</span>
                 </label>
                 <div class="relative">
-                    <input type="text" id="nodeSni" placeholder="bing.com" 
-                           class="w-full pl-3.5 pr-20 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                    <input type="text" id="nodeSni" placeholder="bing.com"
+                           class="w-full pl-3.5 pr-24 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
                     <div class="absolute right-2 top-2 flex items-center gap-1">
-                        <button onclick="quickSetSni('bing.com')" title="Установить bing.com" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 hover:text-white">bing</button>
-                        <button onclick="quickSetSni('apple.com')" title="Установить apple.com" class="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] text-slate-400 hover:text-white">apple</button>
+                        <button type="button" onclick="quickSetSni('bing.com')" title="Установить bing.com" class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:text-white font-mono">bing</button>
+                        <button type="button" onclick="quickSetSni('apple.com')" title="Установить apple.com" class="px-2 py-0.5 rounded bg-slate-800 text-[10px] text-slate-300 hover:text-white font-mono">apple</button>
                     </div>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-1 block">Домен в ClientHello SNI. Маскирует трафик под популярный белый сервис. Вшивается в сертификат!</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">Домен в ClientHello SNI. Маскирует TLS под белый сервис.</span>
             </div>
 
             <!-- Server Domain (for ACME) -->
             <div id="domainFieldContainer">
-                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Доменное имя сервера (Let's Encrypt)</label>
-                <input type="text" id="nodeServerDomain" placeholder="proxy.example.com" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
-                <span class="text-[11px] text-slate-500 mt-1 block">Требуется только для режима Let's Encrypt (ACME). Должен указывать на IP сервера.</span>
+                <label class="block text-xs font-semibold text-slate-300 mb-1.5">Доменное имя сервера (ACME)</label>
+                <input type="text" id="nodeServerDomain" placeholder="proxy.example.com"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-xs sm:text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                <span class="text-[11px] text-slate-500 mt-1 block">Только для Let's Encrypt. Должен указывать на IP сервера.</span>
             </div>
         </div>
 
         <!-- Certificate Pin (pinSHA256) Block -->
-        <div class="p-4 rounded-xl bg-slate-900/90 border border-slate-800 space-y-3">
+        <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-3">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2">
                     <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
                     <span class="text-xs font-bold text-white">Отпечаток сертификата SHA-256 (pinSHA256):</span>
-                    <span class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-mono">SHA-256 Hex (64 char)</span>
+                    <span class="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-mono border border-emerald-500/20">64-char HEX</span>
                 </div>
-                <button onclick="triggerGenerateIpCert()" class="px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-medium transition flex items-center gap-1.5 self-start sm:self-auto">
+                <button onclick="triggerGenerateIpCert()" class="px-3 py-1.5 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition flex items-center gap-1.5 self-start sm:self-auto">
                     <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
-                    <span>Перевыпустить сертификат под текущий SNI</span>
+                    <span>Перевыпустить под текущий SNI</span>
                 </button>
             </div>
 
             <div class="flex gap-2">
-                <input type="text" id="nodeCertSha256" readonly 
-                       class="flex-1 px-3.5 py-2 rounded-lg bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 focus:outline-none select-all">
-                <button onclick="copyToClipboard('nodeCertSha256')" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition flex items-center gap-1.5">
+                <input type="text" id="nodeCertSha256" readonly
+                       class="flex-1 px-3.5 py-2 rounded-lg bg-[#0b111e] border border-[#1c263b] font-mono text-xs text-emerald-400 focus:outline-none select-all">
+                <button onclick="copyToClipboard('nodeCertSha256')" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-[#1c263b] text-xs font-semibold transition flex items-center gap-1.5">
                     <i data-lucide="copy" class="w-3.5 h-3.5"></i>
                     <span>Копировать</span>
                 </button>
             </div>
             <p class="text-[11px] text-slate-400">
-                Клиенты проверяют этот отпечаток, исключая подмену сертификата провайдером (MITM). Автоматически передается в <code>hy2://</code>, Sing-box и Clash!
+                Исключает MITM-подмену сертификата провайдером и автоматически передается в <code>hy2://</code>, Sing-box и Clash.
             </p>
         </div>
     </div>
 
     <!-- 3. Сеть, Порты и Port Hopping -->
-    <div class="glass-card rounded-xl p-5 space-y-5 border-l-4 border-l-blue-500">
-        <div class="border-b border-[#1e293b] pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-5">
+        <div class="border-b border-[#1c263b] pb-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
             <div>
-                <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                    <i data-lucide="radio" class="w-4 h-4 text-blue-400"></i>
-                    <span>Сетевые порты & Port Hopping (Обход замедления DPI)</span>
+                <h3 class="text-sm sm:text-base font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="radio" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Сетевые порты & Port Hopping (UDP)</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    Основной UDP порт и диапазон динамических скачков для обхода блокировок операторов
+                    Основной UDP порт и диапазон динамических скачков для обхода фильтрации
                 </p>
             </div>
-            <button onclick="triggerResetPorts()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition flex items-center gap-1 border border-slate-700">
-                <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+            <button onclick="triggerResetPorts()" class="px-3 py-1.5 rounded-lg bg-[#06090f] hover:bg-slate-800 text-slate-300 text-xs font-medium transition flex items-center gap-1.5 border border-[#1c263b]">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                 <span>Сброс (443 UDP)</span>
             </button>
         </div>
@@ -156,66 +156,62 @@
             <div>
                 <div class="flex items-center justify-between mb-1.5">
                     <label class="text-xs font-semibold text-slate-300">Основной UDP порт Hysteria 2</label>
-                    <span id="portCheckBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">Проверка...</span>
+                    <span id="portCheckBadge" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-[#1c263b]">Проверка...</span>
                 </div>
                 <div class="flex items-center">
-                    <span class="px-3 py-2 bg-[#090d16] border border-r-0 border-slate-800 text-slate-400 text-xs rounded-l-lg font-mono">UDP</span>
+                    <span class="px-3 py-2.5 bg-[#04060b] border border-r-0 border-[#1c263b] text-slate-400 text-xs rounded-l-xl font-mono">UDP</span>
                     <input type="number" id="nodeListenPort" value="443" min="1" max="65535" oninput="debounceCheckPort()"
-                           class="flex-1 px-3.5 py-2 rounded-r-lg bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                           class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
                 </div>
-                <!-- Quick Port Selection Pills -->
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                     <span class="text-[10px] text-slate-500 mr-1">Быстрый выбор:</span>
-                    <button type="button" onclick="setPort(443)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">443</button>
-                    <button type="button" onclick="setPort(8443)" class="px-2 py-0.5 rounded bg-blue-900/40 hover:bg-blue-800/60 border border-blue-500/30 text-[11px] font-mono text-blue-300 transition" title="Рекомендуется для РФ (обход блокировок ТСПУ)">8443 ★</button>
-                    <button type="button" onclick="setPort(2053)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">2053</button>
-                    <button type="button" onclick="setPort(11443)" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">11443</button>
-                    <button type="button" onclick="setRandomPort()" class="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[11px] text-slate-300 hover:text-white transition" title="Случайный высокий порт 10000-60000">🎲 Случайный</button>
-                </div>
-                <div class="mt-2.5 p-2 rounded bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
-                    <b>Обход замедлений (РФ):</b> Провайдеры в РФ часто режут UDP на порту 443. Использование портов <b>8443</b>, <b>2053</b> или Port Hopping обходит фильтры ТСПУ без потери скорости.
+                    <button type="button" onclick="setPort(443)" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">443</button>
+                    <button type="button" onclick="setPort(8443)" class="px-2 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-[11px] font-mono text-cyan-300 transition" title="Рекомендуется (обход фильтрации 443 UDP)">8443 ★</button>
+                    <button type="button" onclick="setPort(2053)" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">2053</button>
+                    <button type="button" onclick="setPort(11443)" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-[11px] font-mono text-slate-300 hover:text-white transition">11443</button>
+                    <button type="button" onclick="setRandomPort()" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] hover:border-slate-700 text-[11px] text-slate-300 hover:text-white transition" title="Случайный порт 10000-60000">Случайный</button>
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Диапазон Port Hopping (mport)</label>
                 <div class="flex items-center">
-                    <span class="px-3 py-2 bg-[#090d16] border border-r-0 border-slate-800 text-slate-400 text-xs rounded-l-lg font-mono">UDP</span>
-                    <input type="text" id="nodePortHoppingRange" value="20000:50000" 
-                           class="flex-1 px-3.5 py-2 rounded-r-lg bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-blue-500 font-mono">
+                    <span class="px-3 py-2.5 bg-[#04060b] border border-r-0 border-[#1c263b] text-slate-400 text-xs rounded-l-xl font-mono">UDP</span>
+                    <input type="text" id="nodePortHoppingRange" value="20000:50000"
+                           class="flex-1 px-3.5 py-2.5 rounded-r-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                    <span class="text-[10px] text-slate-500 mr-1">Пресеты:</span>
-                    <button type="button" onclick="document.getElementById('nodePortHoppingRange').value='20000:50000'" class="px-2 py-0.5 rounded bg-slate-800 text-[11px] font-mono text-slate-300">20000:50000</button>
-                    <button type="button" onclick="document.getElementById('nodePortHoppingRange').value='30000:60000'" class="px-2 py-0.5 rounded bg-slate-800 text-[11px] font-mono text-slate-300">30000:60000</button>
+                    <span class="text-[10px] text-slate-500 mr-1">Диапазоны:</span>
+                    <button type="button" onclick="document.getElementById('nodePortHoppingRange').value='20000:50000'" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] text-[11px] font-mono text-slate-300">20000:50000</button>
+                    <button type="button" onclick="document.getElementById('nodePortHoppingRange').value='30000:60000'" class="px-2 py-0.5 rounded bg-[#06090f] border border-[#1c263b] text-[11px] font-mono text-slate-300">30000:60000</button>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-2 block">Формат: <code>20000:50000</code>. Клиент рандомно прыгает по портам, сбивая блокировки.</span>
+                <span class="text-[11px] text-slate-500 mt-2 block">Формат: <code>20000:50000</code>. Клиент чередует UDP-порты через iptables REDIRECT.</span>
             </div>
         </div>
 
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2 border-t border-[#1e293b]">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-[#1c263b]">
             <div class="flex items-center gap-2.5">
-                <input type="checkbox" id="nodePortHoppingEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-blue-600 focus:ring-blue-500">
+                <input type="checkbox" id="nodePortHoppingEnabled" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                 <label for="nodePortHoppingEnabled" class="text-xs font-semibold text-slate-200">
                     Активировать Port Hopping (NAT REDIRECT в iptables)
                 </label>
             </div>
-            <button onclick="triggerFlushHopping()" class="text-xs text-slate-400 hover:text-red-400 transition flex items-center gap-1">
+            <button onclick="triggerFlushHopping()" class="text-xs text-slate-400 hover:text-rose-400 transition flex items-center gap-1.5">
                 <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                <span>Сбросить правила iptables</span>
+                <span>Очистить правила iptables</span>
             </button>
         </div>
     </div>
 
-    <!-- 4. Анти-DPI Маскировка, Обфускация & Скорость -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-purple-500 shadow-xl">
-        <div class="border-b border-slate-800/80 pb-4">
-            <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="eye-off" class="w-5 h-5 text-purple-400"></i>
-                <span>Анти-DPI Обфускация Salamander & Masquerade</span>
+    <!-- 4. Обфускация Salamander, Masquerade и Лимиты канала -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-6 shadow-xl">
+        <div class="border-b border-[#1c263b] pb-4">
+            <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                <i data-lucide="eye-off" class="w-5 h-5 text-cyan-400"></i>
+                <span>Обфускация Salamander, Masquerade и Канал</span>
             </h3>
             <p class="text-xs text-slate-400 mt-0.5">
-                Маскировка протокола Salamander (XOR обфускация) и HTTP/3 маскировочный прокси для сканеров
+                XOR-обфускация UDP-пакетов, маскировочный HTTP/3 бэкенд и лимиты пропускной способности
             </p>
         </div>
 
@@ -223,131 +219,137 @@
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Пароль обфускации Salamander</label>
                 <div class="flex gap-2">
-                    <input type="text" id="nodeObfsPassword" placeholder="Секретный ключ обфускации" 
-                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white font-mono focus:outline-none focus:border-purple-500">
-                    <button onclick="generateRandomObfs()" title="Сгенерировать случайный пароль" 
-                            class="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition flex items-center gap-1">
-                        <i data-lucide="dice-5" class="w-4 h-4"></i>
+                    <input type="text" id="nodeObfsPassword" placeholder="Оставьте пустым для отключения"
+                           class="flex-1 px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white font-mono focus:outline-none focus:border-cyan-500">
+                    <button type="button" onclick="generateRandomObfs()" title="Сгенерировать случайный пароль"
+                            class="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs font-semibold border border-[#1c263b] transition flex items-center gap-1">
+                        <i data-lucide="dice-5" class="w-4 h-4 text-cyan-400"></i>
                     </button>
                 </div>
-                <span class="text-[11px] text-slate-500 mt-1 block">Превращает QUIC трафик в нераспознаваемый энтропийный шум.</span>
+                <span class="text-[11px] text-slate-500 mt-1 block">Превращает QUIC-пакеты в случайный поток для DPI.</span>
             </div>
 
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Masquerade сайт (Маскировка HTTP/3)</label>
-                <input type="text" id="nodeMasqueradeTarget" value="https://bing.com" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-purple-500 font-mono">
-                <span class="text-[11px] text-slate-500 mt-1 block">Сайт, который отображается цензорам при прямой проверке IP браузером.</span>
+                <input type="text" id="nodeMasqueradeTarget" value="https://bing.com"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono">
+                <span class="text-[11px] text-slate-500 mt-1 block">Отдается сканерам и браузерам при прямом заходе без авторизации.</span>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/60">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-[#1c263b]">
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Лимит отдачи узла (Upload Mbps)</label>
-                <input type="number" id="nodeUpMbps" value="200" min="1" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                <input type="number" id="nodeUpMbps" value="200" min="1"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
             </div>
             <div>
                 <label class="block text-xs font-semibold text-slate-300 mb-1.5">Лимит приема узла (Download Mbps)</label>
-                <input type="number" id="nodeDownMbps" value="200" min="1" 
-                       class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-brand-500 font-mono">
+                <input type="number" id="nodeDownMbps" value="200" min="1"
+                       class="w-full px-3.5 py-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] text-sm text-white focus:outline-none focus:border-cyan-500 font-mono tabular-nums">
             </div>
         </div>
 
-        <!-- Presets -->
+        <!-- Profile Presets -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
-            <button onclick="applyPresetDirect('anti-dpi')" class="p-3.5 rounded-xl bg-slate-900/90 border border-brand-500/30 hover:border-brand-500 text-left transition space-y-1">
+            <button type="button" onclick="applyPresetDirect('anti-dpi')" class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] hover:border-cyan-500/50 text-left transition space-y-1">
                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
-                    <i data-lucide="shield" class="w-4 h-4 text-brand-400"></i>
-                    <span>🛡️ Пресет «Анти-DPI»</span>
+                    <i data-lucide="shield" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Профиль «Анти-DPI»</span>
                 </div>
                 <p class="text-[11px] text-slate-400">Salamander Obfs, Port Hopping и маскировка под Bing.</p>
             </button>
 
-            <button onclick="applyPresetDirect('speed')" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
+            <button type="button" onclick="applyPresetDirect('speed')" class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] hover:border-amber-500/50 text-left transition space-y-1">
                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                     <i data-lucide="zap" class="w-4 h-4 text-amber-400"></i>
-                    <span>⚡ Пресет «Скорость»</span>
+                    <span>Профиль «Скорость»</span>
                 </div>
-                <p class="text-[11px] text-slate-400">Максимальная пропускная способность до 1 Гбит/с.</p>
+                <p class="text-[11px] text-slate-400">Максимальная полоса канала до 1 Гбит/с без Obfs.</p>
             </button>
 
-            <button onclick="applyPresetDirect('gaming')" class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 text-left transition space-y-1">
+            <button type="button" onclick="applyPresetDirect('gaming')" class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] hover:border-emerald-500/50 text-left transition space-y-1">
                 <div class="font-bold text-white text-xs flex items-center gap-1.5">
                     <i data-lucide="gamepad-2" class="w-4 h-4 text-emerald-400"></i>
-                    <span>🎮 Пресет «Игровой»</span>
+                    <span>Профиль «Игровой»</span>
                 </div>
-                <p class="text-[11px] text-slate-400">Минимальный пинг и агрессивный keepalive.</p>
+                <p class="text-[11px] text-slate-400">Минимальный пинг и стабильный QUIC keepalive.</p>
             </button>
         </div>
     </div>
 
-    <!-- 5. Маршрутизация, Sniffing & WARP -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-emerald-500 shadow-xl">
-        <div class="border-b border-slate-800/80 pb-4">
-            <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="route" class="w-5 h-5 text-emerald-400"></i>
-                <span>Маршрутизация, Sniffing и Cloudflare WARP</span>
-            </h3>
-            <p class="text-xs text-slate-400 mt-0.5">Восстановление доменов в TUN-режиме и разблокировка OpenAI/Netflix</p>
+    <!-- 5. Sniffing & WARP Gateway Switch -->
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-5 shadow-xl">
+        <div class="border-b border-[#1c263b] pb-3.5 flex items-center justify-between">
+            <div>
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="route" class="w-5 h-5 text-emerald-400"></i>
+                    <span>Sniffing ядра и шлюз Cloudflare WARP</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Базовые флаги протокола; детальные правила задаются в разделе «Маршрутизация»</p>
+            </div>
+            <a href="/settings" class="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                <span>Настроить роутинг</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </a>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold text-white flex items-center gap-2">
                         <i data-lucide="search" class="w-4 h-4 text-cyan-400"></i>
                         <span>Protocol Sniffing</span>
                     </span>
-                    <input type="checkbox" id="nodeSniffEnabled" checked class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <input type="checkbox" id="nodeSniffEnabled" checked class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                 </div>
                 <p class="text-[11px] text-slate-400">
-                    Перехватывает и восстанавливает доменные имена из IP-запросов (критично для Hiddify, Sing-box и v2rayNG).
+                    Восстанавливает доменные имена (SNI/HTTP) из IP-подключений для корректной работы ACL правил.
                 </p>
             </div>
 
-            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+            <div class="p-4 rounded-xl bg-[#06090f] border border-[#1c263b] space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold text-white flex items-center gap-2">
                         <i data-lucide="cloud" class="w-4 h-4 text-amber-400"></i>
                         <span>Cloudflare WARP Outbound</span>
                     </span>
-                    <input type="checkbox" id="nodeWarpEnabled" class="w-4 h-4 rounded border-slate-800 bg-slate-900 text-brand-600 focus:ring-brand-500">
+                    <input type="checkbox" id="nodeWarpEnabled" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-amber-500 focus:ring-amber-500">
                 </div>
                 <p class="text-[11px] text-slate-400">
-                    Направляет трафик к ChatGPT, Netflix, Spotify через чистый IP Cloudflare WARP (socks5://127.0.0.1:40000).
+                    Активирует outbound <code class="text-slate-300">warp</code> (WireGuard или SOCKS5) в <code>config.yaml</code> для использования в правилах маршрутизации.
                 </p>
             </div>
         </div>
     </div>
 
     <!-- 6. Управление портами брандмауэра (Firewall Ports) -->
-    <div class="glass-card rounded-2xl p-6 space-y-6 border-l-4 border-l-indigo-500 shadow-xl">
-        <div class="border-b border-slate-800/80 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+    <div class="glass-card rounded-2xl p-5 sm:p-6 space-y-5 shadow-xl">
+        <div class="border-b border-[#1c263b] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i data-lucide="shield" class="w-5 h-5 text-indigo-400"></i>
-                    <span>Управление портами сервера (Брандмауэр / Firewall)</span>
+                <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="shield" class="w-5 h-5 text-cyan-400"></i>
+                    <span>Управление портами сервера (Firewall)</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    Политика по умолчанию: Все порты открыты (Permissive / ACCEPT). Вы можете открывать дополнительные порты.
+                    Политика по умолчанию: Permissive / ACCEPT. Откройте дополнительные порты при необходимости.
                 </p>
             </div>
-            <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold self-start sm:self-auto">
-                ● Без ограничений (ACCEPT ALL)
+            <span class="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-mono self-start sm:self-auto">
+                ACCEPT ALL
             </span>
         </div>
 
         <!-- Add port form -->
-        <div class="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col md:flex-row items-stretch md:items-end gap-3">
+        <div class="p-3.5 rounded-xl bg-[#06090f] border border-[#1c263b] flex flex-col md:flex-row items-stretch md:items-end gap-3">
             <div class="w-full md:w-36">
                 <label class="block text-[11px] font-semibold text-slate-300 mb-1">Номер порта</label>
                 <input type="number" id="newCustomPort" placeholder="80" min="1" max="65535"
-                       class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+                       class="w-full px-3 py-2 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-white font-mono focus:outline-none focus:border-cyan-500">
             </div>
             <div class="w-full md:w-32">
                 <label class="block text-[11px] font-semibold text-slate-300 mb-1">Протокол</label>
-                <select id="newCustomProto" class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <select id="newCustomProto" class="w-full px-3 py-2 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
                     <option value="tcp">TCP</option>
                     <option value="udp">UDP</option>
                     <option value="both">TCP + UDP</option>
@@ -355,19 +357,19 @@
             </div>
             <div class="flex-1">
                 <label class="block text-[11px] font-semibold text-slate-300 mb-1">Описание сервиса</label>
-                <input type="text" id="newCustomComment" placeholder="например: HTTP, SSH, Outline, Game Server"
-                       class="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <input type="text" id="newCustomComment" placeholder="например: HTTP, SSH, Game Server"
+                       class="w-full px-3 py-2 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs text-white focus:outline-none focus:border-cyan-500">
             </div>
-            <button onclick="addCustomPort()" class="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-lg shadow-indigo-600/30">
+            <button onclick="addCustomPort()" class="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold transition flex items-center justify-center gap-1.5 whitespace-nowrap shadow-md shadow-cyan-500/20">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                 <span>Открыть порт</span>
             </button>
         </div>
 
         <!-- Ports Table -->
-        <div class="overflow-x-auto rounded-xl border border-slate-800">
+        <div class="overflow-x-auto rounded-xl border border-[#1c263b] bg-[#06090f]">
             <table class="w-full text-left">
-                <thead class="bg-slate-900/90 text-slate-400 text-[11px] font-semibold uppercase tracking-wider border-b border-slate-800">
+                <thead class="bg-[#0b111e] text-slate-400 text-[11px] font-semibold uppercase tracking-wider border-b border-[#1c263b]">
                     <tr>
                         <th class="py-2.5 px-3">Порт</th>
                         <th class="py-2.5 px-3">Протокол</th>
@@ -376,24 +378,24 @@
                         <th class="py-2.5 px-3 text-right">Действие</th>
                     </tr>
                 </thead>
-                <tbody id="firewallPortsList" class="divide-y divide-slate-800/40">
+                <tbody id="firewallPortsList" class="divide-y divide-[#1c263b]/60">
                     <!-- Populated by JS -->
                 </tbody>
             </table>
         </div>
     </div>
 
-    <!-- 6. Sticky Bottom Action & Save Bar -->
-    <div class="sticky bottom-20 lg:bottom-4 z-20 lg:z-40 bg-[#0c1220]/95 backdrop-blur-md border border-[#1e293b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+    <!-- 7. Sticky Bottom Action & Save Bar -->
+    <div class="sticky bottom-20 lg:bottom-4 z-20 lg:z-40 bg-[#0b111e]/95 backdrop-blur-md border border-[#1c263b] rounded-xl p-3.5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-2.5 text-xs text-slate-300">
-            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-            <span>Изменили порты, SNI, пароль obfs или лимиты? Нажмите для мгновенного применения:</span>
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <span>Изменили порты, SNI, обфускацию или лимиты? Примените настройки ядра:</span>
         </div>
         <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button onclick="loadNodeData()" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-medium transition">
+            <button onclick="loadNodeData()" class="px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-[#1c263b] text-xs font-medium transition">
                 Сбросить
             </button>
-            <button onclick="saveNodeConfig()" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition shadow-lg shadow-blue-600/30 flex items-center gap-1.5">
+            <button onclick="saveNodeConfig()" class="px-5 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition shadow-lg shadow-cyan-500/20 flex items-center gap-1.5">
                 <i data-lucide="save" class="w-4 h-4"></i>
                 <span>Сохранить и применить</span>
             </button>
@@ -471,8 +473,8 @@
                 document.getElementById('nodeObfsPassword').value = nodeSettings.obfs_password || '';
                 document.getElementById('nodeMasqueradeTarget').value = nodeSettings.masquerade_target || 'https://' + currentSni;
                 
-                document.getElementById('nodeWarpEnabled').checked = nodeSettings.warp_enabled == '1';
-                document.getElementById('nodeSniffEnabled').checked = (nodeSettings.sniff_enable !== '0' && nodeSettings.sniff_enabled !== '0');
+                document.getElementById('nodeWarpEnabled').checked = nodeSettings.warp_enabled == '1' || nodeSettings.warp_enabled === true;
+                document.getElementById('nodeSniffEnabled').checked = nodeSettings.sniff_enable !== '0' && nodeSettings.sniff_enable !== false;
                 document.getElementById('nodeUpMbps').value = nodeSettings.up_mbps || '200';
                 document.getElementById('nodeDownMbps').value = nodeSettings.down_mbps || '200';
 
@@ -695,12 +697,13 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content })
             });
-            if (res.ok) {
+            const data = await res.json();
+            if (res.ok && data.ok) {
                 showToast('Конфиг сохранен и ядро перезапущено!', 'success');
                 closeRawConfigModal();
                 loadNodeData();
             } else {
-                showToast('Ошибка сохранения конфига', 'error');
+                showToast(data.message || 'Ошибка сохранения конфига', 'error');
             }
         } catch (e) {
             showToast('Ошибка сети', 'error');
@@ -765,13 +768,13 @@
         // Custom ports
         (data.custom_ports || []).forEach(cp => {
             html += `
-            <tr class="border-b border-slate-800/60 text-xs hover:bg-slate-900/40">
-                <td class="py-2.5 px-3 font-mono font-bold text-white">${cp.port}</td>
-                <td class="py-2.5 px-3 font-semibold text-cyan-400">${cp.proto.toUpperCase()}</td>
-                <td class="py-2.5 px-3 text-slate-300">${cp.comment || 'Пользовательский'}</td>
+            <tr class="border-b border-[#1c263b]/60 text-xs hover:bg-slate-800/30">
+                <td class="py-2.5 px-3 font-mono tabular-nums font-bold text-white">${escapeHtml(cp.port)}</td>
+                <td class="py-2.5 px-3 font-semibold text-cyan-400 font-mono">${escapeHtml(String(cp.proto || '').toUpperCase())}</td>
+                <td class="py-2.5 px-3 text-slate-300">${escapeHtml(cp.comment || 'Пользовательский')}</td>
                 <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-[10px] font-medium">Открыт</span></td>
                 <td class="py-2.5 px-3 text-right">
-                    <button onclick="deleteCustomPort(${cp.port}, '${cp.proto}')" class="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] font-medium transition">
+                    <button onclick="deleteCustomPort(${Number(cp.port)}, '${escapeHtml(cp.proto)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-[11px] font-medium transition">
                         Закрыть
                     </button>
                 </td>

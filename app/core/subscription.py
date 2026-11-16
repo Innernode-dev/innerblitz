@@ -156,28 +156,14 @@ def build_clash_yaml(
         "IP-CIDR,192.168.0.0/16,DIRECT,no-resolve",
         "IP-CIDR,10.0.0.0/8,DIRECT,no-resolve",
         "GEOIP,LAN,DIRECT",
-        "GEOSITE,category-ads-all,REJECT",
     ]
+    if str(settings_dict.get("routing_ads", "0")).lower() in ("1", "true"):
+        rules.append("GEOSITE,category-ads-all,REJECT")
 
-    if ru_routing == "block":
-        rules.extend([
-            "GEOSITE,ru,REJECT",
-            "GEOIP,RU,REJECT"
-        ])
-    elif ru_routing == "warp":
-        rules.extend([
-            "GEOSITE,ru,PROXY",
-            "GEOIP,RU,PROXY"
-        ])
-    else:  # direct
-        rules.extend([
-            "GEOSITE,ru,RU-Traffic",
-            "GEOIP,RU,RU-Traffic"
-        ])
-
-    # Export custom dynamic routing rules
+    # Export custom dynamic routing rules (evaluated before regional/service presets)
     resolved_rules = routing_rules if routing_rules is not None else (settings_dict.get("routing_rules") or settings_dict.get("custom_routing_rules") or [])
-    for c_rule in resolved_rules:
+    sorted_custom = sorted(resolved_rules, key=lambda r: (r.get("priority", 100), r.get("id", 0)))
+    for c_rule in sorted_custom:
         if not c_rule.get("enabled", True):
             continue
         c_action = str(c_rule.get("action", "direct")).strip().lower()
@@ -216,6 +202,28 @@ def build_clash_yaml(
             elif c_type == "geosite":
                 clean = val.removeprefix("geosite:").strip()
                 rules.append(f"GEOSITE,{clean},{c_target}")
+
+    if ru_routing == "block":
+        rules.extend([
+            "GEOIP,RU,REJECT",
+            "DOMAIN-SUFFIX,ru,REJECT",
+            "DOMAIN-SUFFIX,su,REJECT",
+            "DOMAIN-SUFFIX,xn--p1ai,REJECT",
+        ])
+    elif ru_routing == "warp":
+        rules.extend([
+            "GEOIP,RU,PROXY",
+            "DOMAIN-SUFFIX,ru,PROXY",
+            "DOMAIN-SUFFIX,su,PROXY",
+            "DOMAIN-SUFFIX,xn--p1ai,PROXY",
+        ])
+    else:  # direct
+        rules.extend([
+            "GEOIP,RU,RU-Traffic",
+            "DOMAIN-SUFFIX,ru,RU-Traffic",
+            "DOMAIN-SUFFIX,su,RU-Traffic",
+            "DOMAIN-SUFFIX,xn--p1ai,RU-Traffic",
+        ])
 
     rules.extend([
         "MATCH,PROXY"
@@ -287,22 +295,14 @@ def build_singbox_json(
     route_rules = [
         {"protocol": "dns", "outbound": "dns-out"},
         {"ip_is_private": True, "outbound": "direct"},
-        {"geosite": ["category-ads-all"], "outbound": "block"}
     ]
+    if str(settings_dict.get("routing_ads", "0")).lower() in ("1", "true"):
+        route_rules.append({"geosite": ["category-ads-all"], "outbound": "block"})
 
-    if ru_routing == "block":
-        route_rules.append({"geosite": ["ru"], "outbound": "block"})
-        route_rules.append({"geoip": ["ru"], "outbound": "block"})
-    elif ru_routing == "warp":
-        route_rules.append({"geosite": ["ru"], "outbound": proxy_tag})
-        route_rules.append({"geoip": ["ru"], "outbound": proxy_tag})
-    else:  # direct
-        route_rules.append({"geosite": ["ru"], "outbound": "direct"})
-        route_rules.append({"geoip": ["ru"], "outbound": "direct"})
-
-    # Export custom dynamic routing rules to Sing-box v1.10+ route rules
+    # Export custom dynamic routing rules to Sing-box v1.10+ route rules (before regional presets)
     resolved_rules = routing_rules if routing_rules is not None else (settings_dict.get("routing_rules") or settings_dict.get("custom_routing_rules") or [])
-    for c_rule in resolved_rules:
+    sorted_custom = sorted(resolved_rules, key=lambda r: (r.get("priority", 100), r.get("id", 0)))
+    for c_rule in sorted_custom:
         if not c_rule.get("enabled", True):
             continue
         c_action = str(c_rule.get("action", "direct")).strip().lower()
@@ -352,6 +352,13 @@ def build_singbox_json(
             elif c_type == "geosite":
                 route_rules.append({"geosite": clean_vals, "outbound": outbound_target})
 
+    if ru_routing == "block":
+        route_rules.append({"domain_suffix": ["ru", "su", "xn--p1ai"], "outbound": "block"})
+    elif ru_routing == "warp":
+        route_rules.append({"domain_suffix": ["ru", "su", "xn--p1ai"], "outbound": proxy_tag})
+    else:  # direct
+        route_rules.append({"domain_suffix": ["ru", "su", "xn--p1ai"], "outbound": "direct"})
+
     return {
         "version": 1,
         "inbounds": [
@@ -388,15 +395,10 @@ def build_singbox_json(
                     "address": "https://77.88.8.8/dns-query",
                     "strategy": "prefer_ipv4",
                     "detour": "direct"
-                },
-                {
-                    "tag": "dns-block",
-                    "address": "rcode://success"
                 }
             ],
             "rules": [
-                {"outbound": "any", "server": "dns-direct"},
-                {"geosite": ["category-ads-all"], "server": "dns-block"}
+                {"outbound": "any", "server": "dns-direct"}
             ],
             "strategy": "prefer_ipv4"
         },

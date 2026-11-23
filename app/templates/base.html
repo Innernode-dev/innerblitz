@@ -30,11 +30,11 @@
                             700: '#0e7490',
                         },
                         surface: {
-                            base: '#06090f',
-                            card: '#0b111e',
-                            subtle: '#11192b',
-                            border: '#1c263b',
-                            borderHover: '#2b3957'
+                            base: '#07090e',
+                            card: '#0e121b',
+                            subtle: '#131926',
+                            border: '#1d2536',
+                            borderHover: '#303d57'
                         }
                     }
                 }
@@ -46,158 +46,120 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <style>
-        :root {
-            --bg-abyss: #06090f;
-            --bg-slate: #0b111e;
-            --bg-elevated: #10192b;
-            --border-hairline: #1c263b;
-            --accent-cyan: #06b6d4;
-            --accent-amber: #f59e0b;
-            --accent-emerald: #10b981;
-        }
-        body {
-            background-color: var(--bg-abyss);
-            background-image:
-                radial-gradient(ellipse 80% 50% at 50% -15%, rgba(6, 182, 212, 0.10), transparent 70%),
-                linear-gradient(to right, rgba(28, 38, 59, 0.24) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(28, 38, 59, 0.24) 1px, transparent 1px);
-            background-size: 100% 100%, 36px 36px, 36px 36px;
-            background-attachment: fixed;
-            color: #eef2f6;
-            font-family: 'Manrope', system-ui, sans-serif;
-        }
-        .glass {
-            background: rgba(11, 17, 30, 0.92);
-            border: 1px solid #1c263b;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 18px 40px -15px rgba(0, 0, 0, 0.7);
-        }
-        .glass-card {
-            background: linear-gradient(180deg, rgba(16, 25, 43, 0.86) 0%, rgba(11, 17, 30, 0.94) 100%);
-            border: 1px solid #1c263b;
-            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 10px 26px -12px rgba(0, 0, 0, 0.65);
-            transition: border-color 180ms ease, box-shadow 180ms ease;
-        }
-        .glass-card:hover {
-            border-color: #2b3a59;
-        }
-        .tabular-nums {
-            font-variant-numeric: tabular-nums;
-        }
-        .nav-item-active {
-            background: linear-gradient(90deg, rgba(6, 182, 212, 0.18) 0%, rgba(6, 182, 212, 0.04) 70%, transparent 100%);
-            border-left: 2px solid #06b6d4;
-            color: #ffffff !important;
-            font-weight: 600;
-            box-shadow: inset 0 1px 0 rgba(6, 182, 212, 0.12);
-        }
-        .bottom-nav-active {
-            color: #22d3ee !important;
-        }
-        .bottom-nav-active i {
-            filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.55));
-        }
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #06090f; }
-        ::-webkit-scrollbar-thumb { background: #22304a; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-    </style>
+    <!-- Unified Obsidian Signal Design System -->
+    <link rel="stylesheet" href="/static/innerblitz.css">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-[#06090f] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950 antialiased">
+<body class="ib-canvas bg-[#07090e] text-slate-100 min-h-screen flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950 antialiased">
 
     <!-- Toast Notification Container -->
-    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none max-w-sm"></div>
+    <div id="toastContainer" class="fixed top-5 right-5 z-[60] flex flex-col gap-2.5 pointer-events-none max-w-sm"></div>
 
     <!-- Mobile Sidebar Backdrop Overlay -->
     <div id="sidebarBackdrop" onclick="toggleSidebar(false)" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-40 hidden lg:hidden transition-opacity duration-300"></div>
 
+    <!-- Quick Command Palette (Ctrl+K / Cmd+K) -->
+    <div id="cmdPaletteModal" class="fixed inset-0 z-[55] hidden items-start justify-center pt-[14vh] px-4 ib-cmdk-backdrop" onclick="if(event.target===this) closeCommandPalette()">
+        <div class="glass w-full max-w-lg rounded-2xl overflow-hidden border border-[#2a3650] shadow-2xl">
+            <div class="flex items-center gap-3 px-4 py-3.5 border-b border-[#1d2536] bg-[#090d16]">
+                <i data-lucide="search" class="w-4 h-4 text-cyan-400 flex-shrink-0"></i>
+                <input id="cmdPaletteInput" type="text" autocomplete="off" placeholder="Перейти к разделу или выполнить действие..."
+                       oninput="renderCommandPalette(this.value)"
+                       class="flex-1 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none">
+                <kbd class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800/90 text-slate-400 border border-slate-700">ESC</kbd>
+            </div>
+            <div id="cmdPaletteList" class="p-2 max-h-80 overflow-y-auto space-y-0.5"></div>
+            <div class="px-4 py-2 border-t border-[#1d2536] bg-[#080b12] flex items-center justify-between text-[11px] text-slate-500 font-mono">
+                <span>↑↓ навигация · Enter открыть</span>
+                <span>InnerBlitz Quick Bar</span>
+            </div>
+        </div>
+    </div>
+
     <div class="flex flex-1 relative overflow-hidden">
         <!-- Sidebar -->
-        <aside id="appSidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-[#080d18]/95 lg:bg-[#080d18]/90 backdrop-blur-xl flex flex-col border-r border-[#1c263b] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
+        <aside id="appSidebar" class="fixed lg:static inset-y-0 left-0 z-50 w-72 lg:w-64 bg-[#090c14]/95 lg:bg-[#090c14]/88 backdrop-blur-xl flex flex-col border-r border-[#1d2536] transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none">
             <!-- Brand Logo & Mobile Close -->
-            <div class="p-4 sm:p-5 flex items-center justify-between border-b border-[#1c263b]">
-                <div class="flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 to-teal-400 flex items-center justify-center text-slate-950 font-extrabold shadow-lg shadow-cyan-500/20">
+            <div class="p-4 sm:p-5 flex items-center justify-between border-b border-[#1d2536]">
+                <a href="/" class="flex items-center gap-3 group">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-cyan-400 to-emerald-300 flex items-center justify-center text-slate-950 font-extrabold shadow-lg shadow-cyan-500/25 group-hover:scale-105 transition-transform">
                         <i data-lucide="zap" class="w-5 h-5"></i>
                     </div>
                     <div>
                         <div class="flex items-center gap-1.5">
                             <h1 class="text-base font-extrabold tracking-tight text-white">InnerBlitz</h1>
-                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">v2</span>
+                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-300 border border-cyan-500/25">v2</span>
                         </div>
                         <span class="text-[11px] text-slate-400 font-mono">Hysteria 2 Control</span>
                     </div>
-                </div>
+                </a>
                 <button onclick="toggleSidebar(false)" class="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition" title="Закрыть меню">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
 
             <!-- Navigation Links -->
-            <nav class="flex-1 p-3 space-y-1 overflow-y-auto text-xs font-medium">
-                <a href="/" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/' %}nav-item-active{% endif %}">
+            <nav class="flex-1 p-3 space-y-1 overflow-y-auto text-[13px]">
+                <div class="nav-group-label">МОНИТОРИНГ</div>
+                <a href="/" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/' %}nav-item-active{% endif %}">
                     <div class="flex items-center gap-3">
-                        <i data-lucide="layout-dashboard" class="w-4 h-4 {% if request.url.path == '/' %}text-cyan-400{% endif %}"></i>
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 {% if request.url.path == '/' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
                         <span>Дашборд</span>
                     </div>
                 </a>
-                <a href="/node" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/node' %}nav-item-active{% endif %}">
+                <a href="/users" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/users' %}nav-item-active{% endif %}">
                     <div class="flex items-center gap-3">
-                        <i data-lucide="server" class="w-4 h-4 {% if request.url.path == '/node' %}text-cyan-400{% endif %}"></i>
+                        <i data-lucide="users" class="w-4 h-4 {% if request.url.path == '/users' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
+                        <span>Клиенты</span>
+                    </div>
+                    <span id="navUsersCount" class="text-[10px] font-mono tabular-nums px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">-</span>
+                </a>
+
+                <div class="nav-group-label mt-3">СЕТЬ И МАРШРУТЫ</div>
+                <a href="/node" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/node' %}nav-item-active{% endif %}">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="server" class="w-4 h-4 {% if request.url.path == '/node' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
                         <span>Узел / Inbound</span>
                     </div>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">QUIC</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">QUIC</span>
                 </a>
-                <a href="/users" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/users' %}nav-item-active{% endif %}">
+                <a href="/settings" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/settings' %}nav-item-active{% endif %}">
                     <div class="flex items-center gap-3">
-                        <i data-lucide="users" class="w-4 h-4 {% if request.url.path == '/users' %}text-cyan-400{% endif %}"></i>
-                        <span>Клиенты / Подписки</span>
-                    </div>
-                    <span id="navUsersCount" class="text-[10px] font-mono tabular-nums px-1.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">-</span>
-                </a>
-                <a href="/settings" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/settings' %}nav-item-active{% endif %}">
-                    <div class="flex items-center gap-3">
-                        <i data-lucide="split" class="w-4 h-4 {% if request.url.path == '/settings' %}text-cyan-400{% endif %}"></i>
-                        <span>Маршрутизация и Стелс</span>
+                        <i data-lucide="split" class="w-4 h-4 {% if request.url.path == '/settings' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
+                        <span>Роутинг и Стелс</span>
                     </div>
                 </a>
-                <a href="/config" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/config' %}nav-item-active{% endif %}">
+
+                <div class="nav-group-label mt-3">ИНСТРУМЕНТЫ</div>
+                <a href="/config" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/config' %}nav-item-active{% endif %}">
                     <div class="flex items-center gap-3">
-                        <i data-lucide="file-code" class="w-4 h-4 {% if request.url.path == '/config' %}text-cyan-400{% endif %}"></i>
-                        <span>Конфиг (YAML)</span>
+                        <i data-lucide="file-code" class="w-4 h-4 {% if request.url.path == '/config' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
+                        <span>Студия YAML</span>
                     </div>
-                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">RAW</span>
+                    <span class="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-slate-800/90 text-slate-300 border border-slate-700/70">RAW</span>
                 </a>
-                <a href="/logs" onclick="toggleSidebar(false)" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl transition text-slate-300 hover:text-white hover:bg-slate-800/50 {% if request.url.path == '/logs' %}nav-item-active{% endif %}">
+                <a href="/logs" onclick="toggleSidebar(false)" class="nav-link {% if request.url.path == '/logs' %}nav-item-active{% endif %}">
                     <div class="flex items-center gap-3">
-                        <i data-lucide="terminal" class="w-4 h-4 {% if request.url.path == '/logs' %}text-cyan-400{% endif %}"></i>
+                        <i data-lucide="terminal" class="w-4 h-4 {% if request.url.path == '/logs' %}text-cyan-400{% else %}text-slate-400{% endif %}"></i>
                         <span>Журнал логов</span>
                     </div>
                 </a>
             </nav>
 
-            <!-- Bottom Status Indicator -->
-            <div class="p-3 border-t border-[#1c263b]">
-                <div class="p-2.5 rounded-xl bg-[#06090f] border border-[#1c263b] flex items-center justify-between shadow-inner">
-                    <div class="flex items-center gap-2.5">
-                        <span id="hysIndicator" class="relative flex h-2.5 w-2.5">
+            <!-- Bottom Core Status Card -->
+            <div class="p-3 border-t border-[#1d2536]">
+                <div class="p-3 rounded-xl bg-[#070a10] border border-[#1d2536] flex items-center justify-between">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <span id="hysIndicator" class="relative flex h-2.5 w-2.5 flex-shrink-0">
                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                             <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                         </span>
-                        <div class="text-xs">
-                            <p class="font-semibold text-slate-200">Hysteria 2 Core</p>
-                            <p id="hysVersion" class="text-slate-400 text-[10px] font-mono">Checking...</p>
+                        <div class="text-xs min-w-0">
+                            <p class="font-bold text-slate-200 truncate">Hysteria 2 Core</p>
+                            <p id="hysVersion" class="text-slate-400 text-[10px] font-mono truncate">Checking...</p>
                         </div>
                     </div>
-                    <button onclick="restartCore()" title="Перезапустить ядро" class="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white transition border border-slate-700/60">
+                    <button onclick="restartCore()" title="Перезапустить ядро Hysteria 2" class="p-1.5 rounded-lg bg-[#131926] hover:bg-cyan-500/15 text-slate-300 hover:text-cyan-300 transition border border-[#1d2536] hover:border-cyan-500/30 flex-shrink-0">
                         <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
                     </button>
                 </div>
@@ -207,31 +169,41 @@
         <!-- Main Content Area -->
         <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
             <!-- Top Header Bar -->
-            <header class="h-14 bg-[#080d18]/85 backdrop-blur-md border-b border-[#1c263b] px-3.5 sm:px-6 flex items-center justify-between z-10">
+            <header class="h-14 bg-[#090c14]/82 backdrop-blur-xl border-b border-[#1d2536] px-3.5 sm:px-6 flex items-center justify-between z-10">
                 <div class="flex items-center gap-2.5 sm:gap-4 min-w-0">
-                    <button onclick="toggleSidebar(true)" class="lg:hidden p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition flex-shrink-0" title="Открыть меню навигации">
+                    <button onclick="toggleSidebar(true)" class="lg:hidden p-1.5 rounded-lg bg-[#131926] hover:bg-slate-800 text-slate-300 hover:text-white border border-[#1d2536] transition flex-shrink-0" title="Открыть меню навигации">
                         <i data-lucide="menu" class="w-5 h-5"></i>
                     </button>
-                    <h2 class="text-sm sm:text-base font-bold tracking-tight text-white truncate">{% block page_title %}{% endblock %}</h2>
+                    <h2 class="text-sm sm:text-[15px] font-extrabold tracking-tight text-white truncate">{% block page_title %}{% endblock %}</h2>
                 </div>
 
-                <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-                    <div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono text-slate-300" title="Стелс-маскировка активна">
+                <div class="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+                    <!-- Quick Command Palette Button -->
+                    <button type="button" onclick="openCommandPalette()" title="Быстрый переход и команды (Ctrl+K)"
+                            class="hidden sm:flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-[#0e121b] hover:bg-[#131926] border border-[#1d2536] hover:border-[#303d57] text-xs text-slate-400 hover:text-slate-200 transition">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        <span class="hidden md:inline">Поиск команд</span>
+                        <kbd class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#07090e] text-slate-400 border border-[#1d2536]">Ctrl K</kbd>
+                    </button>
+
+                    <div class="hidden xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0e121b] border border-[#1d2536] text-xs font-mono text-slate-300" title="Стелс-маскировка активна">
                         <i data-lucide="shield" class="w-3.5 h-3.5 text-cyan-400"></i>
                         <span id="headerStealthBadge">Стелс: активен</span>
                     </div>
 
-                    <div class="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono tabular-nums text-slate-300">
+                    <button type="button" onclick="copyHeaderServerIp()" title="Нажмите, чтобы скопировать IP сервера"
+                            class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0e121b] hover:bg-[#131926] border border-[#1d2536] hover:border-emerald-500/35 text-xs font-mono tabular-nums text-slate-300 hover:text-white transition">
                         <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
                         <span id="headerServerIp">Loading...</span>
-                    </div>
+                        <i data-lucide="copy" class="w-3 h-3 text-slate-500"></i>
+                    </button>
 
-                    <div class="flex items-center gap-2 pl-2 border-l border-[#1c263b]">
-                        <span class="text-xs font-medium text-slate-300 hidden sm:flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <div class="flex items-center gap-2 pl-2 border-l border-[#1d2536]">
+                        <span class="text-xs font-semibold text-slate-300 hidden sm:flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                             <span id="currentAdminName">admin</span>
                         </span>
-                        <button onclick="handleLogout()" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-xs font-medium transition flex items-center gap-1">
+                        <button onclick="handleLogout()" title="Выйти из панели" class="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/25 text-xs font-semibold transition flex items-center gap-1.5">
                             <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
                             <span class="hidden sm:inline">Выйти</span>
                         </button>
@@ -240,36 +212,36 @@
             </header>
 
             <!-- Page Body -->
-            <main class="flex-1 overflow-y-auto p-3.5 sm:p-6 pb-32 lg:pb-8">
+            <main class="flex-1 overflow-y-auto p-3.5 sm:p-6 pb-28 lg:pb-8">
                 {% block content %}{% endblock %}
             </main>
         </div>
     </div>
 
     <!-- Mobile Bottom Navigation Bar -->
-    <nav class="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-[#080d18]/95 backdrop-blur-xl border-t border-[#1c263b] px-2 py-1.5 flex items-center justify-around shadow-2xl">
-        <a href="/" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+    <nav class="fixed bottom-0 left-0 right-0 z-30 lg:hidden bg-[#090c14]/95 backdrop-blur-xl border-t border-[#1d2536] px-1.5 py-1.5 flex items-center justify-around shadow-2xl">
+        <a href="/" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="layout-dashboard" class="w-5 h-5 mb-0.5"></i>
             <span>Дашборд</span>
         </a>
-        <a href="/node" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/node' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+        <a href="/node" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/node' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="server" class="w-5 h-5 mb-0.5"></i>
             <span>Узел</span>
         </a>
-        <a href="/users" class="flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] transition font-medium relative {% if request.url.path == '/users' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+        <a href="/users" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium relative {% if request.url.path == '/users' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
             <span>Клиенты</span>
-            <span id="mobileNavUsersDot" class="absolute top-1 right-3 w-1.5 h-1.5 rounded-full bg-cyan-400 hidden"></span>
+            <span id="mobileNavUsersDot" class="absolute top-1 right-2.5 w-1.5 h-1.5 rounded-full bg-cyan-400 hidden"></span>
         </a>
-        <a href="/settings" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/settings' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+        <a href="/settings" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/settings' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="split" class="w-5 h-5 mb-0.5"></i>
             <span>Роутинг</span>
         </a>
-        <a href="/config" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/config' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+        <a href="/config" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/config' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="file-code" class="w-5 h-5 mb-0.5"></i>
             <span>Конфиг</span>
         </a>
-        <a href="/logs" class="flex flex-col items-center justify-center py-1 px-2.5 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/logs' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
+        <a href="/logs" class="flex flex-col items-center justify-center py-1 px-2 rounded-lg text-[10px] transition font-medium {% if request.url.path == '/logs' %}bottom-nav-active font-semibold{% else %}text-slate-400 hover:text-slate-200{% endif %}">
             <i data-lucide="terminal" class="w-5 h-5 mb-0.5"></i>
             <span>Логи</span>
         </a>
@@ -302,35 +274,141 @@
             }
         }
 
+        // ==================== QUICK COMMAND PALETTE (Ctrl+K) ====================
+        const CMD_ACTIONS = [
+            { title: 'Дашборд и телеметрия', hint: '/', icon: 'layout-dashboard', run: () => { window.location.href = '/'; } },
+            { title: 'Клиенты и подписки', hint: '/users', icon: 'users', run: () => { window.location.href = '/users'; } },
+            { title: 'Узел Hysteria 2 (порты, TLS, SNI)', hint: '/node', icon: 'server', run: () => { window.location.href = '/node'; } },
+            { title: 'Маршрутизация, WARP и Стелс', hint: '/settings', icon: 'split', run: () => { window.location.href = '/settings'; } },
+            { title: 'Студия конфигурации config.yaml', hint: '/config', icon: 'file-code', run: () => { window.location.href = '/config'; } },
+            { title: 'Журнал системных логов', hint: '/logs', icon: 'terminal', run: () => { window.location.href = '/logs'; } },
+            { title: 'Перезапустить ядро Hysteria 2', hint: 'Действие', icon: 'rotate-cw', run: () => { closeCommandPalette(); restartCore(); } },
+            { title: 'Скопировать IP сервера', hint: 'Буфер', icon: 'copy', run: () => { closeCommandPalette(); copyHeaderServerIp(); } },
+        ];
+        let cmdFiltered = [...CMD_ACTIONS];
+        let cmdSelectedIdx = 0;
+
+        function openCommandPalette() {
+            const modal = document.getElementById('cmdPaletteModal');
+            const input = document.getElementById('cmdPaletteInput');
+            if (!modal || !input) return;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            input.value = '';
+            cmdSelectedIdx = 0;
+            renderCommandPalette('');
+            setTimeout(() => input.focus(), 10);
+        }
+
+        function closeCommandPalette() {
+            const modal = document.getElementById('cmdPaletteModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function renderCommandPalette(query) {
+            const list = document.getElementById('cmdPaletteList');
+            if (!list) return;
+            const q = (query || '').trim().toLowerCase();
+            cmdFiltered = CMD_ACTIONS.filter(a =>
+                !q || a.title.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+            );
+            if (cmdSelectedIdx >= cmdFiltered.length) cmdSelectedIdx = 0;
+
+            if (cmdFiltered.length === 0) {
+                list.innerHTML = '<div class="py-8 text-center text-xs text-slate-500">Ничего не найдено</div>';
+                return;
+            }
+            list.innerHTML = cmdFiltered.map((item, idx) => `
+                <button type="button" onclick="executeCommand(${idx})" class="ib-cmdk-item ${idx === cmdSelectedIdx ? 'active' : ''}">
+                    <span class="flex items-center gap-2.5">
+                        <i data-lucide="${item.icon}" class="w-4 h-4 text-cyan-400"></i>
+                        <span class="font-medium">${escapeHtml(item.title)}</span>
+                    </span>
+                    <span class="text-[11px] font-mono text-slate-500">${escapeHtml(item.hint)}</span>
+                </button>
+            `).join('');
+            lucide.createIcons({ root: list });
+        }
+
+        function executeCommand(idx) {
+            const item = cmdFiltered[idx];
+            if (item && typeof item.run === 'function') item.run();
+        }
+
         document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                const modal = document.getElementById('cmdPaletteModal');
+                if (modal && !modal.classList.contains('hidden')) closeCommandPalette();
+                else openCommandPalette();
+                return;
+            }
+            const modal = document.getElementById('cmdPaletteModal');
+            if (modal && !modal.classList.contains('hidden')) {
+                if (e.key === 'Escape') {
+                    closeCommandPalette();
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    cmdSelectedIdx = (cmdSelectedIdx + 1) % Math.max(1, cmdFiltered.length);
+                    renderCommandPalette(document.getElementById('cmdPaletteInput').value);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    cmdSelectedIdx = (cmdSelectedIdx - 1 + Math.max(1, cmdFiltered.length)) % Math.max(1, cmdFiltered.length);
+                    renderCommandPalette(document.getElementById('cmdPaletteInput').value);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    executeCommand(cmdSelectedIdx);
+                }
+                return;
+            }
             if (e.key === 'Escape') toggleSidebar(false);
         });
+
+        function copyHeaderServerIp() {
+            const ip = (document.getElementById('headerServerIp')?.textContent || '').trim();
+            if (!ip || ip === 'Loading...') return;
+            navigator.clipboard.writeText(ip).then(() => {
+                showToast(`IP скопирован: ${ip}`, 'success');
+            }).catch(() => {});
+        }
 
         function showToast(message, type = 'success') {
             const container = document.getElementById('toastContainer');
             if (!container) return;
             const toast = document.createElement('div');
-            let bgClass = 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200';
-            let iconName = 'check-circle';
+            let bgClass = 'bg-[#0b1714]/95 border-emerald-500/40 text-emerald-200';
+            let iconName = 'check-circle-2';
+            let iconColor = 'text-emerald-400';
             if (type === 'error') {
-                bgClass = 'bg-rose-950/95 border-rose-500/40 text-rose-200';
+                bgClass = 'bg-[#1b0c11]/95 border-rose-500/40 text-rose-200';
                 iconName = 'alert-circle';
+                iconColor = 'text-rose-400';
             } else if (type === 'info') {
-                bgClass = 'bg-cyan-950/95 border-cyan-500/40 text-cyan-200';
+                bgClass = 'bg-[#091520]/95 border-cyan-500/40 text-cyan-100';
                 iconName = 'info';
+                iconColor = 'text-cyan-400';
             }
 
-            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-2xl transition-all duration-300 translate-y-2 opacity-0 ${bgClass}`;
-            toast.innerHTML = `<i data-lucide="${iconName}" class="w-5 h-5 flex-shrink-0"></i><span class="text-sm font-medium">${escapeHtml(message)}</span>`;
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl border backdrop-blur-xl shadow-2xl transition-all duration-300 translate-y-2 opacity-0 ${bgClass}`;
+            toast.innerHTML = `
+                <i data-lucide="${iconName}" class="w-4 h-4 flex-shrink-0 ${iconColor}"></i>
+                <span class="text-xs sm:text-[13px] font-semibold flex-1 leading-snug">${escapeHtml(message)}</span>
+                <button type="button" onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white p-0.5 transition">
+                    <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                </button>
+            `;
 
             container.appendChild(toast);
             lucide.createIcons({ root: toast });
 
             setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 10);
             setTimeout(() => {
+                if (!toast.isConnected) return;
                 toast.classList.add('opacity-0', 'translate-x-4');
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
+                setTimeout(() => toast.remove(), 280);
+            }, 4200);
         }
 
         async function updateHeaderStatus() {

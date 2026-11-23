@@ -7,33 +7,33 @@
 <div class="space-y-6">
 
     <!-- Command Header & Quick Actions -->
-    <div class="glass-card p-4 sm:p-5 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        <div class="flex items-center gap-3.5">
-            <div class="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center text-cyan-400">
-                <i data-lucide="shield-check" class="w-5 h-5"></i>
+    <div class="ib-hero-card p-5 sm:p-6 rounded-2xl flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-emerald-400/15 border border-cyan-400/35 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-500/10">
+                <i data-lucide="shield-check" class="w-6 h-6"></i>
             </div>
             <div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <span class="text-sm sm:text-base font-extrabold tracking-tight text-white">Панель управления Hysteria 2</span>
-                    <span id="daemonStatusBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 flex items-center gap-1.5">
+                    <span class="text-base sm:text-lg font-extrabold tracking-tight text-white">Панель управления Hysteria 2</span>
+                    <span id="daemonStatusBadge" class="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5">
                         <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                         <span id="daemonStatusText">QUIC v2 Active</span>
                     </span>
-                    <span id="coreVersionBadge" class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-slate-900 text-slate-300 border border-slate-800">v2.x</span>
+                    <span id="coreVersionBadge" class="text-[11px] font-mono px-2 py-0.5 rounded-md bg-[#07090e] text-slate-300 border border-[#1d2536]">v2.x</span>
                 </div>
-                <p class="text-xs text-slate-400 mt-0.5">Телеметрия узла, управление клиентами, раздельная маршрутизация и обход DPI.</p>
+                <p class="text-xs text-slate-400 mt-1">Телеметрия узла в реальном времени, клиенты, маршрутизация WARP и обход DPI.</p>
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
-            <button onclick="applyPreset('anti-dpi')" class="px-3.5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition flex items-center gap-1.5 shadow-lg shadow-cyan-500/20">
+            <button onclick="applyPreset('anti-dpi')" class="ib-btn-primary px-4 py-2 rounded-xl text-xs flex items-center gap-1.5">
                 <i data-lucide="shield" class="w-3.5 h-3.5"></i>
                 <span>Анти-DPI Пресет</span>
             </button>
-            <button onclick="generateIpCert()" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition flex items-center gap-1.5">
+            <button onclick="generateIpCert()" class="px-3.5 py-2 rounded-xl bg-[#0e121b] hover:bg-[#172033] text-slate-200 border border-[#1d2536] hover:border-[#303d57] font-semibold text-xs transition flex items-center gap-1.5">
                 <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-400"></i>
                 <span>Обновить IP SAN</span>
             </button>
-            <a href="/users" class="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 font-semibold text-xs transition flex items-center gap-1.5">
+            <a href="/users" class="px-3.5 py-2 rounded-xl bg-[#0e121b] hover:bg-[#172033] text-slate-200 border border-[#1d2536] hover:border-[#303d57] font-semibold text-xs transition flex items-center gap-1.5">
                 <i data-lucide="user-plus" class="w-3.5 h-3.5 text-cyan-400"></i>
                 <span>Добавить клиента</span>
             </a>

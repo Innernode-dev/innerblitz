@@ -110,18 +110,23 @@
     </div>
 
     <!-- 3. Terminal Log Console -->
-    <div class="glass-card rounded-2xl border border-[#1c263b] overflow-hidden shadow-2xl">
-        <div class="flex items-center justify-between px-4 py-2.5 bg-[#080d18] border-b border-[#1c263b] text-xs text-slate-400 font-mono">
+    <div class="glass-card rounded-2xl border border-[#1d2536] overflow-hidden shadow-2xl">
+        <div class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-[#090c14] border-b border-[#1d2536] text-xs text-slate-400 font-mono">
             <div class="flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
                 <span id="currentServiceLabel">Служба: hysteria-server.service</span>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1">
+                    <button type="button" onclick="setSeverityFilter('all')" id="sevAll" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px]">Все</button>
+                    <button type="button" onclick="setSeverityFilter('error')" id="sevErr" class="px-2 py-0.5 rounded bg-[#0e121b] text-slate-400 hover:text-rose-300 border border-[#1d2536] text-[10px]">Ошибки</button>
+                    <button type="button" onclick="setSeverityFilter('warn')" id="sevWarn" class="px-2 py-0.5 rounded bg-[#0e121b] text-slate-400 hover:text-amber-300 border border-[#1d2536] text-[10px]">Warn</button>
+                </div>
                 <span id="filteredCountLabel" class="text-[11px] text-slate-500"></span>
-                <span>Journalctl stream • UTF-8</span>
+                <button type="button" onclick="scrollLogsToBottom()" class="px-2 py-0.5 rounded bg-[#0e121b] hover:bg-slate-800 text-slate-300 border border-[#1d2536] text-[10px]">В конец</button>
             </div>
         </div>
-        <pre id="logsContent" class="w-full h-[620px] overflow-y-auto p-4 bg-[#04060b] font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed selection:bg-cyan-600 selection:text-white"></pre>
+        <div id="logsContent" class="w-full h-[620px] overflow-y-auto p-4 bg-[#05070c] font-mono text-xs text-slate-200 whitespace-pre-wrap leading-relaxed selection:bg-cyan-600 selection:text-white"></div>
     </div>
 
 </div>
@@ -131,6 +136,27 @@
 <script>
     let currentService = 'hysteria';
     let rawLogText = '';
+    let severityFilter = 'all';
+
+    function setSeverityFilter(level) {
+        severityFilter = level;
+        const map = { all: 'sevAll', error: 'sevErr', warn: 'sevWarn' };
+        Object.entries(map).forEach(([k, id]) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (k === level) {
+                el.className = 'px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold';
+            } else {
+                el.className = 'px-2 py-0.5 rounded bg-[#0e121b] text-slate-400 hover:text-white border border-[#1d2536] text-[10px]';
+            }
+        });
+        applyLogFilter();
+    }
+
+    function scrollLogsToBottom() {
+        const container = document.getElementById('logsContent');
+        if (container) container.scrollTop = container.scrollHeight;
+    }
 
     function switchLogService(service) {
         currentService = service;
@@ -245,14 +271,40 @@
         const countLabel = document.getElementById('filteredCountLabel');
         const wasAtBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
 
-        if (!filterVal) {
-            container.textContent = rawLogText;
-            countLabel.textContent = '';
+        const allLines = rawLogText ? rawLogText.split('\n') : [];
+        const filtered = allLines.filter(line => {
+            const low = line.toLowerCase();
+            if (severityFilter === 'error' && !(low.includes('error') || low.includes('fatal') || low.includes('fail') || low.includes('panic'))) {
+                return false;
+            }
+            if (severityFilter === 'warn' && !(low.includes('warn') || low.includes('error') || low.includes('fatal'))) {
+                return false;
+            }
+            if (filterVal && !low.includes(filterVal)) return false;
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            container.innerHTML = '<span class="text-slate-500">Нет записей, соответствующих фильтру.</span>';
         } else {
-            const lines = rawLogText.split('\n');
-            const filtered = lines.filter(l => l.toLowerCase().includes(filterVal));
-            container.textContent = filtered.join('\n') || 'Нет записей, соответствующих фильтру.';
-            countLabel.textContent = `Найдено: ${filtered.length} из ${lines.length}`;
+            container.innerHTML = filtered.map(line => {
+                const low = line.toLowerCase();
+                let cls = 'ib-log-info';
+                if (low.includes('error') || low.includes('fatal') || low.includes('panic') || low.includes('failed')) {
+                    cls = 'ib-log-error';
+                } else if (low.includes('warn')) {
+                    cls = 'ib-log-warn';
+                } else if (low.includes('success') || low.includes('started') || low.includes('authenticated')) {
+                    cls = 'ib-log-ok';
+                }
+                return `<span class="ib-log-line ${cls}">${escapeHtml(line)}</span>`;
+            }).join('');
+        }
+
+        if (filterVal || severityFilter !== 'all') {
+            countLabel.textContent = `Найдено: ${filtered.length} из ${allLines.length}`;
+        } else {
+            countLabel.textContent = `${allLines.length} строк`;
         }
 
         if (wasAtBottom) {
@@ -261,7 +313,7 @@
     }
 
     function copyLogs() {
-        const text = document.getElementById('logsContent').textContent;
+        const text = rawLogText || document.getElementById('logsContent').textContent;
         navigator.clipboard.writeText(text);
         showToast('Логи скопированы в буфер обмена!', 'success');
     }

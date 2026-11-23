@@ -1,0 +1,231 @@
+/* ==========================================================================
+   InnerBlitz — "Obsidian Signal" Design System
+   Cohesive precision-telemetry dark UI for Hysteria 2 Control Plane
+   ========================================================================== */
+
+:root {
+    --ib-bg: #07090e;
+    --ib-surface: #0e121b;
+    --ib-surface-2: #131926;
+    --ib-surface-inset: #080b12;
+    --ib-border: #1d2536;
+    --ib-border-hover: #303d57;
+    --ib-text: #eef2f7;
+    --ib-muted: #8b98b1;
+    --ib-cyan: #22d3ee;
+    --ib-cyan-deep: #06b6d4;
+    --ib-emerald: #10b981;
+    --ib-amber: #f59e0b;
+    --ib-rose: #f43f5e;
+}
+
+/* Base Canvas: subtle ambient signal glow + quiet precision dot field */
+body.ib-canvas {
+    background-color: var(--ib-bg);
+    background-image:
+        radial-gradient(ellipse 75% 42% at 50% -12%, rgba(34, 211, 238, 0.11), transparent 70%),
+        radial-gradient(ellipse 40% 30% at 88% 8%, rgba(16, 185, 129, 0.05), transparent 65%),
+        radial-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 24px 24px;
+    background-attachment: fixed;
+    color: var(--ib-text);
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Surface Hierarchy */
+.glass {
+    background: rgba(14, 18, 27, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--ib-border);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.06),
+        0 24px 56px -18px rgba(0, 0, 0, 0.85);
+}
+
+.glass-card {
+    background: linear-gradient(180deg, rgba(19, 25, 38, 0.88) 0%, rgba(12, 16, 25, 0.95) 100%);
+    border: 1px solid var(--ib-border);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        0 12px 30px -16px rgba(0, 0, 0, 0.72);
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.glass-card:hover {
+    border-color: var(--ib-border-hover);
+}
+
+/* Hero Spotlight Card (one memorable focal accent per page) */
+.ib-hero-card {
+    position: relative;
+    background: linear-gradient(135deg, rgba(16, 26, 42, 0.95) 0%, rgba(11, 15, 24, 0.98) 55%, rgba(10, 22, 32, 0.94) 100%);
+    border: 1px solid rgba(34, 211, 238, 0.22);
+    box-shadow:
+        inset 0 1px 0 rgba(34, 211, 238, 0.22),
+        0 20px 44px -20px rgba(6, 182, 212, 0.22),
+        0 14px 32px -16px rgba(0, 0, 0, 0.78);
+    overflow: hidden;
+}
+
+.ib-hero-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 5%, rgba(34, 211, 238, 0.7) 50%, transparent 95%);
+    pointer-events: none;
+}
+
+/* Navigation */
+.nav-group-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #5b6984;
+    padding: 0.5rem 0.875rem 0.25rem;
+    user-select: none;
+}
+
+.nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.85rem;
+    border-radius: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+    border: 1px solid transparent;
+    transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.nav-link:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-item-active {
+    background: linear-gradient(90deg, rgba(34, 211, 238, 0.16) 0%, rgba(34, 211, 238, 0.04) 100%) !important;
+    border-color: rgba(34, 211, 238, 0.28) !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    box-shadow: inset 2px 0 0 #22d3ee, 0 4px 14px -6px rgba(6, 182, 212, 0.35);
+}
+
+.bottom-nav-active {
+    color: #22d3ee !important;
+}
+
+.bottom-nav-active i {
+    filter: drop-shadow(0 0 8px rgba(34, 211, 238, 0.55));
+}
+
+/* Form Controls & Focus Accessibility */
+input[type="text"],
+input[type="password"],
+input[type="number"],
+input[type="datetime-local"],
+select,
+textarea {
+    transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+input[type="text"]:focus-visible,
+input[type="password"]:focus-visible,
+input[type="number"]:focus-visible,
+input[type="datetime-local"]:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+    outline: none;
+    border-color: rgba(34, 211, 238, 0.7) !important;
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.14);
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline: 2px solid rgba(34, 211, 238, 0.75);
+    outline-offset: 2px;
+}
+
+input[type="checkbox"] {
+    accent-color: #06b6d4;
+    cursor: pointer;
+}
+
+/* Primary CTA polish */
+.ib-btn-primary {
+    background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+    color: #041016;
+    font-weight: 800;
+    box-shadow: 0 8px 22px -8px rgba(6, 182, 212, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    transition: filter 150ms ease, transform 120ms ease, box-shadow 150ms ease;
+}
+
+.ib-btn-primary:hover {
+    filter: brightness(1.08);
+    box-shadow: 0 10px 26px -6px rgba(34, 211, 238, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.ib-btn-primary:active {
+    transform: translateY(1px);
+}
+
+/* Command Palette */
+.ib-cmdk-backdrop {
+    background: rgba(4, 6, 11, 0.76);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.ib-cmdk-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.7rem;
+    font-size: 0.8125rem;
+    color: #cbd5e1;
+    transition: background-color 120ms ease, color 120ms ease;
+    text-align: left;
+}
+
+.ib-cmdk-item:hover,
+.ib-cmdk-item.active {
+    background: rgba(34, 211, 238, 0.12);
+    color: #ffffff;
+}
+
+/* Colored Log Lines */
+.ib-log-line {
+    display: block;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+.ib-log-line:hover {
+    background: rgba(255, 255, 255, 0.04);
+}
+.ib-log-error { color: #fda4af; background: rgba(244, 63, 94, 0.08); }
+.ib-log-warn  { color: #fcd34d; background: rgba(245, 158, 11, 0.07); }
+.ib-log-info  { color: #cbd5e1; }
+.ib-log-ok    { color: #6ee7b7; }
+
+/* Utilities */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+.font-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+
+/* Refined Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #233049; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+
+/* Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}

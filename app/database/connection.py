@@ -259,6 +259,20 @@ async def init_db():
                     (k, v),
                 )
 
+        # Auto-repair corrupted/out-of-range port_hopping_range (e.g. 50000:90000 > 65535)
+        try:
+            from app.core.firewall import validate_port_hopping_string
+            hop_cur = await db.execute("SELECT value FROM settings WHERE key = 'port_hopping_range';")
+            hop_row = await hop_cur.fetchone()
+            if hop_row and hop_row["value"]:
+                ok_hop, _ = validate_port_hopping_string(hop_row["value"])
+                if not ok_hop:
+                    logger.warning(f"Repairing invalid port_hopping_range '{hop_row['value']}' -> '20000:50000'")
+                    await db.execute("UPDATE settings SET value = '20000:50000' WHERE key = 'port_hopping_range';")
+                    await db.execute("UPDATE inbounds SET port_hopping_range = '20000:50000' WHERE id = 1;")
+        except Exception as hop_err:
+            logger.debug(f"port_hopping_range check notice: {hop_err}")
+
         # Seed default inbound if table is empty
         cursor = await db.execute("SELECT COUNT(*) as count FROM inbounds;")
         ib_row = await cursor.fetchone()

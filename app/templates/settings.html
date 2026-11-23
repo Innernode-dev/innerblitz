@@ -225,8 +225,9 @@
                         <input type="checkbox" id="cfgPortHoppingEnable" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-cyan-500 focus:ring-cyan-500">
                     </div>
                     <div>
-                        <label class="block text-[11px] text-slate-400 mb-1">Диапазон UDP портов</label>
-                        <input type="text" id="cfgPortHoppingRange" placeholder="20000:50000" class="w-full px-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono text-white">
+                        <label class="block text-[11px] text-slate-400 mb-1">Диапазон UDP портов (1–65535)</label>
+                        <input type="text" id="cfgPortHoppingRange" oninput="validatePortHoppingInput()" placeholder="20000:50000" class="w-full px-3 py-1.5 rounded-lg bg-[#0b111e] border border-[#1c263b] text-xs font-mono text-white">
+                        <span id="cfgPortHoppingError" class="hidden text-[11px] text-rose-400 mt-1 block font-medium"></span>
                         <span class="text-[10px] text-slate-500 mt-1 block">Цепочка iptables/nftables INNERBLITZ_HOPPING</span>
                     </div>
                 </div>
@@ -1250,6 +1251,68 @@
     let warpLogPollInterval = null;
     let warpLogOffset = 0;
 
+    function validatePortHoppingInput() {
+        const input = document.getElementById('cfgPortHoppingRange');
+        const errEl = document.getElementById('cfgPortHoppingError');
+        if (!input || !errEl) return true;
+        const raw = (input.value || '').trim();
+        if (!raw) {
+            errEl.classList.add('hidden');
+            input.classList.remove('border-rose-500');
+            return true;
+        }
+        const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+        let invalidMsg = '';
+        for (const part of parts) {
+            const m = part.match(/^(\d+)(?:[:\-](\d+))?$/);
+            if (!m) {
+                invalidMsg = `Неверный формат диапазона "${part}" (пример: 20000:50000)`;
+                break;
+            }
+            const p1 = parseInt(m[1], 10);
+            const p2 = m[2] !== undefined ? parseInt(m[2], 10) : p1;
+            if (p1 < 1 || p1 > 65535 || p2 < 1 || p2 > 65535) {
+                invalidMsg = `Порты вне диапазона 1–65535 ("${part}"). Используйте, например, 20000:50000`;
+                break;
+            }
+            if (p1 > p2) {
+                invalidMsg = `Начальный порт больше конечного ("${part}")`;
+                break;
+            }
+        }
+        if (invalidMsg) {
+            errEl.textContent = invalidMsg;
+            errEl.classList.remove('hidden');
+            input.classList.add('border-rose-500');
+            return false;
+        }
+        errEl.classList.add('hidden');
+        input.classList.remove('border-rose-500');
+        return true;
+    }
+
+    async function patchRoutingPolicy(partialPayload, successMsg) {
+        try {
+            const res = await fetch('/api/routing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(partialPayload)
+            });
+            const data = await res.json();
+            if (res.ok) {
+                showToast(successMsg || 'Маршрутизация обновлена и применена!', 'success');
+                await loadRoutingData();
+                checkWarpStatus();
+            } else {
+                showToast(data.detail || 'Ошибка сохранения маршрута', 'error');
+                await loadRoutingData();
+            }
+        } catch (e) {
+            showToast('Ошибка сети при сохранении маршрута', 'error');
+            await loadRoutingData();
+        }
+    }
+
     function handleOutboundChange(mode, fromUser = false) {
         const directCard = document.getElementById('outboundDirectCard');
         const warpCard = document.getElementById('outboundWarpCard');
@@ -1264,7 +1327,9 @@
             document.getElementById('outboundDirect').checked = true;
         }
         if (fromUser) {
-            saveRoutingRules(true);
+            const patch = { routing_global_outbound: mode };
+            if (mode === 'warp') patch.warp_enabled = true;
+            patchRoutingPolicy(patch, mode === 'warp' ? 'Основной шлюз переключён на Cloudflare WARP!' : 'Основной шлюз переключён на Direct!');
         }
     }
 
@@ -1288,7 +1353,10 @@
             document.getElementById('ruModeDirect').checked = true;
         }
         if (fromUser) {
-            saveRoutingRules(true);
+            const patch = { routing_ru: mode };
+            if (mode === 'warp') patch.warp_enabled = true;
+            const labels = { warp: 'RU-трафик направлен через WARP!', block: 'RU-трафик заблокирован!', direct: 'RU-трафик направлен напрямую (Direct)!' };
+            patchRoutingPolicy(patch, labels[mode] || 'Правило для РФ сохранено!');
         }
     }
 
@@ -1310,6 +1378,7 @@
 
                 document.getElementById('cfgPortHoppingEnable').checked = rules.port_hopping_enabled == '1' || rules.port_hopping_enabled === true;
                 document.getElementById('cfgPortHoppingRange').value = rules.port_hopping_range || '20000:50000';
+                validatePortHoppingInput();
             }
         } catch (e) {
             console.warn('Error loading routing rules:', e);
@@ -1319,6 +1388,14 @@
     async function saveRoutingRules(silent = false) {
         const globalOutbound = document.querySelector('input[name="global_outbound"]:checked') ? document.querySelector('input[name="global_outbound"]:checked').value : 'direct';
         const ruRouting = document.querySelector('input[name="routing_ru"]:checked') ? document.querySelector('input[name="routing_ru"]:checked').value : 'direct';
+
+        const hopValid = validatePortHoppingInput();
+        const hopRangeVal = (document.getElementById('cfgPortHoppingRange') ? document.getElementById('cfgPortHoppingRange').value.trim() : '') || '20000:50000';
+        if (!hopValid) {
+            showToast('Исправьте диапазон Port Hopping (порты 1–65535, например 20000:50000)', 'error');
+            document.getElementById('cfgPortHoppingRange')?.focus();
+            return;
+        }
 
         const payload = {
             routing_global_outbound: globalOutbound,
@@ -1335,7 +1412,7 @@
             sniff_timeout: (document.getElementById('cfgSniffTimeout') ? document.getElementById('cfgSniffTimeout').value.trim() : '') || '2s',
             sniff_rewrite_domain: (document.getElementById('cfgSniffRewrite') ? document.getElementById('cfgSniffRewrite').value === 'true' : true),
             port_hopping_enabled: document.getElementById('cfgPortHoppingEnable') ? document.getElementById('cfgPortHoppingEnable').checked : true,
-            port_hopping_range: (document.getElementById('cfgPortHoppingRange') ? document.getElementById('cfgPortHoppingRange').value.trim() : '') || '20000:50000'
+            port_hopping_range: hopRangeVal
         };
 
         try {

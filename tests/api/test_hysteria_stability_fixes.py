@@ -307,3 +307,19 @@ class TestSecurityBackupRoutingAnd2FAFixes(OpaqueE2ETestCase):
         self.assertEqual(hy2["server_ports"], ["20000:50000"])
         self.assertEqual(hy2["hop_interval"], "30s")
         self.assertNotIn("pinSHA256", hy2["tls"])
+
+    def test_partial_warp_routing_update_and_invalid_port_range_auto_repair(self):
+        from app.database.connection import init_db
+        self.login_admin()
+
+        # Simulate legacy broken port_hopping_range (e.g. 50000:90000 > 65535) in DB
+        self.run_async(crud.set_setting("port_hopping_range", "50000:90000"))
+
+        # Partial routing toggle (clicking WARP radio) must succeed without being blocked
+        r_ru = self.client.post("/api/routing", json={"routing_ru": "warp", "warp_enabled": True})
+        self.assertEqual(r_ru.status_code, 200, r_ru.text)
+        self.assertEqual(self.run_async(crud.get_setting("routing_ru")), "warp")
+
+        # init_db() auto-repairs out-of-range port_hopping_range to valid 20000:50000
+        self.run_async(init_db())
+        self.assertEqual(self.run_async(crud.get_setting("port_hopping_range")), "20000:50000")

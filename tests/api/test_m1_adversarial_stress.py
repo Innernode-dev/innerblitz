@@ -242,7 +242,8 @@ class TestM1AdversarialStress(OpaqueE2ETestCase):
         - expiry_time = 0 -> unlimited
         - extreme future timestamp (e.g. year 2286) -> handled without crash
         """
-        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        from datetime import timezone
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
         # Past timestamp (1 millisecond ago)
         c_past = ClientCreate(username="exp_past_user", password="p1", expiry_time=now_ms - 1)
@@ -462,7 +463,8 @@ class TestM1AdversarialStress(OpaqueE2ETestCase):
         3. Quota-exceeded clients
         and dispatches kick requests for all of them.
         """
-        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        from datetime import timezone
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
         # 1. Disabled client (created with enable=False)
         c_dis = ClientCreate(username="limiter_disabled", password="p", enable=False)

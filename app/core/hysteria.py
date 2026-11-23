@@ -1,3 +1,4 @@
+import asyncio
 import os
 import subprocess
 import logging
@@ -13,6 +14,23 @@ import shutil
 from app.core.firewall import validate_port_hopping_string
 
 logger = logging.getLogger("innerblitz.hysteria")
+
+# Sensible sniff port defaults: avoid stalling server-speaks-first TCP (SSH/games/DB)
+# and raw UDP (gaming/VoIP/DNS/WebRTC) that `all` causes in Hysteria 2.
+DEFAULT_SNIFF_TCP_PORTS = "80,443,8080,8443"
+DEFAULT_SNIFF_UDP_PORTS = "443"
+DEFAULT_QUIC_MAX_IDLE_TIMEOUT = "60s"
+
+
+def _yaml_scalar_str(val: Any) -> str:
+    """Safely encode a string as a double-quoted YAML scalar (valid JSON subset)."""
+    return json.dumps(str(val), ensure_ascii=False)
+
+
+def _sanitize_single_line(val: Any, default: str = "") -> str:
+    """Strip whitespace and control/newline characters to prevent YAML line injection."""
+    cleaned = re.sub(r"[\r\n\x00]+", "", str(val or "")).strip()
+    return cleaned if cleaned else default
 
 # Tags confirmed absent from Loyalsoldier/v2ray-rules-dat & v2fly domain-list-community
 _INVALID_GEOSITE_TAGS = frozenset({"ru", "bittorrent", "torrent", "p2p"})
@@ -163,19 +181,37 @@ def validate_hysteria_config(content: str) -> Tuple[bool, str]:
     if not isinstance(data, dict):
         return False, "Configuration root must be a YAML mapping (dictionary)"
 
-    mandatory_keys = ["listen", "tls", "auth"]
+    mandatory_keys = ["listen", "auth"]
     missing = [k for k in mandatory_keys if k not in data]
     if missing:
         return False, f"Missing required Hysteria 2 keys: {', '.join(missing)}"
+
+    has_tls = "tls" in data and data.get("tls") is not None
+    has_acme = "acme" in data and data.get("acme") is not None
+    if not has_tls and not has_acme:
+        return False, "Missing required Hysteria 2 keys: tls or acme"
 
     # Check listen
     listen_val = data.get("listen")
     if not isinstance(listen_val, (str, int)):
         return False, "Key 'listen' must be a port string or integer"
 
-    # Check tls structure
-    if not isinstance(data.get("tls"), (dict, str)):
-        return False, "Key 'tls' must be a mapping"
+    # Check tls structure if present
+    if has_tls:
+        tls_val = data.get("tls")
+        if not isinstance(tls_val, (dict, str)):
+            return False, "Key 'tls' must be a mapping"
+        if isinstance(tls_val, dict) and str(tls_val.get("type", "")).strip().lower() == "acme":
+            return False, "Invalid Hysteria 2 ACME syntax: 'acme' must be a top-level key, not nested under 'tls'"
+
+    # Check acme structure if present
+    if has_acme:
+        acme_val = data.get("acme")
+        if not isinstance(acme_val, dict):
+            return False, "Key 'acme' must be a mapping"
+        domains = acme_val.get("domains")
+        if not isinstance(domains, list) or not [d for d in domains if isinstance(d, str) and d.strip()]:
+            return False, "Key 'acme.domains' must be a non-empty list of domain strings"
 
     # Check auth structure
     if not isinstance(data.get("auth"), (dict, str)):
@@ -351,6 +387,8 @@ def compile_acl_rules(
         if mode == "block":
             reject_rules.append(f"reject({geosite})")
         elif mode == "warp" and warp_is_active:
+            if warp_mode != "wireguard":
+                reject_rules.append(f"reject({geosite}, udp/443)")
             routing_rules.append(f"warp({geosite})")
         elif mode == "direct" and warp_is_active and global_out == "warp":
             routing_rules.append(f"direct({geosite})")
@@ -498,48 +536,50 @@ def compile_acl_rules(
 def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     """Build a complete, optimized Hysteria 2 YAML configuration string."""
     listen_port = config_data.get("listen_port", 443)
-    port_hop = config_data.get("port_hopping_enabled", True)
-    port_range = str(config_data.get("port_hopping_range", "20000:50000")).replace(":", "-")
+    try:
+        listen_port_int = int(listen_port)
+    except (TypeError, ValueError):
+        listen_port_int = 443
 
     # Hysteria 2 core listens directly on listen_port.
-    # Dynamic port hopping is handled seamlessly by iptables NAT REDIRECT rules in firewall.py.
-    listen_str = f":{listen_port}"
+    # Dynamic port hopping is handled seamlessly by iptables/nftables NAT REDIRECT rules in firewall.py.
+    listen_str = f":{listen_port_int}"
 
-    tls_type = config_data.get("tls_type", "self_signed_ip")
-    server_domain = str(config_data.get("server_domain", "") or "").strip()
+    tls_type = str(config_data.get("tls_type", "self_signed_ip") or "self_signed_ip").strip().lower()
+    server_domain = _sanitize_single_line(config_data.get("server_domain", ""), "")
 
-    tls_block = ""
+    # In Hysteria 2, ACME is a top-level 'acme:' block (NOT nested under 'tls:').
     if tls_type == "acme" and server_domain:
-        tls_block = f"""tls:
-  type: acme
-  acme:
-    domains:
-      - {server_domain}
-    email: admin@{server_domain}"""
+        tls_block = f"""acme:
+  domains:
+    - {_yaml_scalar_str(server_domain)}
+  email: {_yaml_scalar_str(f"admin@{server_domain}")}"""
     else:
         tls_block = f"""tls:
   cert: {settings.CERT_PATH}
   key: {settings.KEY_PATH}"""
 
     # Obfuscation
-    obfs_type = config_data.get("obfs_type", "salamander")
-    obfs_pwd = config_data.get("obfs_password", "")
+    obfs_type = str(config_data.get("obfs_type", "salamander") or "salamander").strip().lower()
+    obfs_pwd = str(config_data.get("obfs_password", "") or "")
     obfs_block = ""
     if obfs_type == "salamander" and obfs_pwd:
         obfs_block = f"""obfs:
   type: salamander
   salamander:
-    password: "{obfs_pwd}"
+    password: {_yaml_scalar_str(obfs_pwd)}
 """
 
     # Masquerade
-    masq_type = config_data.get("masquerade_type", "proxy")
-    masq_target = config_data.get("masquerade_target", "https://bing.com")
+    masq_type = str(config_data.get("masquerade_type", "proxy") or "proxy").strip().lower()
+    masq_target = _sanitize_single_line(config_data.get("masquerade_target", "https://bing.com"), "https://bing.com")
     if masq_type == "proxy":
+        if not masq_target.startswith(("http://", "https://")):
+            masq_target = f"https://{masq_target}"
         masq_block = f"""masquerade:
   type: proxy
   proxy:
-    url: {masq_target}
+    url: {_yaml_scalar_str(masq_target)}
     rewriteHost: true"""
     elif masq_type == "file":
         masq_block = f"""masquerade:
@@ -554,20 +594,23 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     statusCode: 404"""
 
     # Bandwidth
-    up_mbps = config_data.get("up_mbps", "200")
-    down_mbps = config_data.get("down_mbps", "200")
+    up_mbps = _sanitize_single_line(config_data.get("up_mbps", "200"), "200")
+    down_mbps = _sanitize_single_line(config_data.get("down_mbps", "200"), "200")
     ignore_bw = "true" if str(config_data.get("ignore_client_bandwidth", "0")).lower() in ("1", "true") else "false"
 
-    traffic_secret = config_data.get("traffic_secret", "secret-uuid")
+    traffic_secret = str(config_data.get("traffic_secret", "secret-uuid") or "secret-uuid")
 
-    # Dynamic Sniff block
+    # Dynamic Sniff block — default to web/QUIC ports (80,443,8080,8443 TCP; 443 UDP)
+    # so SSH, game servers, VoIP, and raw UDP never stall for sniff.timeout seconds.
     sniff_enable_raw = config_data.get("sniff_enable") if "sniff_enable" in config_data else config_data.get("sniff_enabled")
     if sniff_enable_raw is None:
         sniff_enable = True
     else:
         sniff_enable = str(sniff_enable_raw).lower() in ("1", "true")
 
-    sniff_timeout = str(config_data.get("sniff_timeout", "2s") or "2s").strip()
+    sniff_timeout = _sanitize_single_line(config_data.get("sniff_timeout", "2s"), "2s")
+    sniff_tcp_ports = _sanitize_single_line(config_data.get("sniff_tcp_ports", DEFAULT_SNIFF_TCP_PORTS), DEFAULT_SNIFF_TCP_PORTS)
+    sniff_udp_ports = _sanitize_single_line(config_data.get("sniff_udp_ports", DEFAULT_SNIFF_UDP_PORTS), DEFAULT_SNIFF_UDP_PORTS)
 
     rewrite_domain_raw = (
         config_data.get("sniff_rewrite_domain")
@@ -585,26 +628,33 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
   enable: {"true" if sniff_enable else "false"}
   timeout: {sniff_timeout}
   rewriteDomain: {"true" if rewrite_domain else "false"}
-  tcpPorts: all
-  udpPorts: all"""
+  tcpPorts: {sniff_tcp_ports}
+  udpPorts: {sniff_udp_ports}"""
 
     # Outbounds & Routing Policy
+    # Always emit 'direct' with mode 46 (IPv4-first, IPv6 fallback) to eliminate
+    # 5-30s stalls on VPS hosts with broken or blackholed IPv6.
     custom_rules = config_data.get("custom_routing_rules") or config_data.get("routing_rules") or []
     global_outbound = str(config_data.get("routing_global_outbound", "direct") or "direct").strip().lower()
-    warp_port = config_data.get("warp_port", "40000")
+    warp_port = _sanitize_single_line(config_data.get("warp_port", "40000"), "40000")
     warp_mode = str(config_data.get("warp_mode", "socks5") or "socks5").strip().lower()
     if warp_mode not in ("wireguard", "socks5"):
         warp_mode = "socks5"
-    warp_iface = str(config_data.get("warp_interface", "warp") or "warp").strip()
+    warp_iface = _sanitize_single_line(config_data.get("warp_interface", "warp"), "warp")
+    direct_mode = _sanitize_single_line(config_data.get("direct_outbound_mode", "46"), "46")
+    if direct_mode not in ("auto", "46", "64", "4", "6"):
+        direct_mode = "46"
 
     warp_is_active = _resolve_warp_active(config_data, rules=custom_rules, global_outbound=global_outbound)
 
-    outbounds_block = ""
     if warp_is_active:
         if warp_mode == "wireguard":
             outbounds_block = f"""outbounds:
   - name: direct
     type: direct
+    direct:
+      mode: {direct_mode}
+      fastOpen: false
   - name: warp
     type: direct
     direct:
@@ -615,10 +665,21 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
             outbounds_block = f"""outbounds:
   - name: direct
     type: direct
+    direct:
+      mode: {direct_mode}
+      fastOpen: false
   - name: warp
     type: socks5
     socks5:
       addr: 127.0.0.1:{warp_port}
+"""
+    else:
+        outbounds_block = f"""outbounds:
+  - name: direct
+    type: direct
+    direct:
+      mode: {direct_mode}
+      fastOpen: false
 """
 
     # Advanced Server Parameters: Configurable QUIC window sizes / idle timeouts
@@ -626,10 +687,14 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
     max_stream_rx = config_data.get("max_stream_rx_window") or config_data.get("max_stream_receive_window") or 8388608
     init_conn_rx = config_data.get("init_conn_rx_window") or config_data.get("init_conn_receive_window") or 20971520
     max_conn_rx = config_data.get("max_conn_rx_window") or config_data.get("max_conn_receive_window") or 20971520
-    max_idle = str(config_data.get("max_idle_timeout", "30s") or "30s").strip()
+    max_idle = _sanitize_single_line(
+        config_data.get("max_idle_timeout", DEFAULT_QUIC_MAX_IDLE_TIMEOUT),
+        DEFAULT_QUIC_MAX_IDLE_TIMEOUT,
+    )
     max_streams = config_data.get("max_incoming_streams", 2048)
+    disable_pmtud = "true" if str(config_data.get("disable_path_mtu_discovery", "0")).lower() in ("1", "true") else "false"
     keep_alive = config_data.get("keep_alive_period")
-    keep_alive_line = f"\n  keepAlivePeriod: {keep_alive}" if keep_alive else ""
+    keep_alive_line = f"\n  keepAlivePeriod: {_sanitize_single_line(keep_alive)}" if keep_alive else ""
 
     quic_block = f"""quic:
   initStreamReceiveWindow: {int(init_stream_rx)}
@@ -637,7 +702,8 @@ def build_hysteria_yaml(config_data: Dict[str, Any]) -> str:
   initConnReceiveWindow: {int(init_conn_rx)}
   maxConnReceiveWindow: {int(max_conn_rx)}
   maxIdleTimeout: {max_idle}
-  maxIncomingStreams: {int(max_streams)}{keep_alive_line}"""
+  maxIncomingStreams: {int(max_streams)}
+  disablePathMTUDiscovery: {disable_pmtud}{keep_alive_line}"""
 
     # Compile ACL rules merging security, custom rules, service presets, and fallback
     all_acl_rules = compile_acl_rules(custom_rules, global_outbound=global_outbound, presets=config_data)
@@ -673,7 +739,7 @@ speedTest: false
 
 trafficStats:
   listen: 127.0.0.1:{settings.HYSTERIA_TRAFFIC_STATS_PORT}
-  secret: "{traffic_secret}"
+  secret: {_yaml_scalar_str(traffic_secret)}
 
 {masq_block}
 
@@ -721,6 +787,23 @@ async def apply_and_save_config(custom_yaml: Optional[str] = None) -> ConfigAppl
                             await crud.set_settings(db_sync)
                 except Exception as we:
                     logger.debug(f"Live WARP transport sync notice: {we}")
+
+            # Ensure self-signed TLS cert & key exist on disk so Hysteria 2 never fails to start with ENOENT
+            tls_type = str(current_settings.get("tls_type", "self_signed_ip") or "self_signed_ip").strip().lower()
+            if tls_type != "acme":
+                cert_file = Path(settings.CERT_PATH)
+                key_file = Path(settings.KEY_PATH)
+                if not cert_file.exists() or not key_file.exists():
+                    try:
+                        from app.core.cert import generate_self_signed_cert
+                        server_ip = current_settings.get("server_ip") or "127.0.0.1"
+                        sni = current_settings.get("sni") or "bing.com"
+                        _, _, generated_pin = generate_self_signed_cert(server_ip, sni=sni)
+                        if generated_pin and not current_settings.get("cert_sha256"):
+                            current_settings["cert_sha256"] = generated_pin
+                            await crud.set_setting("cert_sha256", generated_pin)
+                    except Exception as ce:
+                        logger.warning(f"Auto-generating missing Hysteria TLS cert failed: {ce}")
 
             yaml_text = build_hysteria_yaml(current_settings)
 
@@ -784,14 +867,92 @@ def run_systemctl(action: str, service: str = "hysteria-server.service") -> Tupl
     except Exception as e:
         return False, str(e)
 
+
+async def async_run_systemctl(action: str, service: str = "hysteria-server.service") -> Tuple[bool, str]:
+    """Non-blocking systemctl execution (keeps Hysteria /auth event loop responsive)."""
+    return await asyncio.to_thread(run_systemctl, action, service)
+
+
 def is_hysteria_running() -> bool:
     """Check if Hysteria 2 service is running."""
     ok, out = run_systemctl("is-active", "hysteria-server.service")
     return ok and "active" in out
 
+
+async def async_is_hysteria_running() -> bool:
+    """Non-blocking check for hysteria-server.service state."""
+    return await asyncio.to_thread(is_hysteria_running)
+
+
 def restart_hysteria() -> Tuple[bool, str]:
     """Restart Hysteria 2 server service."""
     return run_systemctl("restart", "hysteria-server.service")
+
+
+async def async_restart_hysteria() -> Tuple[bool, str]:
+    """Non-blocking restart for hysteria-server.service."""
+    return await asyncio.to_thread(restart_hysteria)
+
+
+def ensure_udp_buffers_and_bbr(force: bool = False) -> Tuple[bool, str]:
+    """
+    Ensure Linux kernel UDP receive/send buffers (16MB) and TCP BBR + FQ qdisc
+    are configured. Without >=8MB rmem_max/wmem_max, Hysteria 2 quic-go drops
+    UDP packets under load, causing high ping, jitter, and disconnects.
+    """
+    if os.name != "posix":
+        return False, "Not a Linux/POSIX system"
+    if hasattr(os, "geteuid") and os.geteuid() != 0:
+        return False, "Root privileges required for sysctl tuning"
+
+    try:
+        if not force:
+            rmem_path = Path("/proc/sys/net/core/rmem_max")
+            wmem_path = Path("/proc/sys/net/core/wmem_max")
+            if rmem_path.exists() and wmem_path.exists():
+                cur_rmem = int(rmem_path.read_text(encoding="utf-8").strip() or "0")
+                cur_wmem = int(wmem_path.read_text(encoding="utf-8").strip() or "0")
+                if cur_rmem >= 8388608 and cur_wmem >= 8388608:
+                    return True, "Kernel UDP buffers already tuned"
+
+        conf_content = """# InnerBlitz High-Performance Network Tuning for Hysteria 2 QUIC
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+net.core.rmem_max = 16777216
+net.core.wmem_max = 16777216
+net.core.rmem_default = 1048576
+net.core.wmem_default = 1048576
+net.core.optmem_max = 2048576
+net.ipv4.udp_rmem_min = 16384
+net.ipv4.udp_wmem_min = 16384
+net.ipv4.ip_forward = 1
+"""
+        sysctl_dir = Path("/etc/sysctl.d")
+        if not sysctl_dir.exists():
+            return False, "/etc/sysctl.d not found on this system"
+
+        conf_file = sysctl_dir / "99-innerblitz.conf"
+        conf_file.write_text(conf_content, encoding="utf-8")
+        res = subprocess.run(["sysctl", "--system"], capture_output=True, text=True, timeout=10)
+        if res.returncode == 0:
+            logger.info("Applied TCP BBR and 16MB UDP socket buffers for Hysteria 2 QUIC")
+            return True, "TCP BBR and high-speed UDP buffers successfully applied"
+        # Apply individual keys as fallback if another unrelated sysctl.d file failed
+        for kv in (
+            "net.core.rmem_max=16777216",
+            "net.core.wmem_max=16777216",
+            "net.core.rmem_default=1048576",
+            "net.core.wmem_default=1048576",
+            "net.core.optmem_max=2048576",
+            "net.core.default_qdisc=fq",
+            "net.ipv4.tcp_congestion_control=bbr",
+            "net.ipv4.ip_forward=1",
+        ):
+            subprocess.run(["sysctl", "-w", kv], capture_output=True, timeout=3)
+        return True, "TCP BBR and high-speed UDP buffers successfully applied"
+    except Exception as e:
+        return False, str(e)
+
 
 def get_hysteria_version() -> str:
     """Get installed Hysteria version string."""
@@ -804,6 +965,12 @@ def get_hysteria_version() -> str:
     except Exception:
         return "Not installed / Unknown"
 
+
+async def async_get_hysteria_version() -> str:
+    """Non-blocking Hysteria version check."""
+    return await asyncio.to_thread(get_hysteria_version)
+
+
 def get_hysteria_logs(lines: int = 40) -> str:
     """Safely get recent journalctl logs for hysteria-server."""
     try:
@@ -812,6 +979,11 @@ def get_hysteria_logs(lines: int = 40) -> str:
         return res.stdout or "No logs available."
     except Exception as e:
         return f"Error fetching logs: {e}"
+
+
+async def async_get_hysteria_logs(lines: int = 40) -> str:
+    """Non-blocking journalctl read for hysteria-server."""
+    return await asyncio.to_thread(get_hysteria_logs, lines)
 
 def clear_service_logs() -> Tuple[bool, str]:
     """Rotate and vacuum journalctl logs to immediately clear on-disk logs."""
@@ -837,7 +1009,8 @@ def configure_service_logging(level: str = "info", zero_logs: bool = False) -> T
 
         content = f"""[Unit]
 Description=Hysteria 2 Server
-After=network.target
+After=network-online.target innerblitz.service
+Wants=network-online.target innerblitz.service
 
 [Service]
 Type=simple

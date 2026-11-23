@@ -183,7 +183,7 @@ class OpaqueE2ETestCase(unittest.TestCase):
 
         self.assertIsInstance(data, dict, "Hysteria YAML must parse to a dict")
         self.assertIn("listen", data, "Missing mandatory 'listen' key in Hysteria config")
-        self.assertIn("tls", data, "Missing mandatory 'tls' key in Hysteria config")
+        self.assertTrue("tls" in data or "acme" in data, "Missing mandatory 'tls' or 'acme' key in Hysteria config")
         self.assertIn("auth", data, "Missing mandatory 'auth' key in Hysteria config")
         return data
 

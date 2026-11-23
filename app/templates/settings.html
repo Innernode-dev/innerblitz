@@ -1466,7 +1466,7 @@
             if (res.ok && data.success) {
                 showToast(`WARP восстановлен (${data.service})`, 'success');
                 await checkWarpStatus();
-                await saveRoutingRules();
+                await loadRoutingData();
             } else {
                 const detail = (data.actions_taken || []).join('; ') || 'Не удалось перезапустить WARP';
                 showToast('Диагностика WARP: ' + detail, 'error');

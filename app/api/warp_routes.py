@@ -3,13 +3,14 @@ InnerBlitz WARP Management & Diagnostics API Router
 Endpoints mounted at /api/warp
 """
 
+import asyncio
 from typing import Dict, Literal, Optional, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from app.api.auth_routes import get_current_admin
 from app.core import warp
-from app.core.hysteria import apply_and_save_config, restart_hysteria
+from app.core.hysteria import apply_and_save_config, async_restart_hysteria
 from app.database import crud
 
 router = APIRouter(prefix="/api/warp", tags=["WARP"], dependencies=[Depends(get_current_admin)])
@@ -141,7 +142,7 @@ async def toggle_warp_outbound(payload: WarpToggleRequest):
     }
     await crud.set_settings(updates)
 
-    from app.core.hysteria import apply_and_save_config, restart_hysteria
+    from app.core.hysteria import apply_and_save_config, async_restart_hysteria
     ok = await apply_and_save_config()
     if not ok:
         raise HTTPException(
@@ -149,7 +150,7 @@ async def toggle_warp_outbound(payload: WarpToggleRequest):
             detail="Failed to generate or validate updated Hysteria configuration."
         )
 
-    restart_hysteria()
+    await async_restart_hysteria()
     return {
         "ok": True,
         "warp_enabled": payload.enabled,
@@ -219,7 +220,7 @@ async def cancel_warp_install():
 @router.post("/restart")
 async def restart_warp_endpoint():
     """Restart detected WARP systemd service unit."""
-    ok, msg = warp.restart_warp_service()
+    ok, msg = await asyncio.to_thread(warp.restart_warp_service)
     if not ok:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Restart failed: {msg}")
     return {"ok": True, "message": "WARP service restarted successfully."}
@@ -228,14 +229,16 @@ async def restart_warp_endpoint():
 @router.post("/repair")
 async def repair_warp_endpoint():
     """Run automated self-healing diagnostic and recovery sequence."""
-    diag = warp.repair_warp_service()
+    port_raw = await crud.get_setting("warp_port", "40000")
+    warp_port = int(port_raw) if str(port_raw).isdigit() else 40000
+    diag = await asyncio.to_thread(warp.repair_warp_service, warp_port)
     if diag.get("success"):
         try:
             warp_info = await warp.detect_warp(force_refresh=True)
             await warp.sync_warp_settings_from_detection(warp_info)
             apply_res = await apply_and_save_config()
             if apply_res:
-                restart_hysteria()
+                await async_restart_hysteria()
             diag["config_applied"] = bool(apply_res)
         except Exception as e:
             diag["config_sync_warning"] = str(e)

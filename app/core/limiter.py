@@ -22,28 +22,55 @@ async def kick_users_api(usernames: List[str]) -> bool:
         logger.error(f"Failed to kick users {usernames}: {e}")
         return False
 
+def _extract_remote_ip(addr: str) -> str:
+    """Extract IPv4 or IPv6 host cleanly from 'ip:port' or '[ipv6]:port'."""
+    s = str(addr or "").strip()
+    if s.startswith("[") and "]" in s:
+        return s[1 : s.index("]")]
+    if ":" in s:
+        return s.rsplit(":", 1)[0]
+    return s
+
+
+def _count_online_devices(conns: Any) -> int:
+    """
+    Parse Hysteria 2 /online entry:
+    - Real Hysteria 2 API returns an integer count of active client connections/devices.
+    - Also supports list of remote 'ip:port' strings (including IPv6).
+    """
+    if isinstance(conns, bool):
+        return int(conns)
+    if isinstance(conns, int):
+        return max(0, conns)
+    if isinstance(conns, list):
+        unique_ips = {_extract_remote_ip(addr) for addr in conns if addr}
+        return len(unique_ips)
+    return 0
+
+
 class LimiterDaemon:
     def __init__(self):
         self._running = False
         self._task: asyncio.Task = None
 
     async def check_and_enforce(self):
-        """Check all users for quota, expiration, and IP limits, kicking offenders."""
+        """Check all users for quota, expiration, and IP/device limits, kicking offenders."""
         users = await crud.get_all_users()
-        to_kick = []
+        candidates_to_kick = []
 
         # 1. Quota & expiration enforcement
         for u in users:
             is_disabled = u.get("blocked", False) or not u.get("enable", True)
             if is_disabled:
-                to_kick.append(u["username"])
+                candidates_to_kick.append(u["username"])
                 continue
             if u.get("unlimited_user", False):
                 continue
             if u.get("is_expired", False) or u.get("is_limit_reached", False) or u.get("is_quota_exceeded", False):
-                to_kick.append(u["username"])
+                candidates_to_kick.append(u["username"])
 
-        # 2. Online IP limit enforcement
+        # 2. Fetch live /online map from Hysteria 2 core for device/IP limits and filtering
+        online_data = None
         secret = await crud.get_setting("traffic_secret", "")
         online_url = f"http://127.0.0.1:{settings.HYSTERIA_TRAFFIC_STATS_PORT}/online"
         headers = {"Authorization": secret}
@@ -51,22 +78,32 @@ class LimiterDaemon:
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=4)) as session:
                 async with session.get(online_url, headers=headers) as resp:
                     if resp.status == 200:
-                        online_data = await resp.json()
-                        if isinstance(online_data, dict):
-                            for u in users:
-                                if u.get("unlimited_user", False):
-                                    continue
-                                max_ips = u.get("max_ips", 0)
-                                if max_ips > 0:
-                                    conns = online_data.get(u["username"], [])
-                                    # conns can be list of remote addresses
-                                    if isinstance(conns, list):
-                                        unique_ips = {addr.split(":")[0] for addr in conns if ":" in addr}
-                                        if len(unique_ips) > max_ips:
-                                            logger.warning(f"User {u['username']} exceeded IP limit ({len(unique_ips)} > {max_ips}). Kicking.")
-                                            to_kick.append(u["username"])
+                        parsed = await resp.json()
+                        if isinstance(parsed, dict):
+                            online_data = parsed
         except Exception:
             pass
+
+        to_kick = []
+        if online_data is not None:
+            # Only kick disabled/expired/over-quota users that are actually connected right now
+            for uname in candidates_to_kick:
+                if _count_online_devices(online_data.get(uname, 0)) > 0:
+                    to_kick.append(uname)
+
+            # Enforce max_ips / simultaneous device limit (works with both int and list formats)
+            for u in users:
+                if u.get("unlimited_user", False):
+                    continue
+                max_ips = u.get("max_ips", 0) or 0
+                if max_ips > 0:
+                    active_count = _count_online_devices(online_data.get(u["username"], 0))
+                    if active_count > max_ips:
+                        logger.warning(f"User {u['username']} exceeded IP/device limit ({active_count} > {max_ips}). Kicking.")
+                        to_kick.append(u["username"])
+        else:
+            # Fallback when /online is unreachable: attempt kick for all unauthorized accounts
+            to_kick = candidates_to_kick
 
         if to_kick:
             unique_kicks = list(set(to_kick))

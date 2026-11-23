@@ -155,7 +155,7 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
     """M2.3: Dynamic build_hysteria_yaml configuration generation."""
 
     def test_global_outbound_direct_generation(self):
-        """When global outbound is direct and warp is disabled, outbounds is omitted."""
+        """When global outbound is direct and warp is disabled, warp outbound is omitted while direct mode:46 is present."""
         cfg = {
             "listen_port": 443,
             "routing_global_outbound": "direct",
@@ -163,7 +163,9 @@ class TestM2_DynamicHysteriaYAMLGenerator(OpaqueE2ETestCase):
         }
         yaml_str = build_hysteria_yaml(cfg)
         parsed = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertNotIn("outbounds", parsed)
+        names = [o["name"] for o in parsed.get("outbounds", [])]
+        self.assertIn("direct", names)
+        self.assertNotIn("warp", names)
         self.assertNotIn("warp(", yaml_str)
 
     def test_global_outbound_warp_generation(self):

@@ -14,7 +14,12 @@ from app.database import crud
 from app.core.traffic import traffic_collector
 from app.core.limiter import limiter_daemon
 from app.bot.bot import tg_bot
-from app.core.hysteria import apply_and_save_config, restart_hysteria
+from app.core.hysteria import (
+    apply_and_save_config,
+    restart_hysteria,
+    async_restart_hysteria,
+    ensure_udp_buffers_and_bbr,
+)
 
 # Import routers
 from app.api.auth_routes import router as auth_router, get_current_admin
@@ -61,7 +66,15 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Initializing InnerBlitz Database and Services...")
     await init_db()
-    
+
+    # Start dedicated internal auth server for Hysteria 2 core IMMEDIATELY after DB init
+    # so client authentication on 127.0.0.1:28262/auth is ready before any network/firewall tasks.
+    auth_runner = None
+    try:
+        auth_runner = await start_hys_auth_server()
+    except Exception as e:
+        logger.error(f"Failed to start Hysteria internal auth server on {settings.HYSTERIA_AUTH_PORT}: {e}")
+
     # Auto-detect public server IP and persist to DB
     try:
         from app.core.network import sync_server_ip_on_startup
@@ -73,32 +86,28 @@ async def lifespan(app: FastAPI):
     if not Path(settings.HYSTERIA_CONFIG_PATH).exists():
         await apply_and_save_config()
 
-    # Start dedicated internal auth server for Hysteria 2 core
-    auth_runner = None
-    try:
-        auth_runner = await start_hys_auth_server()
-    except Exception as e:
-        logger.error(f"Failed to start Hysteria internal auth server on {settings.HYSTERIA_AUTH_PORT}: {e}")
-
-    # Open firewall ports for Web Panel and Hysteria 2
+    # Apply kernel UDP buffers + BBR and open firewall ports off the event loop
     try:
         from app.core.firewall import open_firewall_port, configure_port_hopping
         p_val = await crud.get_setting("panel_port", "")
         p_port = int(p_val) if p_val and p_val.isdigit() else settings.PANEL_PORT
-        open_firewall_port(p_port, "tcp")
-        
+        await asyncio.to_thread(open_firewall_port, p_port, "tcp")
+
         h_val = await crud.get_setting("listen_port", "443")
         h_port = int(h_val) if h_val and h_val.isdigit() else 443
-        open_firewall_port(h_port, "udp")
+        await asyncio.to_thread(open_firewall_port, h_port, "udp")
 
         # Boot persistence for port hopping
         hop_enabled = await crud.get_setting("port_hopping_enabled", "0")
         if str(hop_enabled).lower() in ("1", "true"):
             hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
-            configure_port_hopping(hop_range, h_port, enable=True)
+            await asyncio.to_thread(configure_port_hopping, hop_range, h_port, True)
             logger.info(f"Restored port hopping on boot: UDP {hop_range} -> {h_port}")
+
+        # Ensure Linux UDP socket buffers (>=16MB) & BBR so QUIC does not drop packets
+        await asyncio.to_thread(ensure_udp_buffers_and_bbr, False)
     except Exception as e:
-        logger.warning(f"Initial firewall setup notice: {e}")
+        logger.warning(f"Initial firewall/network setup notice: {e}")
 
     # Start background daemons
     traffic_task = asyncio.create_task(traffic_collector.start_loop(interval_seconds=4))
@@ -113,7 +122,7 @@ async def lifespan(app: FastAPI):
                 if ssl_mode == "self_signed_ip":
                     server_ip = await crud.get_setting("server_ip", "127.0.0.1")
                     from app.core.cert import check_and_renew_panel_cert
-                    renewed = check_and_renew_panel_cert(server_ip, min_days_left=1.0)
+                    renewed = await asyncio.to_thread(check_and_renew_panel_cert, server_ip, 1.0)
                     if renewed:
                         logger.info("[SSL] 6-day IP certificate auto-renewed! Triggering panel restart...")
                         import subprocess
@@ -134,19 +143,28 @@ async def lifespan(app: FastAPI):
                     f"(mode={warp_info['mode']}, target={warp_info.get('socks5_addr') or warp_info.get('interface')}). "
                     "Adopting existing connection."
                 )
+                prev_mode = await crud.get_setting("warp_mode", "")
+                prev_enabled = await crud.get_setting("warp_enabled", "0")
+                prev_iface = await crud.get_setting("warp_interface", "")
                 await sync_warp_settings_from_detection(warp_info)
-                apply_res = await apply_and_save_config()
-                if apply_res:
-                    restart_hysteria()
-                else:
-                    logger.warning(f"[WARP Startup] Failed to apply synced WARP config: {apply_res.message}")
+                changed = (
+                    prev_enabled != "1"
+                    or prev_mode != warp_info.get("mode", "")
+                    or (warp_info.get("interface") and prev_iface != warp_info.get("interface"))
+                )
+                if changed:
+                    apply_res = await apply_and_save_config()
+                    if apply_res:
+                        await async_restart_hysteria()
+                    else:
+                        logger.warning(f"[WARP Startup] Failed to apply synced WARP config: {apply_res.message}")
         except Exception as e:
             logger.warning(f"[WARP Startup Detection] Notice: {e}")
 
     warp_startup_task = asyncio.create_task(detect_warp_startup())
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down InnerBlitz services...")
     if auth_runner:
@@ -156,6 +174,7 @@ async def lifespan(app: FastAPI):
     tg_bot.stop()
     for task in [traffic_task, limiter_task, bot_task, cert_task, warp_startup_task]:
         task.cancel()
+    await traffic_collector.close()
 
 app = FastAPI(
     title=settings.APP_NAME,

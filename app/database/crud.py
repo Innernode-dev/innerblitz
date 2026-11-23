@@ -1,6 +1,7 @@
 import aiosqlite
+import logging
 import secrets
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import List, Optional, Dict, Any
 from app.database.connection import get_db_connection
 from app.database.models import (
@@ -8,6 +9,17 @@ from app.database.models import (
     ClientCreate, ClientUpdate, ClientOut,
     InboundModel, InboundCreate, InboundUpdate
 )
+
+logger = logging.getLogger("innerblitz.crud")
+
+
+def _extract_ip_from_addr(addr: str) -> str:
+    s = str(addr or "").strip()
+    if s.startswith("[") and "]" in s:
+        return s[1 : s.index("]")]
+    if ":" in s:
+        return s.rsplit(":", 1)[0]
+    return s
 
 def _calculate_client_metrics(row: aiosqlite.Row, online_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Calculate client and user metrics: status, quota, expiration, and online state."""
@@ -58,7 +70,7 @@ def _calculate_client_metrics(row: aiosqlite.Row, online_data: Optional[Dict[str
     data["days_left"] = 999
     data["expiry_date_str"] = "Unlimited"
     
-    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
 
     if not data["unlimited_user"]:
         # 1. Absolute epoch timestamp expiration (3x-ui standard)
@@ -69,7 +81,7 @@ def _calculate_client_metrics(row: aiosqlite.Row, online_data: Optional[Dict[str
             else:
                 data["days_left"] = max(0, int((expiry_time - now_ms) / 86400000))
             try:
-                data["expiry_date_str"] = datetime.utcfromtimestamp(expiry_time / 1000.0).strftime("%Y-%m-%d %H:%M")
+                data["expiry_date_str"] = datetime.fromtimestamp(expiry_time / 1000.0, tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
             except Exception:
                 data["expiry_date_str"] = "Invalid"
             data["expiry_time"] = expiry_time
@@ -84,7 +96,7 @@ def _calculate_client_metrics(row: aiosqlite.Row, online_data: Optional[Dict[str
                 if delta < 0:
                     data["is_expired"] = True
                 data["expiry_date_str"] = expire_date.strftime("%Y-%m-%d")
-                exp_dt = datetime.combine(expire_date, datetime.min.time())
+                exp_dt = datetime.combine(expire_date, datetime.min.time(), tzinfo=timezone.utc)
                 data["expiry_time"] = int(exp_dt.timestamp() * 1000)
             except ValueError:
                 pass
@@ -97,16 +109,19 @@ def _calculate_client_metrics(row: aiosqlite.Row, online_data: Optional[Dict[str
 
     data["is_active"] = bool(data["enable"] and not data["is_expired"] and not data["is_quota_exceeded"])
 
-    # Online status & IP count
+    # Online status & IP/device count (supports both Hysteria 2 int format and list format)
     if online_data and username in online_data:
         conns = online_data[username]
         if isinstance(conns, list):
-            unique_ips = {addr.split(":")[0] for addr in conns if ":" in addr}
+            unique_ips = {_extract_ip_from_addr(addr) for addr in conns if addr}
             data["online_status"] = len(unique_ips) > 0
             data["current_ips"] = len(unique_ips)
+        elif isinstance(conns, int) and not isinstance(conns, bool):
+            data["online_status"] = conns > 0
+            data["current_ips"] = max(0, conns)
         else:
-            data["online_status"] = True
-            data["current_ips"] = 1
+            data["online_status"] = bool(conns)
+            data["current_ips"] = 1 if conns else 0
     else:
         data["online_status"] = False
         data["current_ips"] = 0
@@ -176,7 +191,7 @@ async def update_inbound(inbound_id: int, data: InboundUpdate) -> Optional[Dict[
     try:
         updates = []
         values = []
-        d = data.dict(exclude_unset=True)
+        d = data.model_dump(exclude_unset=True)
         for k, v in d.items():
             if v is not None:
                 if isinstance(v, bool):
@@ -323,7 +338,7 @@ async def create_client(client: ClientCreate) -> Dict[str, Any]:
             total_bytes = 0
 
         # Determine expiration time (epoch ms)
-        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         if client.unlimited_user:
             expiry_time = 0
         elif client.expiry_time is not None:
@@ -433,12 +448,12 @@ async def update_client(client_id_or_username: Any, data: ClientUpdate) -> Optio
         if data.expiry_time is not None:
             updates_c.append("expiry_time = ?")
             values_c.append(data.expiry_time)
-            now_ms = int(datetime.utcnow().timestamp() * 1000)
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
             exp_days = max(0, int((data.expiry_time - now_ms) / (86400 * 1000))) if data.expiry_time > 0 else 0
             updates_u.append("expiration_days = ?")
             values_u.append(exp_days)
         elif data.expiration_days is not None:
-            now_ms = int(datetime.utcnow().timestamp() * 1000)
+            now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
             exp_ms = (now_ms + data.expiration_days * 86400 * 1000) if data.expiration_days > 0 else 0
             updates_c.append("expiry_time = ?")
             values_c.append(exp_ms)

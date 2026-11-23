@@ -185,9 +185,10 @@ class TestChallenger2SQLiteMigration(unittest.TestCase):
                 self.assertEqual(c2["enable"], 0, "Blocked user must have enable=0 in clients table")
                 self.assertEqual(c2["sub_token"], "tok_blocked_02")
 
-                # Verify expired_user -> expiry_time must match 2020-01-11
+                # Verify expired_user -> expiry_time must match 2020-01-11 UTC
+                from datetime import timezone
                 c3 = client_map["expired_user"]
-                exp_dt = datetime(2020, 1, 11)
+                exp_dt = datetime(2020, 1, 11, tzinfo=timezone.utc)
                 expected_ms = int(exp_dt.timestamp() * 1000)
                 self.assertEqual(c3["expiry_time"], expected_ms)
 

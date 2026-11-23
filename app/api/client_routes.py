@@ -72,20 +72,31 @@ async def get_online_clients():
     summary = []
     for username, conns in online_data.items():
         if isinstance(conns, list):
-            unique_ips = list({c.split(":")[0] for c in conns if ":" in c})
-            summary.append({
-                "username": username,
-                "ips": unique_ips,
-                "connections": len(conns)
+            unique_ips = list({
+                (c[1:c.index("]")] if c.startswith("[") and "]" in c else (c.rsplit(":", 1)[0] if ":" in c else c))
+                for c in conns if c
             })
-        else:
+            if len(conns) > 0:
+                summary.append({
+                    "username": username,
+                    "ips": unique_ips,
+                    "connections": len(conns)
+                })
+        elif isinstance(conns, int) and not isinstance(conns, bool):
+            if conns > 0:
+                summary.append({
+                    "username": username,
+                    "ips": [],
+                    "connections": conns
+                })
+        elif conns:
             summary.append({
                 "username": username,
                 "ips": [],
                 "connections": 1
             })
     return {
-        "active_clients_count": len(online_data),
+        "active_clients_count": len(summary),
         "clients": summary,
         "raw": online_data
     }
@@ -253,11 +264,57 @@ async def get_inbound(id: int):
 
 @inbound_router.put("/{id}")
 async def update_inbound(id: int, data: InboundUpdate):
-    """Update an inbound's configuration."""
+    """Update an inbound's configuration and sync primary inbound (id=1) to Hysteria config."""
     existing = await crud.get_inbound_by_id(id)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inbound not found")
     updated = await crud.update_inbound(id, data)
+    if id == 1 and updated:
+        import asyncio
+        from app.core.hysteria import apply_and_save_config, async_restart_hysteria
+        from app.core.firewall import configure_port_hopping, open_firewall_port
+
+        d = data.model_dump(exclude_unset=True)
+        sync_map = {}
+        key_map = {
+            "listen_port": "listen_port",
+            "port_hopping_enabled": "port_hopping_enabled",
+            "port_hopping_range": "port_hopping_range",
+            "tls_type": "tls_type",
+            "sni": "sni",
+            "cert_sha256": "cert_sha256",
+            "obfs_type": "obfs_type",
+            "obfs_password": "obfs_password",
+            "masquerade_type": "masquerade_type",
+            "masquerade_target": "masquerade_target",
+            "up_mbps": "up_mbps",
+            "down_mbps": "down_mbps",
+            "ignore_client_bandwidth": "ignore_client_bandwidth",
+            "sniff_enabled": "sniff_enable",
+            "sniff_timeout": "sniff_timeout",
+            "sniff_rewrite_domain": "sniff_rewrite_domain",
+        }
+        for src_k, dst_k in key_map.items():
+            if src_k in d and d[src_k] is not None:
+                v = d[src_k]
+                sync_map[dst_k] = ("1" if v else "0") if isinstance(v, bool) else str(v)
+        if "sniff_enable" in sync_map:
+            sync_map["sniff_enabled"] = sync_map["sniff_enable"]
+
+        if sync_map:
+            await crud.set_settings(sync_map)
+            if "listen_port" in sync_map:
+                try:
+                    await asyncio.to_thread(open_firewall_port, int(sync_map["listen_port"]), "udp")
+                except Exception:
+                    pass
+            if any(k in sync_map for k in ("listen_port", "port_hopping_enabled", "port_hopping_range")):
+                hop_on = str(updated.get("port_hopping_enabled", 1)) in ("1", "True", "true")
+                hop_rng = str(updated.get("port_hopping_range", "20000:50000"))
+                l_port = int(updated.get("listen_port", 443))
+                await asyncio.to_thread(configure_port_hopping, hop_rng, l_port, hop_on)
+            await apply_and_save_config()
+            await async_restart_hysteria()
     return updated
 
 @inbound_router.delete("/{id}")

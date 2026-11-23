@@ -44,17 +44,28 @@ detect_system() {
     log "INFO" "Detected System: OS=$OS, Arch=$ARCH ($ARCH_WARP)"
 }
 
+cleanup_existing_warp() {
+    log "INFO" "Cleaning up previous WARP daemons/interfaces before fresh install..."
+    systemctl stop warp-svc 2>/dev/null || true
+    systemctl stop wg-quick@warp 2>/dev/null || true
+    ip link del warp 2>/dev/null || true
+}
+
 check_port_available() {
+    local listener=""
     if command -v ss &>/dev/null; then
-        if ss -tln "sport = :$PORT" | grep -q ":$PORT\b"; then
-            log "ERROR" "Port $PORT is already in use by another process."
-            exit 2
-        fi
+        listener=$(ss -tlnp "sport = :$PORT" 2>/dev/null | grep ":$PORT\b" || true)
     elif command -v netstat &>/dev/null; then
-        if netstat -tln | grep -q ":$PORT\b"; then
-            log "ERROR" "Port $PORT is already in use by another process."
-            exit 2
+        listener=$(netstat -tlnp 2>/dev/null | grep ":$PORT\b" || true)
+    fi
+    if [[ -n "$listener" ]]; then
+        # Allow overwrite if warp-svc itself owns the port
+        if echo "$listener" | grep -qi "warp-svc"; then
+            log "INFO" "Port $PORT is currently held by warp-svc; will reconfigure in place."
+            return 0
         fi
+        log "ERROR" "Port $PORT is already in use by another process."
+        exit 2
     fi
 }
 
@@ -142,14 +153,52 @@ install_wgcf_wireguard() {
     log "INFO" "[PHASE 3/5] Generating WireGuard WARP configuration profile..."
     /usr/local/bin/wgcf generate
 
-    log "INFO" "[PHASE 4/5] Tuning /etc/wireguard/warp.conf (Table = 51820, MTU = 1280, policy routing & TCPMSS)..."
-    cp -f wgcf-profile.conf /etc/wireguard/warp.conf
-    sed -i '/^Table[[:space:]]*=/d' /etc/wireguard/warp.conf
-    sed -i '/^MTU[[:space:]]*=/d' /etc/wireguard/warp.conf
-    sed -i '/^DNS[[:space:]]*=/d' /etc/wireguard/warp.conf
-    sed -i '/^PostUp[[:space:]]*=/d' /etc/wireguard/warp.conf
-    sed -i '/^PostDown[[:space:]]*=/d' /etc/wireguard/warp.conf
-    sed -i '/\[Interface\]/a Table = 51820\nMTU = 1280\nPostUp = sysctl -w net.ipv4.conf.all.rp_filter=2 net.ipv4.conf.%i.rp_filter=2 || true\nPostUp = WG_IP=$(ip -4 -o addr show dev %i | head -n1 | tr -s " " | cut -d" " -f4 | cut -d/ -f1); [ -n "$WG_IP" ] && ip -4 rule add from "$WG_IP/32" lookup 51820 prio 30000 || true\nPostUp = ip -4 rule add oif %i lookup 51820 prio 30001 || true\nPostUp = iptables -t nat -C POSTROUTING -o %i -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o %i -j MASQUERADE\nPostUp = iptables -t mangle -C POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || iptables -t mangle -A POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220\nPostDown = ip -4 rule del lookup 51820 prio 30000 2>/dev/null || true\nPostDown = ip -4 rule del oif %i lookup 51820 prio 30001 || true\nPostDown = iptables -t nat -D POSTROUTING -o %i -j MASQUERADE 2>/dev/null || true\nPostDown = iptables -t mangle -D POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || true' /etc/wireguard/warp.conf
+    log "INFO" "[PHASE 4/5] Tuning /etc/wireguard/warp.conf (Table = 51820, MTU = 1280, PersistentKeepalive = 25, policy routing & TCPMSS)..."
+    python3 - << 'PYEOF'
+from pathlib import Path
+
+src = Path("/etc/wireguard/wgcf-profile.conf").read_text(encoding="utf-8")
+out_lines = []
+section = ""
+has_keepalive = False
+
+for raw_line in src.splitlines():
+    stripped = raw_line.strip()
+    if stripped.startswith("[") and stripped.endswith("]"):
+        if section == "[Peer]" and not has_keepalive:
+            out_lines.append("PersistentKeepalive = 25")
+            has_keepalive = True
+        section = stripped
+        out_lines.append(raw_line)
+        if section == "[Interface]":
+            out_lines.extend([
+                "Table = 51820",
+                "MTU = 1280",
+                "PostUp = sysctl -w net.ipv4.conf.all.rp_filter=2 net.ipv4.conf.%i.rp_filter=2 || true",
+                'PostUp = WG_IP=$(ip -4 -o addr show dev %i | head -n1 | tr -s " " | cut -d" " -f4 | cut -d/ -f1); [ -n "$WG_IP" ] && ip -4 rule add from "$WG_IP/32" lookup 51820 prio 30000 || true',
+                "PostUp = ip -4 rule add oif %i lookup 51820 prio 30001 || true",
+                "PostUp = iptables -t nat -C POSTROUTING -o %i -j MASQUERADE 2>/dev/null || iptables -t nat -A POSTROUTING -o %i -j MASQUERADE",
+                "PostUp = iptables -t mangle -C POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || iptables -t mangle -A POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220",
+                "PostDown = ip -4 rule del lookup 51820 prio 30000 2>/dev/null || true",
+                "PostDown = ip -4 rule del oif %i lookup 51820 prio 30001 || true",
+                "PostDown = iptables -t nat -D POSTROUTING -o %i -j MASQUERADE 2>/dev/null || true",
+                "PostDown = iptables -t mangle -D POSTROUTING -o %i -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1220 2>/dev/null || true",
+            ])
+        continue
+    if section == "[Interface]" and any(stripped.startswith(k) for k in ("Table", "MTU", "DNS", "PostUp", "PostDown")):
+        continue
+    if section == "[Peer]" and stripped.startswith("PersistentKeepalive"):
+        has_keepalive = True
+        out_lines.append("PersistentKeepalive = 25")
+        continue
+    out_lines.append(raw_line)
+
+if section == "[Peer]" and not has_keepalive:
+    out_lines.append("PersistentKeepalive = 25")
+
+Path("/etc/wireguard/warp.conf").write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+PYEOF
+    chmod 600 /etc/wireguard/warp.conf
 
     systemctl restart wg-quick@warp 2>/dev/null || systemctl enable --now wg-quick@warp
     sleep 2
@@ -178,14 +227,19 @@ install_wgcf_wireguard() {
 main() {
     check_root
     detect_system
-    check_port_available
+
+    if [[ "$CLEAN" -eq 1 ]]; then
+        cleanup_existing_warp
+    fi
 
     if [[ "$MODE" == "socks5" ]]; then
+        check_port_available
         install_cloudflare_warp_socks5
     elif [[ "$MODE" == "wgcf" ]]; then
         install_wgcf_wireguard
     else
         # Auto Mode: Try Cloudflare official SOCKS5 first, fallback to WireGuard
+        check_port_available
         if ! install_cloudflare_warp_socks5; then
             log "WARN" "Official Cloudflare WARP installation failed. Falling back to WireGuard wgcf..."
             install_wgcf_wireguard

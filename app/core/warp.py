@@ -194,9 +194,9 @@ async def resolve_live_warp_transport(configured_port: int = 40000) -> Dict[str,
     WireGuard interface or local SOCKS5 proxy is currently active so config.yaml
     always binds the actually running WARP transport.
     """
-    wg_iface = check_wireguard_interface()
+    wg_iface = await asyncio.to_thread(check_wireguard_interface)
     if wg_iface:
-        ensure_wireguard_policy_routing(wg_iface)
+        await asyncio.to_thread(ensure_wireguard_policy_routing, wg_iface)
         return {"active": True, "mode": WarpMode.WIREGUARD.value, "interface": wg_iface, "port": str(configured_port)}
 
     socks_ok, _ = await check_socks5_alive("127.0.0.1", configured_port, timeout=0.6)
@@ -409,8 +409,8 @@ async def detect_warp(force_refresh: bool = False, timeout: float = 3.0) -> Dict
     except Exception:
         pass
 
-    # 2. Check WireGuard network interface first (priority resolution)
-    wg_iface = check_wireguard_interface()
+    # 2. Check WireGuard network interface first (priority resolution, off event loop)
+    wg_iface = await asyncio.to_thread(check_wireguard_interface)
 
     # 3. Check SOCKS5 socket
     socks5_ok, socks5_latency = await check_socks5_alive("127.0.0.1", configured_port, timeout=1.5)
@@ -423,7 +423,7 @@ async def detect_warp(force_refresh: bool = False, timeout: float = 3.0) -> Dict
     if wg_iface:
         mode = WarpMode.WIREGUARD
         interface = wg_iface
-        ensure_wireguard_policy_routing(wg_iface)
+        await asyncio.to_thread(ensure_wireguard_policy_routing, wg_iface)
     elif socks5_ok:
         mode = WarpMode.SOCKS5
         socks5_addr = f"127.0.0.1:{configured_port}"
@@ -743,9 +743,9 @@ class WarpProcessManager:
                 updates["warp_port"] = detected["socks5_addr"].split(":")[-1]
 
             await crud.set_settings(updates)
-            from app.core.hysteria import apply_and_save_config, restart_hysteria
+            from app.core.hysteria import apply_and_save_config, async_restart_hysteria
             await apply_and_save_config()
-            restart_hysteria()
+            await async_restart_hysteria()
             self._append_log(f"[SUCCESS] Hysteria 2 configuration updated and service restarted with WARP outbound ({resolved_mode}).")
         except Exception as e:
             self._append_log(f"[WARN] Failed to automatically apply Hysteria config: {e}")
@@ -829,7 +829,7 @@ def restart_warp_service() -> Tuple[bool, str]:
     return run_systemctl("restart", svc)
 
 
-def repair_warp_service() -> Dict[str, Any]:
+def repair_warp_service(warp_port: int = 40000) -> Dict[str, Any]:
     """
     Automated self-healing diagnostics and recovery for WARP:
     1. Checks if warp-svc or wg-quick@warp is running.
@@ -840,6 +840,7 @@ def repair_warp_service() -> Dict[str, Any]:
     from app.core.hysteria import run_systemctl
     actions_taken: List[str] = []
     service = get_warp_service_name() or "warp-svc.service"
+    port_str = str(warp_port if (1024 <= int(warp_port) <= 65535) else 40000)
 
     # Step 1: Daemon reload
     try:
@@ -867,13 +868,19 @@ def repair_warp_service() -> Dict[str, Any]:
                     timeout=5
                 )
                 if "Registration Missing" in status_res.stdout:
-                    subprocess.run([warp_cli, "--accept-tos", "registration", "new"], capture_output=True, timeout=5)
+                    reg = subprocess.run([warp_cli, "--accept-tos", "registration", "new"], capture_output=True, timeout=5)
+                    if reg.returncode != 0:
+                        subprocess.run([warp_cli, "--accept-tos", "register"], capture_output=True, timeout=5)
                     actions_taken.append("Registered new warp-cli account")
-                # Enforce proxy mode on port 40000 so host SSH/panel remain direct and Hysteria outbound works
-                subprocess.run([warp_cli, "--accept-tos", "mode", "proxy"], capture_output=True, timeout=5)
-                subprocess.run([warp_cli, "--accept-tos", "proxy", "port", "40000"], capture_output=True, timeout=5)
+                # Enforce proxy mode on configured port so host SSH/panel remain direct and Hysteria outbound works
+                m_res = subprocess.run([warp_cli, "--accept-tos", "mode", "proxy"], capture_output=True, timeout=5)
+                if m_res.returncode != 0:
+                    subprocess.run([warp_cli, "--accept-tos", "set-mode", "proxy"], capture_output=True, timeout=5)
+                p_res = subprocess.run([warp_cli, "--accept-tos", "proxy", "port", port_str], capture_output=True, timeout=5)
+                if p_res.returncode != 0:
+                    subprocess.run([warp_cli, "--accept-tos", "set-proxy-port", port_str], capture_output=True, timeout=5)
                 subprocess.run([warp_cli, "--accept-tos", "connect"], capture_output=True, timeout=5)
-                actions_taken.append("Ensured warp-cli proxy mode on 127.0.0.1:40000 and connected")
+                actions_taken.append(f"Ensured warp-cli proxy mode on 127.0.0.1:{port_str} and connected")
             except Exception as e:
                 actions_taken.append(f"warp-cli status check notice: {e}")
     elif service == "wg-quick@warp.service":

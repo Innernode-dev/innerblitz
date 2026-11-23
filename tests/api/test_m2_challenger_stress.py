@@ -652,17 +652,17 @@ class TestPortHoppingInvertedAndBoundaryRanges(OpaqueE2ETestCase):
             "port_hopping_range": "20000:30000, 25000:35000",
         }
         uri_spaced = build_hy2_uri(user, settings_dict_spaced)
-        # urlencode encodes space after comma as '+'
-        self.assertIn("mport=20000-30000%2C+25000-35000", uri_spaced)
+        # Whitespace around comma is normalized cleanly (no stray '+' in mport)
+        self.assertIn("mport=20000-30000%2C25000-35000", uri_spaced)
 
         # 2. Clash Meta YAML
         clash_yaml = build_clash_yaml(user, settings_dict_compact)
         parsed_c = yaml.safe_load(clash_yaml)
         self.assertEqual(parsed_c["proxies"][0]["ports"], "20000-30000,25000-35000")
 
-        # 3. Sing-box JSON
+        # 3. Sing-box JSON (v1.11+ list of colon ranges)
         sb = build_singbox_json(user, settings_dict_compact)
-        self.assertEqual(sb["outbounds"][0]["server_ports"], "20000-30000,25000-35000")
+        self.assertEqual(sb["outbounds"][0]["server_ports"], ["20000:30000", "25000:35000"])
 
 
 class TestAtomicRollbackOnBrokenConfig(OpaqueE2ETestCase):

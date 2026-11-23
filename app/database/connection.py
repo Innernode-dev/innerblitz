@@ -2,7 +2,7 @@ import aiosqlite
 import logging
 import os
 import secrets
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from pathlib import Path
 from typing import AsyncGenerator
 from app.config import settings
@@ -322,7 +322,7 @@ async def init_db():
                                     created_str = u_dict.get("account_creation_date") or ""
                                     c_date = datetime.strptime(created_str[:10], "%Y-%m-%d").date()
                                     exp_date = c_date + timedelta(days=exp_days)
-                                    exp_dt = datetime.combine(exp_date, datetime.min.time())
+                                    exp_dt = datetime.combine(exp_date, datetime.min.time(), tzinfo=timezone.utc)
                                     expiry_time_val = int(exp_dt.timestamp() * 1000)
                                 except Exception:
                                     expiry_time_val = 0
@@ -344,8 +344,8 @@ async def init_db():
                                 u_dict.get("max_ips") or 0,
                                 u_dict.get("note") or "",
                                 u_dict.get("sub_token") or secrets.token_urlsafe(16),
-                                u_dict.get("created_at") or datetime.utcnow().isoformat(),
-                                u_dict.get("updated_at") or datetime.utcnow().isoformat()
+                                u_dict.get("created_at") or datetime.now(timezone.utc).isoformat(),
+                                u_dict.get("updated_at") or datetime.now(timezone.utc).isoformat()
                             ))
                             logger.info(f"Migrated legacy user '{uname}' to clients table.")
                     except Exception as row_err:

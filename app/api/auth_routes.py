@@ -89,28 +89,46 @@ async def login(req: LoginRequest, request: Request, response: Response):
     totp_enabled = await crud.get_setting("totp_enabled", "0") == "1"
     tg_2fa_enabled = await crud.get_setting("tg_2fa_enabled", "0") == "1"
 
+    def _record_failed_attempt():
+        attempts = _failed_attempts.get(client_ip, (0, None))[0] + 1
+        blocked_until = now + timedelta(seconds=settings.LOGIN_COOLDOWN_SECONDS) if attempts >= settings.MAX_LOGIN_ATTEMPTS else None
+        _failed_attempts[client_ip] = (attempts, blocked_until)
+
     if totp_enabled:
         totp_secret = await crud.get_setting("totp_secret", "")
         if not req.totp_code:
             return {"require_2fa": True, "type": "totp", "message": "Enter your 6-digit Google Authenticator code"}
         if not verify_totp(totp_secret, req.totp_code):
+            _record_failed_attempt()
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid TOTP code")
 
     if tg_2fa_enabled:
         if not req.tg_code:
-            # Generate 6-digit OTP code and send via Telegram Bot
+            # Generate 6-digit OTP code with 5-minute TTL and send via Telegram Bot
             otp_code = f"{secrets.randbelow(900000) + 100000}"
-            await crud.set_setting("_current_tg_otp", otp_code)
+            otp_expires = (now + timedelta(minutes=5)).isoformat()
+            await crud.set_settings({"_current_tg_otp": otp_code, "_current_tg_otp_expires": otp_expires})
             sent = await tg_bot.send_2fa_otp(otp_code)
             msg = "Enter the verification code sent to your Telegram" if sent else "Failed to send Telegram code. Check bot configuration."
             return {"require_2fa": True, "type": "telegram", "message": msg}
 
         expected_tg_code = await crud.get_setting("_current_tg_otp", "")
-        if not expected_tg_code or not secrets.compare_digest(req.tg_code.strip(), expected_tg_code.strip()):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid Telegram verification code")
+        otp_expires_raw = await crud.get_setting("_current_tg_otp_expires", "")
+        otp_expired = False
+        if otp_expires_raw:
+            try:
+                otp_expired = now > datetime.fromisoformat(otp_expires_raw)
+            except ValueError:
+                otp_expired = True
+
+        if otp_expired or not expected_tg_code or not secrets.compare_digest(req.tg_code.strip(), expected_tg_code.strip()):
+            if otp_expired:
+                await crud.set_settings({"_current_tg_otp": "", "_current_tg_otp_expires": ""})
+            _record_failed_attempt()
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired Telegram verification code")
 
         # Invalidate OTP on successful use
-        await crud.set_setting("_current_tg_otp", "")
+        await crud.set_settings({"_current_tg_otp": "", "_current_tg_otp_expires": ""})
 
     # Clear failed attempts on success
     if client_ip in _failed_attempts:
@@ -127,7 +145,7 @@ async def login(req: LoginRequest, request: Request, response: Response):
         value=session_id,
         httponly=True,
         samesite="lax",
-        secure=False, # Set to True if pure HTTPS
+        secure=(request.url.scheme == "https"),
         max_age=settings.SESSION_EXPIRE_HOURS * 3600
     )
     return {"ok": True, "username": req.username}

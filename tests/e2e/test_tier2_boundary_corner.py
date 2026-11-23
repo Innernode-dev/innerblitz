@@ -238,7 +238,7 @@ class TestTier2Feature06_GlobalOutboundSwitch(OpaqueE2ETestCase):
         for falsy in ("0", "false", "False", False):
             cfg = {"listen_port": 443, "warp_enabled": falsy}
             y = build_hysteria_yaml(cfg)
-            self.assertNotIn("outbounds:", y, f"Failed for {falsy}")
+            self.assertNotIn("name: warp", y, f"Failed for {falsy}")
 
     def test_f6_b03_rapid_sequential_toggling(self):
         """Boundary: Rapid sequential switching between Direct and WARP."""
@@ -362,11 +362,11 @@ class TestTier2Feature09_DynamicHysteriaConfig(OpaqueE2ETestCase):
         self.assertEqual(data["bandwidth"]["up"], "100000 mbps")
 
     def test_f9_b03_masquerade_url_without_https_scheme(self):
-        """Boundary: Masquerade target given without scheme 'bing.com'."""
+        """Boundary: Masquerade target given without scheme 'bing.com' is normalized to https://bing.com."""
         cfg = {"listen_port": 443, "masquerade_type": "proxy", "masquerade_target": "bing.com"}
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertEqual(data["masquerade"]["proxy"]["url"], "bing.com")
+        self.assertEqual(data["masquerade"]["proxy"]["url"], "https://bing.com")
 
     def test_f9_b04_listen_port_boundary_values(self):
         """Boundary: listen_port 1 vs 65535."""
@@ -519,12 +519,14 @@ class TestTier2Feature13_SingboxProfile(OpaqueE2ETestCase):
         self.assertTrue(hy2["tls"]["insecure"])
 
     def test_f13_b04_valid_spki_pin(self):
-        """Boundary: SPKI SHA-256 certificate pin populated."""
+        """Boundary: Sing-box profile omits invalid tls.pinSHA256 field and uses valid tls block."""
         user = self.create_test_user("sb_pin", "pass")
         cfg = {"server_ip": "1.2.3.4", "listen_port": 443, "cert_sha256": "abcdef123456"}
         sb = build_singbox_json(user, cfg)
         hy2 = [o for o in sb["outbounds"] if o["type"] == "hysteria2"][0]
-        self.assertEqual(hy2["tls"].get("pinSHA256"), "abcdef123456")
+        self.assertNotIn("pinSHA256", hy2["tls"])
+        self.assertTrue(hy2["tls"]["enabled"])
+        self.assertTrue(hy2["tls"]["insecure"])
 
     def test_f13_b05_server_domain_with_port(self):
         """Corner: server_domain containing embedded port string."""

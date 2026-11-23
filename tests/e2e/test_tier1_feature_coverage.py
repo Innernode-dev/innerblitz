@@ -149,7 +149,8 @@ class TestFeature02_ExistingWARPReuse(OpaqueE2ETestCase):
         cfg = {"listen_port": 443, "warp_enabled": False}
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertNotIn("outbounds", data)
+        names = [o["name"] for o in data.get("outbounds", [])]
+        self.assertNotIn("warp", names)
         self.assertNotIn("warp(", yaml_str)
 
 
@@ -293,11 +294,12 @@ class TestFeature06_GlobalOutboundSwitch(OpaqueE2ETestCase):
     """F6: Global Outbound Switch (Direct server IP vs Cloudflare WARP IP)."""
 
     def test_f6_01_direct_global_outbound(self):
-        """Verify direct global outbound omits WARP or sets direct as primary."""
+        """Verify direct global outbound omits WARP and sets direct as primary."""
         cfg = {"listen_port": 443, "warp_enabled": False}
         yaml_str = build_hysteria_yaml(cfg)
         parsed = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertNotIn("outbounds", parsed)
+        names = [o["name"] for o in parsed.get("outbounds", [])]
+        self.assertEqual(names, ["direct"])
 
     def test_f6_02_warp_global_outbound(self):
         """Verify WARP outbound contains direct and socks5 warp."""
@@ -424,7 +426,7 @@ class TestFeature09_DynamicHysteriaConfig(OpaqueE2ETestCase):
         data = self.verify_valid_hysteria_yaml(yaml_str)
         self.assertIn("quic", data)
         self.assertEqual(data["quic"].get("initStreamReceiveWindow"), 8388608)
-        self.assertEqual(data["quic"].get("maxIdleTimeout"), "30s")
+        self.assertEqual(data["quic"].get("maxIdleTimeout"), "60s")
 
     def test_f9_02_bandwidth_configuration(self):
         """Verify bandwidth up and down configuration."""
@@ -600,12 +602,15 @@ class TestFeature13_SingboxProfile(OpaqueE2ETestCase):
     """F13: Sing-box v1.10+ Profile (JSON profile with TUN inbound, DNS, outbounds, split routing)."""
 
     def test_f13_01_singbox_json_structure(self):
-        """Verify generated Sing-box profile contains version and outbounds."""
+        """Verify generated Sing-box profile contains valid Sing-box sections (no bogus version key)."""
         user = self.create_test_user("sb_user", "sb_pass")
         cfg = {"server_ip": "1.2.3.4", "listen_port": 443}
         sb = build_singbox_json(user, cfg)
         self.verify_valid_singbox_profile(sb)
-        self.assertEqual(sb.get("version"), 1)
+        self.assertNotIn("version", sb)
+        self.assertIn("inbounds", sb)
+        self.assertIn("dns", sb)
+        self.assertIn("route", sb)
 
     def test_f13_02_singbox_hysteria2_outbound_parameters(self):
         """Verify Sing-box hysteria2 outbound holds correct server host, port, password."""
@@ -628,7 +633,8 @@ class TestFeature13_SingboxProfile(OpaqueE2ETestCase):
         }
         sb = build_singbox_json(user, cfg)
         hy2 = [o for o in sb["outbounds"] if o["type"] == "hysteria2"][0]
-        self.assertEqual(hy2.get("server_ports"), "30000-40000")
+        self.assertEqual(hy2.get("server_ports"), ["30000:40000"])
+        self.assertEqual(hy2.get("hop_interval"), "30s")
 
     def test_f13_04_singbox_obfs_salamander(self):
         """Verify Sing-box profile includes salamander obfuscation block."""

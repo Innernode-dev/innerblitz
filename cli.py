@@ -26,11 +26,14 @@ from app.core.cert import (
     get_cert_info, check_and_renew_panel_cert
 )
 from app.core.hysteria import (
-    apply_and_save_config, restart_hysteria, 
+    apply_and_save_config, restart_hysteria,
     is_hysteria_running, get_hysteria_version, get_hysteria_logs,
-    run_systemctl
+    run_systemctl, ensure_udp_buffers_and_bbr
 )
-from app.core.firewall import flush_port_hopping, configure_port_hopping, open_firewall_port
+from app.core.firewall import (
+    flush_port_hopping, configure_port_hopping, open_firewall_port,
+    validate_port_hopping_string
+)
 from app.core.subscription import build_hy2_uri
 from app.core.security import hash_password, generate_secret_path
 
@@ -297,11 +300,19 @@ def reset_panel_access(port, path, use_random, reset_2fa, password):
 @cli.command("set-hysteria-port")
 @click.argument("port", type=int)
 def set_hysteria_port_cli(port):
-    """Change Hysteria 2 UDP listening port safely."""
+    """Change Hysteria 2 UDP listening port safely and keep port hopping synced."""
+    if not (1 <= port <= 65535):
+        click.echo(click.style(f"✖ Invalid port {port}: must be between 1 and 65535.", fg="red"))
+        return
+
     async def _p():
         await init_db()
         await crud.set_setting("listen_port", str(port))
         open_firewall_port(port, "udp")
+        hop_on = await crud.get_setting("port_hopping_enabled", "1") == "1"
+        if hop_on:
+            hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
+            configure_port_hopping(hop_range, port, enable=True)
         await apply_and_save_config()
         ok, out = restart_hysteria()
         if ok:
@@ -323,6 +334,11 @@ def set_port_hopping_cli(enable, hop_range):
 
         new_range = hop_range.strip() if hop_range else cur_range
         new_on = enable if enable is not None else cur_on
+
+        ok_val, msg_val = validate_port_hopping_string(new_range)
+        if not ok_val:
+            click.echo(click.style(f"✖ Invalid port hopping range '{new_range}': {msg_val}", fg="red"))
+            return
 
         await crud.set_settings({
             "port_hopping_range": new_range,
@@ -424,6 +440,13 @@ def reconfig_hysteria_cli():
                     os.chmod(fpath, 0o644)
                 except Exception:
                     pass
+        # Restore port hopping NAT REDIRECT rules if enabled
+        hop_on = await crud.get_setting("port_hopping_enabled", "1") == "1"
+        if hop_on:
+            l_port_raw = await crud.get_setting("listen_port", "443")
+            l_port = int(l_port_raw) if str(l_port_raw).isdigit() else 443
+            hop_range = await crud.get_setting("port_hopping_range", "20000:50000")
+            configure_port_hopping(hop_range, l_port, enable=True)
         ok = await apply_and_save_config()
         if ok:
             r_ok, out = restart_hysteria()
@@ -585,30 +608,11 @@ def toggle_decoy(enable, theme):
 @cli.command("optimize-bbr")
 def optimize_bbr():
     """Enable Linux TCP BBR congestion control and optimize UDP buffers for max QUIC speed."""
-    try:
-        conf_content = """# InnerBlitz High-Performance Network Tuning for Hysteria 2 QUIC
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.core.rmem_default = 1048576
-net.core.wmem_default = 1048576
-net.core.optmem_max = 2048576
-net.ipv4.udp_rmem_min = 16384
-net.ipv4.udp_wmem_min = 16384
-net.ipv4.ip_forward = 1
-"""
-        sysctl_dir = Path("/etc/sysctl.d")
-        if sysctl_dir.exists():
-            conf_file = sysctl_dir / "99-innerblitz.conf"
-            with open(conf_file, "w") as f:
-                f.write(conf_content)
-            subprocess.run(["sysctl", "--system"], capture_output=True)
-            click.echo(click.style("✔ TCP BBR and high-speed UDP buffers successfully applied!", fg="green", bold=True))
-        else:
-            click.echo(click.style("✖ /etc/sysctl.d not found (Not a standard Linux OS)", fg="yellow"))
-    except Exception as e:
-        click.echo(click.style(f"✖ Failed to configure sysctl: {e}", fg="red"))
+    ok, msg = ensure_udp_buffers_and_bbr(force=True)
+    if ok:
+        click.echo(click.style(f"✔ {msg}", fg="green", bold=True))
+    else:
+        click.echo(click.style(f"✖ {msg}", fg="yellow"))
 
 @cli.command("backup")
 @click.option("--out", default=None, help="Output backup archive path")
@@ -659,14 +663,19 @@ def restore_system(backup_file):
         dest_dir = Path(settings.DATA_DIR).resolve()
         dest_dir.mkdir(parents=True, exist_ok=True)
         with tarfile.open(b_path, "r:gz") as tar:
+            validated = []
             for member in tar.getmembers():
-                name = member.name.replace("\\", "/")
+                if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
+                    raise ValueError(f"Disallowed archive entry type: {member.name}")
+                name = member.name.replace("\\", "/").lstrip("/")
                 clean_name = name[5:] if name.startswith("data/") else name
                 if not clean_name or clean_name in (".", "/"):
                     continue
                 target_path = (dest_dir / clean_name).resolve()
-                if not str(target_path).startswith(str(dest_dir)):
+                if not target_path.is_relative_to(dest_dir):
                     raise ValueError(f"Insecure path traversal detected in archive: {member.name}")
+                validated.append((member, target_path))
+            for member, target_path in validated:
                 if member.isdir():
                     target_path.mkdir(parents=True, exist_ok=True)
                 else:

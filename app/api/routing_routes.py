@@ -13,7 +13,7 @@ from app.database.models import (
     ReorderRulesRequest,
     ValidateRuleRequest
 )
-from app.core.hysteria import apply_and_save_config, restart_hysteria, validate_geosite_tag_on_disk
+from app.core.hysteria import apply_and_save_config, async_restart_hysteria, validate_geosite_tag_on_disk
 
 logger = logging.getLogger("innerblitz.routing_api")
 
@@ -37,18 +37,23 @@ async def create_new_routing_rule(
     payload: RoutingRuleCreate,
     admin: str = Depends(get_current_admin)
 ):
-    """Create a new custom routing rule, persist to DB, and recompile Hysteria configuration."""
+    """Create a new custom routing rule, validate values, persist to DB, and recompile Hysteria configuration."""
     if not payload.name or not payload.name.strip():
         raise HTTPException(status_code=400, detail="Rule name cannot be empty")
     if not payload.rule_values:
         raise HTTPException(status_code=400, detail="rule_values list cannot be empty")
+
+    for val in payload.rule_values:
+        is_ok, err = _validate_single_value(payload.rule_type, str(val))
+        if not is_ok:
+            raise HTTPException(status_code=400, detail=err)
 
     created = await crud.create_routing_rule(payload)
     await _ensure_warp_enabled_if_rules_require()
     # Recompile Hysteria 2 configuration atomically
     apply_res = await apply_and_save_config()
     if apply_res.success:
-        restart_hysteria()
+        await async_restart_hysteria()
     else:
         logger.warning(f"Notice: recompiled config with newly added rule had warning: {apply_res.message}")
 
@@ -76,11 +81,21 @@ async def update_single_routing_rule(
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Routing rule {rule_id} not found")
 
+    effective_type = payload.rule_type or existing["rule_type"]
+    effective_values = payload.rule_values if payload.rule_values is not None else existing["rule_values"]
+    if effective_values is not None:
+        for val in effective_values:
+            is_ok, err = _validate_single_value(effective_type, str(val))
+            if not is_ok:
+                raise HTTPException(status_code=400, detail=err)
+
     updated = await crud.update_routing_rule(rule_id, payload)
     await _ensure_warp_enabled_if_rules_require()
     apply_res = await apply_and_save_config()
     if apply_res.success:
-        restart_hysteria()
+        await async_restart_hysteria()
+    else:
+        logger.warning(f"Notice: recompiled config after updating rule {rule_id} had warning: {apply_res.message}")
 
     return updated
 
@@ -100,7 +115,7 @@ async def delete_single_routing_rule(
 
     apply_res = await apply_and_save_config()
     if apply_res.success:
-        restart_hysteria()
+        await async_restart_hysteria()
 
     return {"ok": True, "message": f"Rule {rule_id} deleted successfully"}
 
@@ -120,7 +135,7 @@ async def reorder_rules(
 
     apply_res = await apply_and_save_config()
     if apply_res.success:
-        restart_hysteria()
+        await async_restart_hysteria()
 
     return {"ok": True, "message": "Rules reordered successfully"}
 
@@ -139,7 +154,7 @@ async def toggle_rule_enabled(
     await _ensure_warp_enabled_if_rules_require()
     apply_res = await apply_and_save_config()
     if apply_res.success:
-        restart_hysteria()
+        await async_restart_hysteria()
 
     return toggled
 

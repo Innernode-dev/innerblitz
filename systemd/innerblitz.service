@@ -1,7 +1,8 @@
 [Unit]
 Description=InnerBlitz Hysteria 2 Management Panel and API
-After=network.target hysteria-server.service
-Wants=hysteria-server.service
+After=network-online.target
+Wants=network-online.target
+Before=hysteria-server.service
 
 [Service]
 Type=simple

@@ -45,11 +45,13 @@ class TestPairwise_WARP_and_RURouting(OpaqueE2ETestCase):
         self.assertIn("warp(geosite:openai)", yaml_str)
 
     def test_p1_04_warp_disabled_and_ru_routing(self):
-        """WARP disabled: outbounds block omitted entirely regardless of RU setting."""
+        """WARP disabled: warp outbound omitted (only direct mode:46 present) regardless of RU setting."""
         cfg = {"listen_port": 443, "warp_enabled": False, "ru_routing": "direct"}
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertNotIn("outbounds", data)
+        names = [o["name"] for o in data.get("outbounds", [])]
+        self.assertIn("direct", names)
+        self.assertNotIn("warp", names)
         self.assertNotIn("warp(", yaml_str)
 
     def test_p1_05_client_subscription_consistency_with_warp_policy(self):
@@ -165,7 +167,7 @@ class TestPairwise_TLSMode_and_PortHopping(OpaqueE2ETestCase):
         self.assertIn("mport=30000-40000", uri)
 
     def test_p3_04_acme_yaml_config_block(self):
-        """ACME mode generates acme block in Hysteria YAML."""
+        """ACME mode generates top-level acme block in Hysteria 2 YAML (not nested under tls)."""
         cfg = {
             "listen_port": 443,
             "tls_type": "acme",
@@ -173,8 +175,9 @@ class TestPairwise_TLSMode_and_PortHopping(OpaqueE2ETestCase):
         }
         yaml_str = build_hysteria_yaml(cfg)
         data = self.verify_valid_hysteria_yaml(yaml_str)
-        self.assertEqual(data["tls"]["type"], "acme")
-        self.assertIn("sub.domain.org", data["tls"]["acme"]["domains"])
+        self.assertIn("acme", data)
+        self.assertNotIn("tls", data)
+        self.assertIn("sub.domain.org", data["acme"]["domains"])
 
     def test_p3_05_self_signed_yaml_config_block(self):
         """Self-signed mode generates cert and key paths in Hysteria YAML."""

@@ -48,8 +48,9 @@ def build_hy2_uri(
     
     # Port Hopping / mport
     if str(settings_dict.get("port_hopping_enabled", "1")).lower() in ("1", "true"):
-        mport = settings_dict.get("port_hopping_range", "20000:50000").replace(":", "-")
-        if mport and "-" in mport:
+        raw_mport = str(settings_dict.get("port_hopping_range", "20000:50000") or "")
+        mport = "".join(raw_mport.split()).replace(":", "-")
+        if mport and ("-" in mport or "," in mport):
             params["mport"] = mport
 
     # Obfs
@@ -100,13 +101,14 @@ def build_clash_yaml(
     username = user.get("username", "user")
     password = user.get("password", "")
 
+    tls_type = str(settings_dict.get("tls_type", "self_signed_ip") or "self_signed_ip").strip().lower()
     clash_proxy = {
         "name": f"InnerBlitz-{username}",
         "type": "hysteria2",
         "server": server_host,
         "port": port,
         "password": f"{username}:{password}",
-        "skip-cert-verify": True,
+        "skip-cert-verify": tls_type != "acme",
     }
 
     custom_sni = (settings_dict.get("sni") or settings_dict.get("custom_sni") or settings_dict.get("server_domain") or "").strip()
@@ -114,7 +116,8 @@ def build_clash_yaml(
         clash_proxy["sni"] = custom_sni
 
     if str(settings_dict.get("port_hopping_enabled", "1")).lower() in ("1", "true"):
-        mport = settings_dict.get("port_hopping_range", "20000:50000").replace(":", "-")
+        raw_mport = str(settings_dict.get("port_hopping_range", "20000:50000") or "")
+        mport = "".join(raw_mport.split()).replace(":", "-")
         if mport:
             clash_proxy["ports"] = mport
 
@@ -255,6 +258,7 @@ def build_singbox_json(
     password = user.get("password", "")
     proxy_tag = f"InnerBlitz-{username}"
 
+    tls_type = str(settings_dict.get("tls_type", "self_signed_ip") or "self_signed_ip").strip().lower()
     outbound = {
         "type": "hysteria2",
         "tag": proxy_tag,
@@ -263,26 +267,23 @@ def build_singbox_json(
         "password": f"{username}:{password}",
         "tls": {
             "enabled": True,
-            "insecure": True
+            "insecure": tls_type != "acme"
         }
     }
     custom_sni = (settings_dict.get("sni") or settings_dict.get("custom_sni") or settings_dict.get("server_domain") or "").strip()
     if custom_sni:
         outbound["tls"]["server_name"] = custom_sni
 
-    from app.core.cert import get_certificate_spki_sha256
-    spki_hash = get_certificate_spki_sha256()
-    if spki_hash:
-        outbound["tls"]["certificate_public_key_sha256"] = spki_hash
-
-    cert_sha256 = settings_dict.get("cert_sha256", "")
-    if cert_sha256:
-        outbound["tls"]["pinSHA256"] = cert_sha256
-
     if str(settings_dict.get("port_hopping_enabled", "1")).lower() in ("1", "true"):
-        mport = settings_dict.get("port_hopping_range", "20000:50000").replace(":", "-")
-        if mport:
-            outbound["server_ports"] = mport
+        raw_mport = str(settings_dict.get("port_hopping_range", "20000:50000") or "")
+        port_items = [
+            p.strip().replace("-", ":")
+            for p in raw_mport.split(",")
+            if p.strip()
+        ]
+        if port_items:
+            outbound["server_ports"] = port_items
+            outbound["hop_interval"] = "30s"
 
     if settings_dict.get("obfs_type") == "salamander" and settings_dict.get("obfs_password"):
         outbound["obfs"] = {
@@ -360,7 +361,6 @@ def build_singbox_json(
         route_rules.append({"domain_suffix": ["ru", "su", "xn--p1ai"], "outbound": "direct"})
 
     return {
-        "version": 1,
         "inbounds": [
             {
                 "type": "tun",

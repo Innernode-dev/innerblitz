@@ -468,7 +468,8 @@ setup_services() {
     cat << EOF > /etc/systemd/system/hysteria-server.service
 [Unit]
 Description=Hysteria 2 Server
-After=network.target
+After=network-online.target innerblitz.service
+Wants=network-online.target innerblitz.service
 
 [Service]
 Type=simple
@@ -483,12 +484,17 @@ LimitNOFILE=65535
 WantedBy=multi-user.target
 EOF
 
-    # Copy innerblitz panel service
+    # Apply Linux TCP BBR and 16MB UDP socket buffers for low-ping QUIC stability
+    log_info "Оптимизация сетевого стека (TCP BBR + 16MB UDP буферы для QUIC)..."
+    "${INSTALL_DIR}/venv/bin/python3" "${INSTALL_DIR}/cli.py" optimize-bbr || true
+
+    # Copy innerblitz panel service (starts BEFORE hysteria-server so /auth hook is ready)
     cp "${INSTALL_DIR}/systemd/innerblitz.service" /etc/systemd/system/innerblitz.service
 
     systemctl daemon-reload
-    systemctl enable --now hysteria-server.service
     systemctl enable --now innerblitz.service
+    sleep 1
+    systemctl enable --now hysteria-server.service
 
     # Create shortcuts: blitz, inb, hys2
     ln -sf "${INSTALL_DIR}/menu.sh" /usr/local/bin/blitz

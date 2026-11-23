@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Tuple
 from app.database import crud
 from app.core.security import timing_safe_compare
@@ -32,7 +32,7 @@ async def authenticate_client(auth_str: str, client_ip: str = "") -> Tuple[bool,
     # 3. Expiration check (supports both epoch ms expiry_time and relative expiration_days)
     expiry_time = user.get("expiry_time", 0) or 0
     if expiry_time > 0:
-        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         if now_ms >= expiry_time:
             return False, "", "Account expired"
     elif not (user.get("unlimited_user", False) or user.get("u_unlimited", False)):

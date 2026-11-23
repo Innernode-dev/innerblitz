@@ -132,10 +132,11 @@ class TestScenario03_WARPEgressAndRoutingPolicySwitch(OpaqueE2ETestCase):
     def test_workflow_warp_activation_and_routing_policy(self):
         self.login_admin()
 
-        # 1. Initial State: WARP disabled
+        # 1. Initial State: WARP disabled (only direct outbound present, no warp outbound)
         cfg_initial = self.run_async(crud.get_all_settings())
         yaml_initial = build_hysteria_yaml(cfg_initial)
-        self.assertNotIn("outbounds", yaml_initial)
+        data_initial = self.verify_valid_hysteria_yaml(yaml_initial)
+        self.assertNotIn("warp", [o["name"] for o in data_initial.get("outbounds", [])])
 
         # 2. Admin enables WARP in Settings with explicit service routes
         resp = self.client.post("/api/settings", json={

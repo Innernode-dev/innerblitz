@@ -190,11 +190,15 @@ sed -i '/geosite:bittorrent/d' /etc/hysteria/config.yaml 2>/dev/null || true
 sed -i 's/geosite:ru\([,)]\)/geosite:category-ru\1/g' /etc/hysteria/config.yaml 2>/dev/null || true
 $CLI_CMD reconfig >/dev/null 2>&1 || true
 
+# Ensure TCP BBR and 16MB UDP socket buffers for Hysteria 2 QUIC stability
+$CLI_CMD optimize-bbr >/dev/null 2>&1 || true
+
 # Ensure Hysteria service unit runs as root
 cat << 'EOF' > /etc/systemd/system/hysteria-server.service
 [Unit]
 Description=Hysteria 2 Server
-After=network.target
+After=network-online.target innerblitz.service
+Wants=network-online.target innerblitz.service
 
 [Service]
 Type=simple
@@ -211,9 +215,10 @@ EOF
 
 cp "${INSTALL_DIR}/systemd/innerblitz.service" /etc/systemd/system/innerblitz.service
 systemctl daemon-reload
-systemctl enable hysteria-server.service innerblitz.service --quiet 2>/dev/null || true
-systemctl restart hysteria-server.service || true
+systemctl enable innerblitz.service hysteria-server.service --quiet 2>/dev/null || true
 systemctl restart innerblitz.service || true
+sleep 1
+systemctl restart hysteria-server.service || true
 sleep 1
 if ! systemctl is-active --quiet hysteria-server.service; then
     echo -e "${C_RED}[!] hysteria-server.service не запустился — последние строки журнала:${C_RESET}"

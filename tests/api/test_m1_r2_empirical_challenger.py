@@ -173,7 +173,8 @@ class TestM1R2EmpiricalChallenger(OpaqueE2ETestCase):
         self.assertTrue(ok, f"Auth should succeed after quota removed, got: {msg}")
 
         # Step 6: Set expiry_time to 1 second in past
-        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        from datetime import timezone
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
         self.run_async(crud.update_client("lifecycle_target", ClientUpdate(expiry_time=now_ms - 1000)))
         ok, _, msg = self.run_async(authenticate_client("lifecycle_target:TargetPassword456!"))
         self.assertFalse(ok, "Auth must fail when expired")

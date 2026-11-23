@@ -1,7 +1,7 @@
 import aiosqlite
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any, Union
 
 from app.database.connection import get_db_connection
@@ -27,8 +27,8 @@ def _format_rule_row(row: aiosqlite.Row) -> Dict[str, Any]:
     data["enabled"] = bool(data.get("enabled", 1))
     data["priority"] = int(data.get("priority", 100))
     data["description"] = str(data.get("description") or "")
-    data["created_at"] = str(data.get("created_at") or datetime.utcnow().isoformat())
-    data["updated_at"] = str(data.get("updated_at") or datetime.utcnow().isoformat())
+    data["created_at"] = str(data.get("created_at") or datetime.now(timezone.utc).isoformat())
+    data["updated_at"] = str(data.get("updated_at") or datetime.now(timezone.utc).isoformat())
     return data
 
 async def get_routing_rules(enabled_only: bool = False) -> List[Dict[str, Any]]:
@@ -62,7 +62,7 @@ async def create_routing_rule(rule: RoutingRuleCreate) -> Dict[str, Any]:
     try:
         values_json = json.dumps(rule.rule_values)
         enabled_int = 1 if rule.enabled else 0
-        now_str = datetime.utcnow().isoformat()
+        now_str = datetime.now(timezone.utc).isoformat()
         cursor = await db.execute("""
             INSERT INTO routing_rules (
                 name, action, rule_type, rule_values, priority, enabled, description, created_at, updated_at
@@ -114,7 +114,7 @@ async def update_routing_rule(rule_id: int, update_data: RoutingRuleUpdate) -> O
 
         if fields:
             fields.append("updated_at = ?")
-            values.append(datetime.utcnow().isoformat())
+            values.append(datetime.now(timezone.utc).isoformat())
             values.append(rule_id)
             sql = f"UPDATE routing_rules SET {', '.join(fields)} WHERE id = ?;"
             await db.execute(sql, values)
@@ -142,7 +142,7 @@ async def toggle_routing_rule(rule_id: int) -> Optional[Dict[str, Any]]:
         if not existing:
             return None
         new_enabled = 0 if existing["enabled"] else 1
-        now_str = datetime.utcnow().isoformat()
+        now_str = datetime.now(timezone.utc).isoformat()
         await db.execute("""
             UPDATE routing_rules
             SET enabled = ?, updated_at = ?
@@ -157,7 +157,7 @@ async def reorder_routing_rules(rule_items: Union[List[int], List[Dict[str, Any]
     """Reorder rules sequentially or by explicit priority."""
     db = await get_db_connection()
     try:
-        now_str = datetime.utcnow().isoformat()
+        now_str = datetime.now(timezone.utc).isoformat()
         for idx, item in enumerate(rule_items):
             if isinstance(item, dict) and "id" in item:
                 rid = int(item["id"])

@@ -8,51 +8,66 @@ HOPPING_CHAIN = "INNERBLITZ_HOPPING"
 NFT_TABLE = "innerblitz_nat"
 NFT_CHAIN = "prerouting"
 
-def _configure_port_hopping_iptables(clean_range: str, target_port: int, enable: bool) -> Tuple[bool, str]:
+def _split_hopping_segments(clean_range: str) -> list:
+    """Split normalized port hopping spec into individual port or start:end segments."""
+    return [seg.strip() for seg in clean_range.split(",") if seg.strip()]
+
+
+def _apply_iptables_hopping(binary: str, segments: list, target_port: int, enable: bool) -> Tuple[bool, str]:
     try:
         # Ensure dedicated chain exists
-        subprocess.run(["iptables", "-t", "nat", "-N", HOPPING_CHAIN], capture_output=True, timeout=5)
+        subprocess.run([binary, "-t", "nat", "-N", HOPPING_CHAIN], capture_output=True, timeout=5)
 
         # Ensure jump rule exists from PREROUTING to HOPPING_CHAIN
         chk_jump = subprocess.run(
-            ["iptables", "-t", "nat", "-C", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN],
+            [binary, "-t", "nat", "-C", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN],
             capture_output=True, timeout=3
         )
         if chk_jump.returncode != 0:
             subprocess.run(
-                ["iptables", "-t", "nat", "-I", "PREROUTING", "1", "-p", "udp", "-j", HOPPING_CHAIN],
+                [binary, "-t", "nat", "-I", "PREROUTING", "1", "-p", "udp", "-j", HOPPING_CHAIN],
                 capture_output=True, timeout=5
             )
 
         # Flush dedicated chain to avoid duplicate rules
-        subprocess.run(["iptables", "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
+        subprocess.run([binary, "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
 
         if enable:
-            add_cmd = [
-                "iptables", "-t", "nat", "-A", HOPPING_CHAIN,
-                "-p", "udp", "--dport", clean_range,
-                "-j", "REDIRECT", "--to-ports", str(target_port)
-            ]
-            res = subprocess.run(add_cmd, capture_output=True, text=True, timeout=5)
-            if res.returncode == 0:
-                logger.info(f"Port hopping iptables rule applied in {HOPPING_CHAIN}: UDP {clean_range} -> {target_port}")
-                return True, "Success"
-            else:
-                return False, res.stderr or "iptables failed to add redirect"
+            for seg in segments:
+                add_cmd = [
+                    binary, "-t", "nat", "-A", HOPPING_CHAIN,
+                    "-p", "udp", "--dport", seg,
+                    "-j", "REDIRECT", "--to-ports", str(target_port)
+                ]
+                res = subprocess.run(add_cmd, capture_output=True, text=True, timeout=5)
+                if res.returncode != 0:
+                    return False, res.stderr or f"{binary} failed to add redirect for {seg}"
+            logger.info(f"Port hopping {binary} rule applied in {HOPPING_CHAIN}: UDP {','.join(segments)} -> {target_port}")
+            return True, "Success"
         else:
             # When disabled, flush chain and remove jump
-            subprocess.run(["iptables", "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
-            subprocess.run(["iptables", "-t", "nat", "-D", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN], capture_output=True, timeout=5)
-            subprocess.run(["iptables", "-t", "nat", "-X", HOPPING_CHAIN], capture_output=True, timeout=5)
-            logger.info(f"Port hopping iptables rule removed and chain {HOPPING_CHAIN} flushed")
+            subprocess.run([binary, "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
+            subprocess.run([binary, "-t", "nat", "-D", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN], capture_output=True, timeout=5)
+            subprocess.run([binary, "-t", "nat", "-X", HOPPING_CHAIN], capture_output=True, timeout=5)
+            logger.info(f"Port hopping {binary} rule removed and chain {HOPPING_CHAIN} flushed")
             return True, "Success"
     except FileNotFoundError:
-        return False, "iptables command not found"
+        return False, f"{binary} command not found"
     except Exception as e:
         return False, str(e)
 
+
+def _configure_port_hopping_iptables(clean_range: str, target_port: int, enable: bool) -> Tuple[bool, str]:
+    segments = _split_hopping_segments(clean_range)
+    ok, msg = _apply_iptables_hopping("iptables", segments, target_port, enable)
+    if ok:
+        # Best-effort IPv6 NAT REDIRECT so dual-stack/IPv6 clients can also port-hop
+        _apply_iptables_hopping("ip6tables", segments, target_port, enable)
+    return ok, msg
+
+
 def _configure_port_hopping_nft(clean_range: str, target_port: int, enable: bool) -> Tuple[bool, str]:
-    nft_range = clean_range.replace(":", "-")
+    segments = [seg.replace(":", "-") for seg in _split_hopping_segments(clean_range)]
     try:
         if enable:
             subprocess.run(["nft", "add", "table", "ip", NFT_TABLE], capture_output=True, timeout=5)
@@ -61,15 +76,16 @@ def _configure_port_hopping_nft(clean_range: str, target_port: int, enable: bool
                 capture_output=True, timeout=5
             )
             subprocess.run(["nft", "flush", "chain", "ip", NFT_TABLE, NFT_CHAIN], capture_output=True, timeout=5)
-            rule_cmd = [
-                "nft", "add", "rule", "ip", NFT_TABLE, NFT_CHAIN,
-                "udp", "dport", nft_range, "redirect", "to", str(target_port)
-            ]
-            res = subprocess.run(rule_cmd, capture_output=True, text=True, timeout=5)
-            if res.returncode == 0:
-                logger.info(f"Port hopping nftables rule applied: UDP {nft_range} -> {target_port}")
-                return True, "Success"
-            return False, res.stderr or "nftables failed to add redirect"
+            for seg in segments:
+                rule_cmd = [
+                    "nft", "add", "rule", "ip", NFT_TABLE, NFT_CHAIN,
+                    "udp", "dport", seg, "redirect", "to", str(target_port)
+                ]
+                res = subprocess.run(rule_cmd, capture_output=True, text=True, timeout=5)
+                if res.returncode != 0:
+                    return False, res.stderr or f"nftables failed to add redirect for {seg}"
+            logger.info(f"Port hopping nftables rule applied: UDP {','.join(segments)} -> {target_port}")
+            return True, "Success"
         else:
             subprocess.run(["nft", "delete", "table", "ip", NFT_TABLE], capture_output=True, timeout=5)
             logger.info(f"Port hopping nftables table {NFT_TABLE} removed")
@@ -153,32 +169,34 @@ def flush_port_hopping() -> Tuple[bool, str]:
     flushed_any = False
     errors = []
 
-    # 1. Try iptables
-    try:
-        subprocess.run(["iptables", "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
-        subprocess.run(["iptables", "-t", "nat", "-D", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN], capture_output=True, timeout=5)
-        subprocess.run(["iptables", "-t", "nat", "-X", HOPPING_CHAIN], capture_output=True, timeout=5)
+    # 1. Try iptables & ip6tables
+    for ipt_bin in ("iptables", "ip6tables"):
+        try:
+            subprocess.run([ipt_bin, "-t", "nat", "-F", HOPPING_CHAIN], capture_output=True, timeout=5)
+            subprocess.run([ipt_bin, "-t", "nat", "-D", "PREROUTING", "-p", "udp", "-j", HOPPING_CHAIN], capture_output=True, timeout=5)
+            subprocess.run([ipt_bin, "-t", "nat", "-X", HOPPING_CHAIN], capture_output=True, timeout=5)
 
-        # Also cleanup any legacy direct PREROUTING rules
-        res = subprocess.run(
-            ["iptables", "-t", "nat", "-L", "PREROUTING", "-n", "--line-numbers"],
-            capture_output=True, text=True, timeout=5
-        )
-        if res.returncode == 0:
-            lines = res.stdout.splitlines()
-            for line in reversed(lines):
-                if "REDIRECT" in line and "udp" in line:
-                    parts = line.split()
-                    if parts and parts[0].isdigit():
-                        subprocess.run(
-                            ["iptables", "-t", "nat", "-D", "PREROUTING", parts[0]],
-                            capture_output=True, timeout=5
-                        )
-        flushed_any = True
-    except FileNotFoundError:
-        pass
-    except Exception as e:
-        errors.append(f"iptables: {e}")
+            # Also cleanup any legacy direct PREROUTING rules
+            res = subprocess.run(
+                [ipt_bin, "-t", "nat", "-L", "PREROUTING", "-n", "--line-numbers"],
+                capture_output=True, text=True, timeout=5
+            )
+            if res.returncode == 0:
+                lines = res.stdout.splitlines()
+                for line in reversed(lines):
+                    if "REDIRECT" in line and "udp" in line:
+                        parts = line.split()
+                        if parts and parts[0].isdigit():
+                            subprocess.run(
+                                [ipt_bin, "-t", "nat", "-D", "PREROUTING", parts[0]],
+                                capture_output=True, timeout=5
+                            )
+            flushed_any = True
+        except FileNotFoundError:
+            pass
+        except Exception as e:
+            if ipt_bin == "iptables":
+                errors.append(f"iptables: {e}")
 
     # 2. Try nftables
     try:

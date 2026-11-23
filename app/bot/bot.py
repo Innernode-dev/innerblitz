@@ -13,13 +13,13 @@ class TelegramBotManager:
         self._task: Optional[asyncio.Task] = None
         self._offset = 0
 
-    async def _api_call(self, method: str, payload: dict) -> Optional[dict]:
+    async def _api_call(self, method: str, payload: dict, timeout_sec: float = 10.0) -> Optional[dict]:
         token = await crud.get_setting("tg_bot_token", "")
         if not token:
             return None
         url = f"https://api.telegram.org/bot{token}/{method}"
         try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=10)) as session:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout_sec)) as session:
                 async with session.post(url, json=payload) as resp:
                     if resp.status == 200:
                         return await resp.json()
@@ -124,7 +124,7 @@ class TelegramBotManager:
                 res = await self._api_call("getUpdates", {
                     "offset": self._offset,
                     "timeout": 20
-                })
+                }, timeout_sec=30.0)
                 if res and res.get("ok"):
                     for update in res.get("result", []):
                         self._offset = update["update_id"] + 1

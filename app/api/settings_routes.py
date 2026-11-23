@@ -1,3 +1,4 @@
+import asyncio
 import os
 import tarfile
 import tempfile
@@ -27,7 +28,8 @@ from app.core.security import (
 )
 from app.core.cert import generate_self_signed_cert
 from app.core.hysteria import (
-    apply_and_save_config, build_hysteria_yaml, restart_hysteria, run_systemctl, validate_hysteria_config
+    apply_and_save_config, build_hysteria_yaml, restart_hysteria, async_restart_hysteria,
+    run_systemctl, async_run_systemctl, validate_hysteria_config, ensure_udp_buffers_and_bbr
 )
 from app.core.firewall import (
     configure_port_hopping, flush_port_hopping, 
@@ -109,9 +111,10 @@ class PanelSslPayload(BaseModel):
 async def get_settings():
     """Retrieve system settings safely (masking sensitive fields)."""
     data = await crud.get_all_settings()
-    # Mask password hash
+    # Mask password hash and internal OTP state
     data.pop("admin_password_hash", None)
     data.pop("_current_tg_otp", None)
+    data.pop("_current_tg_otp_expires", None)
 
     from app.core.network import get_server_public_ip, is_valid_public_ipv4
     if not data.get("server_ip") or not is_valid_public_ipv4(data.get("server_ip")):
@@ -152,7 +155,9 @@ async def detect_server_ip_endpoint():
 async def update_settings(payload: SettingsPayload):
     """Update system settings, rewrite config.yaml and update firewall."""
     updates = {}
-    for k, v in payload.dict(exclude_unset=True).items():
+    for k, v in payload.model_dump(exclude_unset=True).items():
+        if v is None:
+            continue
         if isinstance(v, bool):
             updates[k] = "1" if v else "0"
         else:
@@ -165,6 +170,10 @@ async def update_settings(payload: SettingsPayload):
             if not ok_hop:
                 raise HTTPException(status_code=400, detail=f"Invalid port_hopping_range: {msg_hop}")
             updates["port_hopping_range"] = hop_candidate
+
+        # Auto-sync obfs_type when obfs_password is explicitly changed without obfs_type
+        if "obfs_password" in updates and "obfs_type" not in updates:
+            updates["obfs_type"] = "salamander" if updates["obfs_password"].strip() else "none"
 
         warp_routing_keys = (
             "routing_global_outbound", "routing_ru", "ru_routing",
@@ -181,17 +190,25 @@ async def update_settings(payload: SettingsPayload):
         if "sniff_enable" in updates:
             updates["sniff_enabled"] = updates["sniff_enable"]
 
+        # Only regenerate the self-signed TLS cert (and rotate pinSHA256) when SNI or server_ip
+        # actually changed, or when cert/key files do not exist yet — never break existing clients
+        # on unrelated settings saves (e.g. changing ports, bandwidth, or sniffing).
+        cur_sni = await crud.get_setting("sni", "bing.com")
+        cur_ip = await crud.get_setting("server_ip", "127.0.0.1")
         if "sni" in updates and updates["sni"]:
             updates["sni"] = updates["sni"].strip()
             if "masquerade_target" not in updates:
                 updates["masquerade_target"] = f"https://{updates['sni']}"
 
-            # If in self_signed_ip mode, regenerate cert with new SNI SAN and update fingerprint pin
-            cur_tls = updates.get("tls_type") or await crud.get_setting("tls_type", "self_signed_ip")
-            if cur_tls == "self_signed_ip":
-                server_ip = updates.get("server_ip") or await crud.get_setting("server_ip", "127.0.0.1")
-                cert_p, key_p, new_sha = generate_self_signed_cert(server_ip, sni=updates["sni"])
-                updates["cert_sha256"] = new_sha
+        cur_tls = updates.get("tls_type") or await crud.get_setting("tls_type", "self_signed_ip")
+        sni_changed = ("sni" in updates and updates["sni"] and updates["sni"] != cur_sni)
+        ip_changed = ("server_ip" in updates and updates["server_ip"] and updates["server_ip"] != cur_ip)
+        cert_missing = not (Path(settings.CERT_PATH).exists() and Path(settings.KEY_PATH).exists())
+        if cur_tls == "self_signed_ip" and (sni_changed or ip_changed or cert_missing):
+            target_ip = updates.get("server_ip") or cur_ip or "127.0.0.1"
+            target_sni = updates.get("sni") or cur_sni or "bing.com"
+            _, _, new_sha = generate_self_signed_cert(target_ip, sni=target_sni)
+            updates["cert_sha256"] = new_sha
 
         await crud.set_settings(updates)
         await apply_and_save_config()
@@ -201,12 +218,12 @@ async def update_settings(payload: SettingsPayload):
             hopping_on = (updates.get("port_hopping_enabled") or await crud.get_setting("port_hopping_enabled", "1")) == "1"
             hopping_range = updates.get("port_hopping_range") or await crud.get_setting("port_hopping_range", "20000:50000")
             target_port = int(updates.get("listen_port") or await crud.get_setting("listen_port", "443"))
-            configure_port_hopping(hopping_range, target_port, enable=hopping_on)
+            await asyncio.to_thread(configure_port_hopping, hopping_range, target_port, hopping_on)
 
         # If panel port changed, punch firewall and schedule service restart after response is sent
         if "panel_port" in updates:
             try:
-                open_firewall_port(int(updates["panel_port"]), "tcp")
+                await asyncio.to_thread(open_firewall_port, int(updates["panel_port"]), "tcp")
             except Exception:
                 pass
             try:
@@ -217,12 +234,12 @@ async def update_settings(payload: SettingsPayload):
         if "listen_port" in updates:
             try:
                 new_lp = int(updates["listen_port"])
-                open_firewall_port(new_lp, "udp")
+                await asyncio.to_thread(open_firewall_port, new_lp, "udp")
                 logger.info(f"Updated Hysteria 2 UDP listen port to {new_lp}")
             except Exception as e:
                 logger.warning(f"Failed to punch firewall for listen_port: {e}")
 
-        restart_hysteria()
+        await async_restart_hysteria()
 
     return {"ok": True, "message": "Settings updated and Hysteria config applied"}
 
@@ -354,7 +371,7 @@ async def generate_ip_certificate():
 @router.post("/restart-hysteria")
 async def restart_hysteria_service():
     """Restart Hysteria 2 server."""
-    ok, out = restart_hysteria()
+    ok, out = await async_restart_hysteria()
     return {"ok": ok, "output": out}
 
 @router.post("/setup-totp")
@@ -412,7 +429,7 @@ async def change_admin_password(payload: ChangePasswordPayload):
 
 @router.post("/apply-preset")
 async def apply_preset(payload: Dict[str, str]):
-    """Apply 1-click configuration presets (anti-dpi, speed, gaming)."""
+    """Apply 1-click configuration presets (anti-dpi, speed, gaming) and sync firewall."""
     preset_name = payload.get("preset", "anti-dpi")
     updates = {"preset": preset_name}
 
@@ -424,26 +441,43 @@ async def apply_preset(payload: Dict[str, str]):
             "obfs_password": secrets.token_urlsafe(16),
             "masquerade_type": "proxy",
             "masquerade_target": "https://bing.com",
-            "ignore_client_bandwidth": "0"
+            "ignore_client_bandwidth": "0",
+            "max_idle_timeout": "60s",
         })
     elif preset_name == "speed":
         updates.update({
             "port_hopping_enabled": "0",
+            "obfs_type": "none",
+            "obfs_password": "",
             "up_mbps": "1000",
             "down_mbps": "1000",
-            "ignore_client_bandwidth": "1"
+            "ignore_client_bandwidth": "1",
+            "max_idle_timeout": "60s",
         })
     elif preset_name == "gaming":
         updates.update({
             "port_hopping_enabled": "0",
             "up_mbps": "300",
             "down_mbps": "300",
-            "ignore_client_bandwidth": "0"
+            "ignore_client_bandwidth": "1",
+            "max_idle_timeout": "90s",
+            "sniff_tcp_ports": "80,443",
+            "sniff_udp_ports": "443",
         })
 
     await crud.set_settings(updates)
+
+    # Keep iptables/nftables port hopping synchronized with preset
+    l_port_str = await crud.get_setting("listen_port", "443")
+    l_port = int(l_port_str) if str(l_port_str).isdigit() else 443
+    if updates.get("port_hopping_enabled") == "1":
+        hop_rng = updates.get("port_hopping_range") or await crud.get_setting("port_hopping_range", "20000:50000")
+        await asyncio.to_thread(configure_port_hopping, hop_rng, l_port, True)
+    elif updates.get("port_hopping_enabled") == "0":
+        await asyncio.to_thread(flush_port_hopping)
+
     await apply_and_save_config()
-    restart_hysteria()
+    await async_restart_hysteria()
     return {"ok": True, "message": f"Preset '{preset_name}' applied successfully", "updates": updates}
 
 @router.post("/change-username")
@@ -464,20 +498,20 @@ async def change_admin_username(payload: ChangeUsernamePayload):
 @router.post("/reset-ports")
 async def reset_ports_endpoint():
     """Reset Hysteria 2 ports to standard 443 UDP and flush iptables hopping rules."""
-    flush_port_hopping()
-    open_firewall_port(443, "udp")
+    await asyncio.to_thread(flush_port_hopping)
+    await asyncio.to_thread(open_firewall_port, 443, "udp")
     await crud.set_settings({
         "listen_port": "443",
         "port_hopping_enabled": "0"
     })
     await apply_and_save_config()
-    ok, out = restart_hysteria()
+    ok, out = await async_restart_hysteria()
     return {"ok": ok, "message": "Hysteria 2 ports reset to 443 UDP. Port hopping flushed and disabled."}
 
 @router.post("/flush-hopping")
 async def flush_hopping_endpoint():
     """Flush all UDP redirect port hopping rules from iptables."""
-    ok, msg = flush_port_hopping()
+    ok, msg = await asyncio.to_thread(flush_port_hopping)
     return {"ok": ok, "message": msg}
 
 @router.post("/reset-panel-access")
@@ -577,29 +611,8 @@ async def renew_panel_cert_endpoint():
 @router.post("/optimize-bbr")
 async def optimize_bbr_endpoint():
     """Enable Linux TCP BBR and high-performance UDP buffer tuning."""
-    try:
-        conf_content = """# InnerBlitz High-Performance Network Tuning for Hysteria 2 QUIC
-net.core.default_qdisc = fq
-net.ipv4.tcp_congestion_control = bbr
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.core.rmem_default = 1048576
-net.core.wmem_default = 1048576
-net.core.optmem_max = 2048576
-net.ipv4.udp_rmem_min = 16384
-net.ipv4.udp_wmem_min = 16384
-net.ipv4.ip_forward = 1
-"""
-        sysctl_dir = Path("/etc/sysctl.d")
-        if sysctl_dir.exists():
-            conf_file = sysctl_dir / "99-innerblitz.conf"
-            with open(conf_file, "w") as f:
-                f.write(conf_content)
-            subprocess.run(["sysctl", "--system"], capture_output=True)
-            return {"ok": True, "message": "TCP BBR and high-speed UDP buffers successfully applied"}
-        return {"ok": False, "message": "/etc/sysctl.d not found on this system"}
-    except Exception as e:
-        return {"ok": False, "message": str(e)}
+    ok, msg = await asyncio.to_thread(ensure_udp_buffers_and_bbr, True)
+    return {"ok": ok, "message": msg}
 
 class RawConfigPayload(BaseModel):
     content: str
@@ -629,7 +642,7 @@ async def regenerate_config_from_db():
         if not apply_res:
             return {"ok": False, "message": f"Rebuild failed: {apply_res.message}"}
 
-        ok, out = restart_hysteria()
+        ok, out = await async_restart_hysteria()
         cfg_path = Path(settings.HYSTERIA_CONFIG_PATH)
         content = cfg_path.read_text(encoding="utf-8") if cfg_path.exists() else ""
         return {
@@ -654,7 +667,7 @@ async def save_raw_config(payload: RawConfigPayload):
         if not apply_res:
             return {"ok": False, "message": f"Failed to save config: {apply_res.message}"}
 
-        ok, out = restart_hysteria()
+        ok, out = await async_restart_hysteria()
         return {"ok": True, "service_restart": ok, "message": "Конфигурация config.yaml сохранена и ядро перезапущено!", "output": out}
     except Exception as e:
         return {"ok": False, "message": str(e)}
@@ -697,29 +710,37 @@ async def download_backup_endpoint():
 
 @router.post("/backup/upload")
 async def upload_backup_endpoint(file: UploadFile = File(...)):
-    """Upload and restore from a backup archive."""
-    if not file.filename.endswith((".tar.gz", ".tgz")):
+    """Upload and restore from a backup archive safely without killing the panel mid-restore."""
+    if not file.filename or not file.filename.endswith((".tar.gz", ".tgz")):
         raise HTTPException(status_code=400, detail="Only .tar.gz backup archives supported")
-    
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=".tar.gz") as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
-        run_systemctl("stop", "innerblitz.service")
-        run_systemctl("stop", "hysteria-server.service")
         dest_dir = Path(settings.DATA_DIR).resolve()
         dest_dir.mkdir(parents=True, exist_ok=True)
+
+        # Pre-validate ALL archive members before stopping services or writing anything
+        validated_members = []
         with tarfile.open(tmp_path, "r:gz") as tar:
             for member in tar.getmembers():
-                name = member.name.replace("\\", "/")
+                if member.issym() or member.islnk() or not (member.isfile() or member.isdir()):
+                    raise HTTPException(status_code=400, detail=f"Disallowed archive entry type: {member.name}")
+                name = member.name.replace("\\", "/").lstrip("/")
                 clean_name = name[5:] if name.startswith("data/") else name
                 if not clean_name or clean_name in (".", "/"):
                     continue
                 target_path = (dest_dir / clean_name).resolve()
-                if not str(target_path).startswith(str(dest_dir)):
+                if not target_path.is_relative_to(dest_dir):
                     raise HTTPException(status_code=400, detail=f"Insecure path traversal detected in archive: {member.name}")
+                validated_members.append((member, target_path))
+
+            # Stop only Hysteria before overwriting files; never stop innerblitz.service mid-request
+            await async_run_systemctl("stop", "hysteria-server.service")
+            for member, target_path in validated_members:
                 if member.isdir():
                     target_path.mkdir(parents=True, exist_ok=True)
                 else:
@@ -728,9 +749,15 @@ async def upload_backup_endpoint(file: UploadFile = File(...)):
                     if f_in:
                         with open(target_path, "wb") as f_out:
                             shutil.copyfileobj(f_in, f_out)
-        run_systemctl("start", "innerblitz.service")
-        run_systemctl("start", "hysteria-server.service")
+
+        await async_run_systemctl("start", "hysteria-server.service")
+        try:
+            subprocess.Popen(["bash", "-c", "sleep 1.2 && systemctl restart innerblitz.service"])
+        except Exception:
+            pass
         return {"ok": True, "message": "System successfully restored from backup archive!"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Restore failed: {e}")
     finally:
@@ -794,7 +821,7 @@ async def get_routing_settings():
 @routing_router.post("")
 async def update_routing_settings(payload: RoutingPayload):
     """Update routing policies, rebuild Hysteria 2 config with validation, and restart core."""
-    data = payload.dict(exclude_unset=True)
+    data = payload.model_dump(exclude_unset=True)
     updates = {}
 
     if "routing_global_outbound" in data and data["routing_global_outbound"] is not None:
@@ -870,7 +897,7 @@ async def update_routing_settings(payload: RoutingPayload):
             hop_flag = (updates.get("port_hopping_enabled") or await crud.get_setting("port_hopping_enabled", "1")) == "1"
             hop_rng = updates.get("port_hopping_range") or await crud.get_setting("port_hopping_range", "20000:50000")
             target_port = int(await crud.get_setting("listen_port", "443"))
-            configure_port_hopping(hop_rng, target_port, enable=hop_flag)
+            await asyncio.to_thread(configure_port_hopping, hop_rng, target_port, hop_flag)
         except Exception as e:
             logger.warning(f"Failed to configure port hopping firewall during routing update: {e}")
 
@@ -878,7 +905,7 @@ async def update_routing_settings(payload: RoutingPayload):
     if not apply_res:
         raise HTTPException(status_code=400, detail=f"Configuration validation failed: {apply_res.message}")
 
-    restart_ok, restart_out = restart_hysteria()
+    restart_ok, restart_out = await async_restart_hysteria()
     current_rules = await get_routing_settings()
     return {
         "ok": True,

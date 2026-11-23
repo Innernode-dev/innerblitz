@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 import psutil
@@ -7,8 +8,9 @@ from datetime import datetime, timedelta
 from app.api.auth_routes import get_current_admin
 from app.database import crud
 from app.core.hysteria import (
-    is_hysteria_running, get_hysteria_version, get_hysteria_logs,
-    clear_service_logs, configure_service_logging
+    is_hysteria_running, async_is_hysteria_running,
+    get_hysteria_version, async_get_hysteria_version,
+    get_hysteria_logs, clear_service_logs, configure_service_logging
 )
 from app.core.warp import detect_warp
 from app.api.client_routes import _fetch_online_data
@@ -59,6 +61,11 @@ async def get_system_stats():
     # Recent traffic speed points
     history = await crud.get_traffic_history(limit=25)
 
+    hysteria_running, hysteria_ver = await asyncio.gather(
+        async_is_hysteria_running(),
+        async_get_hysteria_version(),
+    )
+
     return {
         "cpu_percent": cpu_percent,
         "mem_percent": mem_percent,
@@ -68,8 +75,8 @@ async def get_system_stats():
         "disk_used_gb": disk_used,
         "disk_total_gb": disk_total,
         "uptime": uptime_str,
-        "hysteria_running": is_hysteria_running(),
-        "hysteria_version": get_hysteria_version(),
+        "hysteria_running": hysteria_running,
+        "hysteria_version": hysteria_ver,
         "total_users": total_users,
         "active_users": active_users,
         "traffic_history": history
@@ -126,8 +133,10 @@ async def get_dashboard_telemetry():
     listen_port = main_inbound.get("listen_port", 443) if main_inbound else int(await crud.get_setting("listen_port", "443"))
     port_hopping_enabled = bool(main_inbound.get("port_hopping_enabled")) if main_inbound else ((await crud.get_setting("port_hopping_enabled", "0")) == "1")
     port_hopping_range = main_inbound.get("port_hopping_range", "") if main_inbound else (await crud.get_setting("port_hopping_range", ""))
-    hysteria_running = is_hysteria_running()
-    hysteria_ver = get_hysteria_version()
+    hysteria_running, hysteria_ver = await asyncio.gather(
+        async_is_hysteria_running(),
+        async_get_hysteria_version(),
+    )
 
     # 5. Cloudflare WARP
     warp_info = await detect_warp(force_refresh=False)
@@ -144,14 +153,14 @@ async def get_dashboard_telemetry():
     custom_rules_count = len(custom_rules)
     presets_status = {
         "ru": await crud.get_setting("routing_ru", "direct"),
-        "openai": await crud.get_setting("routing_openai", "warp"),
-        "discord": await crud.get_setting("routing_discord", "direct"),
-        "youtube": await crud.get_setting("routing_youtube", "direct"),
-        "telegram": await crud.get_setting("routing_telegram", "direct"),
-        "netflix": await crud.get_setting("routing_netflix", "warp"),
-        "p2p": await crud.get_setting("routing_p2p", "block"),
-        "ads": (await crud.get_setting("routing_ads", "1")) in ("1", "true", True),
-        "win_spy": (await crud.get_setting("routing_win_spy", "1")) in ("1", "true", True)
+        "openai": await crud.get_setting("routing_openai", "off"),
+        "discord": await crud.get_setting("routing_discord", "off"),
+        "youtube": await crud.get_setting("routing_youtube", "off"),
+        "telegram": await crud.get_setting("routing_telegram", "off"),
+        "netflix": await crud.get_setting("routing_netflix", "off"),
+        "p2p": await crud.get_setting("routing_p2p", "allow"),
+        "ads": (await crud.get_setting("routing_ads", "0")) in ("1", "true", True),
+        "win_spy": (await crud.get_setting("routing_win_spy", "0")) in ("1", "true", True)
     }
 
     from app.core.network import get_server_public_ip, is_valid_public_ipv4
@@ -269,12 +278,13 @@ def get_service_logs(service_name: str, lines: int = 80) -> str:
 @router.get("/logs")
 async def get_logs(service: str = "hysteria", lines: int = 80):
     """Retrieve recent journalctl logs for Hysteria 2 or InnerBlitz panel."""
-    return {"logs": get_service_logs(service_name=service, lines=lines)}
+    logs = await asyncio.to_thread(get_service_logs, service, lines)
+    return {"logs": logs}
 
 @router.post("/logs/clear")
 async def clear_logs_endpoint():
     """Clear and rotate system journal logs."""
-    ok, msg = clear_service_logs()
+    ok, msg = await asyncio.to_thread(clear_service_logs)
     return {"ok": ok, "message": msg}
 
 class LogConfigPayload(BaseModel):
@@ -295,7 +305,7 @@ async def update_logs_config(payload: LogConfigPayload):
     lvl = payload.level.lower() if payload.level.lower() in valid_levels else "info"
     await crud.set_setting("log_level", lvl)
     await crud.set_setting("zero_logs", "1" if payload.zero_logs else "0")
-    ok, msg = configure_service_logging(level=lvl, zero_logs=payload.zero_logs)
+    ok, msg = await asyncio.to_thread(configure_service_logging, lvl, payload.zero_logs)
     return {"ok": ok, "message": msg, "level": lvl, "zero_logs": payload.zero_logs}
 
 
